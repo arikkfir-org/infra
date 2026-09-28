@@ -1,0 +1,21 @@
+# Terraform working directories and local state (state lives in gs://arikkfir-tfstate).
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+crash.*.log
+
+# Local overrides and variable files may hold secrets.
+*.tfvars
+*.tfvars.json
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# CLI configuration.
+.terraformrc
+terraform.rc
+
+# .terraform.lock.hcl files are committed on purpose.
