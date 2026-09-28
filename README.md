@@ -13,7 +13,7 @@ To build the hub from scratch, follow the
 | Path | Manages | State prefix |
 | --- | --- | --- |
 | `terraform/github` | Repositories, vulnerability alerts, default-branch rulesets | `github` |
-| `.octomaron.yaml`, `.tekton/ci.yaml` | CI: `terraform fmt` and `validate` on pull requests and in the merge queue | none |
+| `.octomatron.yaml`, `.tekton/ci.yaml` | CI: `terraform fmt` and `validate` on pull requests and in the merge queue | none |
 
 State lives in the GCS bucket `arikkfir-tfstate`, one prefix per root.
 
@@ -37,5 +37,5 @@ State lives in the GCS bucket `arikkfir-tfstate`, one prefix per root.
 ## Apply
 
 Run `terraform -chdir=terraform/github init`, then `plan` and `apply`. The first plan imports the six existing
-repositories. The rulesets require the `ci` check, so apply them once Octomaron reports it. Pass the App ID of
-`octomaron` with `-var octomaron_app_id=<id>` so that only the App can satisfy the check.
+repositories. The rulesets require the `ci` check, so apply them once Octomatron reports it. Pass the App ID of
+`octomatron` with `-var octomatron_app_id=<id>` so that only the App can satisfy the check.

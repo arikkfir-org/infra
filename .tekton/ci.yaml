@@ -1,5 +1,5 @@
 # Checks formatting and validates every Terraform root without credentials or state access.
-# Octomaron sets spec.params (repo-url, revision) from .octomaron.yaml.
+# Octomatron sets spec.params (repo-url, revision) from .octomatron.yaml.
 apiVersion: tekton.dev/v1
 kind: PipelineRun
 metadata:

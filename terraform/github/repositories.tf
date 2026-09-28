@@ -18,7 +18,7 @@ locals {
       description = "Argo CD applications (GitOps) for the hub cluster."
       protected   = true
     }
-    octomaron = {
+    octomatron = {
       description = "CI orchestrator: a GitHub App that runs Tekton pipelines."
       protected   = true
     }
