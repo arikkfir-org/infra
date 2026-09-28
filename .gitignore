@@ -37,3 +37,5 @@ override.tf.json
 .terraformrc
 terraform.rc
 
+# Private keys, such as a downloaded GitHub App key
+*.pem
