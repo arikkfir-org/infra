@@ -73,10 +73,10 @@ list no `-master` rule, and `kubectl -n kube-system get deploy konnectivity-agen
 `-master` rule appears, the cluster uses VPC peering: add an ingress rule from that rule's source range for the
 webhook ports.
 
-**Load balancers.** The HTTP load balancing add-on stays enabled (GKE's default): Traefik's `LoadBalancer` Services
-use backend service-based external passthrough network load balancers (`cloud.google.com/l4-rbs`), which bind the
-reserved `ingress-protected` and `ingress-public` IPs by name and, below GKE 1.36, require that add-on. No GKE
-Ingress or Gateway resources are used.
+**Load balancers.** The HTTP load balancing add-on stays enabled (GKE's default). Traefik's `LoadBalancer` Services
+use backend service-based external passthrough network load balancers (`loadBalancerClass:
+networking.gke.io/l4-regional-external`, GKE 1.33.1 or later), which bind the reserved `ingress-protected` and
+`ingress-public` IPs by name and require that add-on. No GKE Ingress or Gateway resources are used.
 
 **Argo CD handoff.** `helm_release.argocd` uses `ignore_changes = all`. After the first sync, Argo CD manages itself
 through the `argocd` Application in `arikkfir-org/delivery`, with the same chart and release name, so it adopts the

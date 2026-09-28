@@ -15,11 +15,16 @@ resource "helm_release" "argocd" {
   version          = "10.9.2"
   timeout          = 600
 
+  # Mirrors the self-managed values where it matters at bootstrap; in particular Dex stays off, so no bootstrap-only
+  # Dex resources are left behind when Argo CD takes over (it does not prune what the self-managed values omit).
   values = [yamlencode({
     configs = {
       params = {
         "server.insecure" = true
       }
+    }
+    dex = {
+      enabled = false
     }
   })]
 
@@ -54,6 +59,15 @@ resource "helm_release" "root" {
           automated = {
             prune    = true
             selfHeal = true
+          }
+          # Child Applications gate the waves through their health; retry instead of stalling on a transient failure.
+          retry = {
+            limit = 10
+            backoff = {
+              duration    = "10s"
+              factor      = 2
+              maxDuration = "5m"
+            }
           }
         }
       }
