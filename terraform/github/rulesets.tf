@@ -36,7 +36,7 @@ resource "github_repository_ruleset" "protected" {
 
       required_check {
         context        = "ci"
-        integration_id = var.switchboard_app_id
+        integration_id = var.octomaron_app_id
       }
     }
 

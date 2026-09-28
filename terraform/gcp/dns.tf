@@ -9,13 +9,13 @@ locals {
 
   # Host (left of var.domain) => Traefik gateway whose load balancer IP (network.tf) serves it.
   ingress_hosts = {
-    argocd      = "protected"
-    tekton      = "protected"
-    grafana     = "protected"
-    traefik     = "protected"
-    nui         = "protected"
-    auth        = "public"
-    switchboard = "public"
+    argocd    = "protected"
+    tekton    = "protected"
+    grafana   = "protected"
+    traefik   = "protected"
+    nui       = "protected"
+    auth      = "public"
+    octomaron = "public"
   }
 }
 

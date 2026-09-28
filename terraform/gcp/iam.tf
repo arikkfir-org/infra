@@ -9,7 +9,7 @@ locals {
     grafana          = "${local.k8s_principal_prefix}/ns/grafana/sa/grafana"
     ci_docs          = "${local.k8s_principal_prefix}/ns/ci-docs/sa/pipeline"
     ci_tooling       = "${local.k8s_principal_prefix}/ns/ci-tooling/sa/pipeline"
-    ci_switchboard   = "${local.k8s_principal_prefix}/ns/ci-switchboard/sa/pipeline"
+    ci_octomaron     = "${local.k8s_principal_prefix}/ns/ci-octomaron/sa/pipeline"
     gke_nodes        = google_service_account.gke_nodes.member
   }
 
@@ -28,8 +28,8 @@ locals {
   }
 
   images_iam = {
-    "ci-switchboard/artifactregistry.writer" = { role = "roles/artifactregistry.writer", member = local.principals.ci_switchboard }
-    "gke-nodes/artifactregistry.reader"      = { role = "roles/artifactregistry.reader", member = local.principals.gke_nodes }
+    "ci-octomaron/artifactregistry.writer" = { role = "roles/artifactregistry.writer", member = local.principals.ci_octomaron }
+    "gke-nodes/artifactregistry.reader"    = { role = "roles/artifactregistry.reader", member = local.principals.gke_nodes }
   }
 }
 

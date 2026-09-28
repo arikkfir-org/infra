@@ -16,7 +16,7 @@ To build the hub from scratch, follow the
 | `terraform/gcp` | APIs, VPC and Cloud NAT, ingress IPs, GKE cluster and node pools, Artifact Registry, buckets, secret containers, Workload Identity Federation, IAM, DNS zones and records | `gcp` |
 | `terraform/argocd` | Argo CD (bootstrap only) and the `root` Application | `argocd` |
 | `terraform/github` | Repositories, vulnerability alerts, default-branch rulesets | `github` |
-| `.switchboard.yaml`, `.tekton/ci.yaml` | CI: `terraform fmt` and `validate` on pull requests and in the merge queue | none |
+| `.octomaron.yaml`, `.tekton/ci.yaml` | CI: `terraform fmt` and `validate` on pull requests and in the merge queue | none |
 
 State lives in the GCS bucket `arikkfir-tfstate`, one prefix per root.
 
@@ -44,9 +44,9 @@ Apply the roots in this order, each with `terraform -chdir=terraform/<root> init
 
 1. `gcp`: the cluster must exist before Argo CD can be installed. The first plan imports the existing `kfirs-com` and
    `kfirfamily-com` zones and must show no changes to them.
-2. `argocd`: installs Argo CD, which then syncs everything from `arikkfir-org/delivery`, including Switchboard.
+2. `argocd`: installs Argo CD, which then syncs everything from `arikkfir-org/delivery`, including Octomaron.
 3. `github`: the first plan imports the six existing repositories. The rulesets require the `ci` check, so apply them
-   once Switchboard reports it. Pass the App ID of `arikkfir-switchboard` with `-var switchboard_app_id=<id>` so that
+   once Octomaron reports it. Pass the App ID of `octomaron` with `-var octomaron_app_id=<id>` so that
    only the App can satisfy the check.
 
 ## Notes

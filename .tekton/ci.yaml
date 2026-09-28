@@ -1,5 +1,5 @@
 # Checks formatting and validates every Terraform root without credentials or state access.
-# Switchboard sets spec.params (repo-url, revision) from .switchboard.yaml.
+# Octomaron sets spec.params (repo-url, revision) from .octomaron.yaml.
 apiVersion: tekton.dev/v1
 kind: PipelineRun
 metadata:
