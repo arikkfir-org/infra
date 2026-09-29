@@ -46,6 +46,7 @@ resource "github_repository" "this" {
   allow_rebase_merge          = true
   allow_auto_merge            = true
   delete_branch_on_merge      = true
+  allow_forking               = true
   squash_merge_commit_title   = "PR_TITLE"
   squash_merge_commit_message = "PR_BODY"
 
