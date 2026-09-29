@@ -16,7 +16,7 @@ To build the hub from scratch, follow the
 | `terraform/gcp` | APIs, VPC and Cloud NAT, ingress IPs, GKE cluster and node pools, Artifact Registry, buckets, secret containers, IAM, DNS zones and records | `gcp` |
 | `terraform/argocd` | Argo CD (bootstrap only) and the `root` Application | `argocd` |
 | `terraform/github` | Repositories and default-branch rulesets | `github` |
-| `.octomatron.yaml`, `.tekton/ci.yaml` | CI: `terraform fmt` and `validate` on pull requests and in the merge queue | none |
+| `.octomaton.yaml`, `.tekton/ci.yaml` | CI: `terraform fmt` and `validate` on pull requests and in the merge queue | none |
 
 State lives in the GCS bucket `arikkfir-devops`, one prefix per root.
 
@@ -44,9 +44,9 @@ Apply the roots in this order, each with `terraform -chdir=terraform/<root> init
 
 1. `gcp`: the cluster must exist before Argo CD can be installed. The first plan imports the existing `kfirs-com` and
    `kfirfamily-com` zones and must show no changes to them.
-2. `argocd`: installs Argo CD, which then syncs everything from `arikkfir-org/delivery`, including Octomatron.
+2. `argocd`: installs Argo CD, which then syncs everything from `arikkfir-org/delivery`, including Octomaton.
 3. `github`: the first plan imports the six existing repositories. The rulesets require the `ci` check, so apply them
-   once Octomatron reports it. Pass the App ID of `octomatron` with `-var octomatron_app_id=<id>` so that
+   once Octomaton reports it. Pass the App ID of `octomaton-dev` with `-var octomaton_app_id=<id>` so that
    only the App can satisfy the check.
 
 ## Notes
