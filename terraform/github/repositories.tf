@@ -91,6 +91,22 @@ resource "github_repository" "this" {
   }
 }
 
+# Dependabot alerts and security updates. Version updates need a dependabot.yml in the repository itself.
+resource "github_repository_vulnerability_alerts" "this" {
+  for_each = local.repositories
+
+  repository = github_repository.this[each.key].name
+  enabled    = true
+}
+
+resource "github_repository_dependabot_security_updates" "this" {
+  for_each = local.repositories
+
+  # Security updates need the alerts enabled first.
+  repository = github_repository_vulnerability_alerts.this[each.key].repository
+  enabled    = true
+}
+
 # Renamed from octomatron: Terraform renames the repository in place. Remove once applied.
 moved {
   from = github_repository.this["octomatron"]

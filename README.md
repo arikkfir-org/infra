@@ -15,7 +15,7 @@ To build the hub from scratch, follow the
 | --- | --- | --- |
 | `terraform/gcp` | APIs, VPC and Cloud NAT, ingress IPs, GKE cluster and node pools, Artifact Registry, buckets, secret containers, IAM, DNS zones and records | `gcp` |
 | `terraform/argocd` | Argo CD (bootstrap only) and the `root` Application | `argocd` |
-| `terraform/github` | Repositories and default-branch rulesets | `github` |
+| `terraform/github` | Repositories, their default-branch rulesets, Dependabot alerts and Dependabot security updates | `github` |
 | `.octomaton.yaml`, `.tekton/ci.yaml` | CI: `terraform fmt` and `validate` on pull requests and in the merge queue | none |
 
 State lives in the GCS bucket `arikkfir-devops`, one prefix per root.
