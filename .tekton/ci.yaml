@@ -79,7 +79,7 @@ spec:
                 #!/bin/sh
                 set -eu
                 mkdir -p "$TF_PLUGIN_CACHE_DIR"
-                for root in terraform/gcp terraform/github; do
+                for root in terraform/gcp terraform/argocd terraform/github; do
                   echo "==> ${root}"
                   terraform -chdir="${root}" init -backend=false -input=false
                   terraform -chdir="${root}" validate
