@@ -6,13 +6,13 @@ Every name, ID, CIDR, role and host comes from the hub reference (`hub/reference
 [arikkfir-org/docs](https://github.com/arikkfir-org/docs)). It is the contract: change it first, then this code.
 
 To build the hub from scratch, follow the
-[bootstrap runbook](https://storage.googleapis.com/arikkfir-docs/hub/runbooks/bootstrap.html).
+[bootstrap runbook](https://github.com/arikkfir-org/docs/blob/main/hub/runbooks/bootstrap.md).
 
 ## Layout
 
 | Path | Manages | State prefix |
 | --- | --- | --- |
-| `terraform/github` | Repositories, vulnerability alerts, default-branch rulesets | `github` |
+| `terraform/github` | Repositories and default-branch rulesets | `github` |
 | `.octomatron.yaml`, `.tekton/ci.yaml` | CI: `terraform fmt` and `validate` on pull requests and in the merge queue | none |
 
 State lives in the GCS bucket `arikkfir-tfstate`, one prefix per root.
