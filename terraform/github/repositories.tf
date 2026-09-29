@@ -106,9 +106,3 @@ resource "github_repository_dependabot_security_updates" "this" {
   repository = github_repository_vulnerability_alerts.this[each.key].repository
   enabled    = true
 }
-
-# Renamed from octomatron: Terraform renames the repository in place. Remove once applied.
-moved {
-  from = github_repository.this["octomatron"]
-  to   = github_repository.this["octomaton"]
-}
