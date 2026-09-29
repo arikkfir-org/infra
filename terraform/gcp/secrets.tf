@@ -2,9 +2,9 @@
 # External Secrets Operator is the only reader (see iam.tf).
 resource "google_secret_manager_secret" "this" {
   for_each = toset([
-    "octomatron-github-app-id",
-    "octomatron-github-private-key",
-    "octomatron-github-webhook-secret",
+    "octomaton-github-app-id",
+    "octomaton-github-private-key",
+    "octomaton-github-webhook-secret",
     "oidc-client-secret",
     "oauth2-proxy-cookie-secret",
     "hub-authorized-emails",

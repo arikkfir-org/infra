@@ -2,6 +2,7 @@ resource "google_project_service" "this" {
   for_each = toset([
     "artifactregistry.googleapis.com",
     "cloudresourcemanager.googleapis.com",
+    "cloudtrace.googleapis.com",
     "compute.googleapis.com",
     "container.googleapis.com",
     "dns.googleapis.com",
@@ -13,6 +14,7 @@ resource "google_project_service" "this" {
     "serviceusage.googleapis.com",
     "storage.googleapis.com",
     "sts.googleapis.com",
+    "telemetry.googleapis.com",
   ])
 
   service            = each.key
