@@ -9,7 +9,7 @@ terraform {
   }
 
   backend "gcs" {
-    bucket = "arikkfir-tfstate"
+    bucket = "arikkfir-devops"
     prefix = "github"
   }
 }
