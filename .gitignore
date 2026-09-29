@@ -39,3 +39,6 @@ terraform.rc
 
 # Private keys, such as a downloaded GitHub App key
 *.pem
+
+# JetBrains IDE project files
+.idea/
