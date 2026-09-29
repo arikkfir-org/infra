@@ -8,6 +8,7 @@ locals {
     cert_manager     = "${local.k8s_principal_prefix}/ns/cert-manager/sa/cert-manager"
     grafana          = "${local.k8s_principal_prefix}/ns/grafana/sa/grafana"
     docs             = "${local.k8s_principal_prefix}/ns/docs/sa/docs"
+    octomaton        = "${local.k8s_principal_prefix}/ns/octomaton/sa/octomaton"
     ci_docs          = "${local.k8s_principal_prefix}/ns/ci-docs/sa/pipeline"
     ci_tooling       = "${local.k8s_principal_prefix}/ns/ci-tooling/sa/pipeline"
     ci_octomaton     = "${local.k8s_principal_prefix}/ns/ci-octomaton/sa/pipeline"
@@ -16,6 +17,9 @@ locals {
 
   project_iam = {
     "grafana/monitoring.viewer"                     = { role = "roles/monitoring.viewer", member = local.principals.grafana }
+    "octomaton/telemetry.metricsWriter"             = { role = "roles/telemetry.metricsWriter", member = local.principals.octomaton }
+    "octomaton/telemetry.tracesWriter"              = { role = "roles/telemetry.tracesWriter", member = local.principals.octomaton }
+    "octomaton/serviceusage.serviceUsageConsumer"   = { role = "roles/serviceusage.serviceUsageConsumer", member = local.principals.octomaton }
     "gke-nodes/container.defaultNodeServiceAccount" = { role = "roles/container.defaultNodeServiceAccount", member = local.principals.gke_nodes }
   }
 
