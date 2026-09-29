@@ -17,17 +17,17 @@ To build the hub from scratch, follow the
 | `terraform/github` | Repositories and default-branch rulesets | `github` |
 | `.octomatron.yaml`, `.tekton/ci.yaml` | CI: `terraform fmt` and `validate` on pull requests and in the merge queue | none |
 
-State lives in the GCS bucket `arikkfir-tfstate`, one prefix per root.
+State lives in the GCS bucket `arikkfir-devops`, one prefix per root.
 
 ## Prerequisites
 
 - Terraform >= 1.14 and the Google Cloud CLI.
-- The state bucket, created once by hand:
+- The state bucket `arikkfir-devops` (versioned). If it doesn't exist yet, create it once:
 
   ```sh
-  gcloud storage buckets create gs://arikkfir-tfstate --project=arikkfir --location=me-west1 \
+  gcloud storage buckets create gs://arikkfir-devops --project=arikkfir --location=me-west1 \
     --uniform-bucket-level-access --public-access-prevention
-  gcloud storage buckets update gs://arikkfir-tfstate --versioning
+  gcloud storage buckets update gs://arikkfir-devops --versioning
   ```
 
 - Google credentials for every root (the state backend needs them too): `gcloud auth application-default login` as a
