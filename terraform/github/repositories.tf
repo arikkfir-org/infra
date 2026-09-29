@@ -36,7 +36,7 @@ resource "github_repository" "this" {
   description = each.value.description
   visibility  = "public"
 
-  has_issues      = true
+  has_issues      = false
   has_projects    = false
   has_wiki        = false
   has_discussions = false
