@@ -1,5 +1,5 @@
-resource "github_repository_ruleset" "protected" {
-  for_each = { for name, repo in local.repositories : name => repo }
+resource "github_repository_ruleset" "default-branch" {
+  for_each = local.repositories
 
   name        = "default-branch"
   repository  = github_repository.this[each.key].name
@@ -44,11 +44,11 @@ resource "github_repository_ruleset" "protected" {
     merge_queue {
       merge_method                      = "MERGE"
       grouping_strategy                 = "ALLGREEN"
-      max_entries_to_build              = each.value.max_entries_to_build || 1
-      min_entries_to_merge              = each.value.min_entries_to_merge || 1
-      max_entries_to_merge              = each.value.max_entries_to_merge || 1
-      min_entries_to_merge_wait_minutes = each.value.min_entries_to_merge_wait_minutes || 3
-      check_response_timeout_minutes    = each.value.check_response_timeout_minutes || 60
+      max_entries_to_build              = coalesce(each.value.max_entries_to_build, 1)
+      min_entries_to_merge              = coalesce(each.value.min_entries_to_merge, 1)
+      max_entries_to_merge              = coalesce(each.value.max_entries_to_merge, 1)
+      min_entries_to_merge_wait_minutes = coalesce(each.value.min_entries_to_merge_wait_minutes, 3)
+      check_response_timeout_minutes    = coalesce(each.value.check_response_timeout_minutes, 60)
     }
   }
 }

@@ -5,10 +5,20 @@ locals {
     ".github" = {
       description = "Organization profile and org-wide GitHub defaults."
       protected   = true
+      max_entries_to_build              = 5
+      min_entries_to_merge              = 1
+      max_entries_to_merge              = 5
+      min_entries_to_merge_wait_minutes = 3
+      check_response_timeout_minutes    = 60
     }
     docs = {
       description = "Knowledge base of the development hub, published to the arikkfir-docs bucket."
       protected   = false
+      max_entries_to_build              = 5
+      min_entries_to_merge              = 1
+      max_entries_to_merge              = 5
+      min_entries_to_merge_wait_minutes = 3
+      check_response_timeout_minutes    = 60
     }
     infra = {
       description                       = "Terraform for GitHub, GCP and the Argo CD bootstrap."
@@ -22,14 +32,29 @@ locals {
     delivery = {
       description = "Argo CD applications (GitOps) for the hub cluster."
       protected   = true
+      max_entries_to_build              = 5
+      min_entries_to_merge              = 1
+      max_entries_to_merge              = 5
+      min_entries_to_merge_wait_minutes = 3
+      check_response_timeout_minutes    = 60
     }
     octomatron = {
       description = "CI orchestrator: a GitHub App that runs Tekton pipelines."
       protected   = true
+      max_entries_to_build              = 5
+      min_entries_to_merge              = 1
+      max_entries_to_merge              = 5
+      min_entries_to_merge_wait_minutes = 3
+      check_response_timeout_minutes    = 60
     }
     tooling = {
       description = "Claude Code web bundle."
       protected   = true
+      max_entries_to_build              = 5
+      min_entries_to_merge              = 1
+      max_entries_to_merge              = 5
+      min_entries_to_merge_wait_minutes = 3
+      check_response_timeout_minutes    = 60
     }
   }
 }
