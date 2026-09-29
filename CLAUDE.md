@@ -4,8 +4,9 @@
 
 - Treat the hub reference (`hub/reference.md` in `arikkfir-org/docs`) as the contract for every name, ID, CIDR, role
   and host. If a change needs a new or different value, say so; do not diverge silently.
-- Never run `terraform apply`, `destroy`, `import`, `state …`, `taint`, `force-unlock` or anything else that changes
-  real infrastructure or state. Never call GCP or GitHub APIs to inspect live resources. The owner plans and applies.
+- Never run `terraform apply`, `make terraform`, `destroy`, `import`, `state …`, `taint`, `force-unlock` or anything
+  else that changes real infrastructure or state. Never call GCP or GitHub APIs to inspect live resources. The owner
+  plans and applies.
 - Before finishing, run `terraform fmt -recursive` at the repository root, then, in each root under `terraform/`:
   `terraform init -backend=false -input=false && terraform validate`. CI (`.tekton/ci.yaml`) runs the same checks.
 - Check every argument against the pinned provider schema (`terraform providers schema -json`). Do not use deprecated
@@ -29,7 +30,7 @@
 - Adopt pre-existing objects with `import {}` blocks in `imports.tf` plus `lifecycle { prevent_destroy = true }`.
   Import lists name only objects that already exist.
 - Write comments only for intent that the code cannot show.
-- Add new roots to the loop in `.tekton/ci.yaml`.
+- Add new roots to the loop in `.tekton/ci.yaml` and to `ROOTS` in the `Makefile`.
 
 ## How to
 
