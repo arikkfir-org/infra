@@ -52,9 +52,3 @@ resource "github_repository_ruleset" "default-branch" {
     }
   }
 }
-
-# Follows the repository's rename (see repositories.tf). Remove once applied.
-moved {
-  from = github_repository_ruleset.default-branch["octomatron"]
-  to   = github_repository_ruleset.default-branch["octomaton"]
-}
