@@ -61,7 +61,7 @@ resource "google_container_cluster" "hub" {
   # LoadBalancer Services use to bind the reserved static IPs by name, depend on it. No GKE Ingress or Gateway is used.
   addons_config {
     http_load_balancing {
-      disabled = false
+      disabled = true
     }
 
     # Mounts the private arikkfir-docs bucket into the docs site.
