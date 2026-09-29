@@ -10,7 +10,7 @@ locals {
     docs             = "${local.k8s_principal_prefix}/ns/docs/sa/docs"
     ci_docs          = "${local.k8s_principal_prefix}/ns/ci-docs/sa/pipeline"
     ci_tooling       = "${local.k8s_principal_prefix}/ns/ci-tooling/sa/pipeline"
-    ci_octomatron    = "${local.k8s_principal_prefix}/ns/ci-octomatron/sa/pipeline"
+    ci_octomaton     = "${local.k8s_principal_prefix}/ns/ci-octomaton/sa/pipeline"
     gke_nodes        = google_service_account.gke_nodes.member
   }
 
@@ -29,8 +29,8 @@ locals {
   }
 
   images_iam = {
-    "ci-octomatron/artifactregistry.writer" = { role = "roles/artifactregistry.writer", member = local.principals.ci_octomatron }
-    "gke-nodes/artifactregistry.reader"     = { role = "roles/artifactregistry.reader", member = local.principals.gke_nodes }
+    "ci-octomaton/artifactregistry.writer" = { role = "roles/artifactregistry.writer", member = local.principals.ci_octomaton }
+    "gke-nodes/artifactregistry.reader"    = { role = "roles/artifactregistry.reader", member = local.principals.gke_nodes }
   }
 }
 
@@ -67,9 +67,17 @@ resource "google_secret_manager_secret_iam_member" "external_secrets" {
   member    = local.principals.external_secrets
 }
 
-# Zone-scoped, so cert-manager cannot list zones: its Cloud DNS solver must name the zone (hostedZoneName).
+# Zone-scoped, so cert-manager cannot list zones: its Cloud DNS solvers must name the zone (hostedZoneName).
 resource "google_dns_managed_zone_iam_member" "cert_manager" {
-  managed_zone = google_dns_managed_zone.this[local.hub_zone].name
+  for_each = toset([local.hub_zone, "octomaton-dev"])
+
+  managed_zone = google_dns_managed_zone.this[each.key].name
   role         = "roles/dns.admin"
   member       = local.principals.cert_manager
+}
+
+# The grant on the hub zone predates for_each. Remove once applied.
+moved {
+  from = google_dns_managed_zone_iam_member.cert_manager
+  to   = google_dns_managed_zone_iam_member.cert_manager["kfirs-com"]
 }

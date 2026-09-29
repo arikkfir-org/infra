@@ -3,8 +3,8 @@ locals {
   # protected = false: direct pushes to the default branch are allowed (deletion and force-push are not).
   repositories = {
     ".github" = {
-      description = "Organization profile and org-wide GitHub defaults."
-      protected   = true
+      description                       = "Organization profile and org-wide GitHub defaults."
+      protected                         = true
       max_entries_to_build              = 5
       min_entries_to_merge              = 1
       max_entries_to_merge              = 5
@@ -12,8 +12,8 @@ locals {
       check_response_timeout_minutes    = 60
     }
     docs = {
-      description = "Knowledge base of the development hub, published to the arikkfir-docs bucket."
-      protected   = false
+      description                       = "Knowledge base of the development hub, published to the arikkfir-docs bucket."
+      protected                         = false
       max_entries_to_build              = 5
       min_entries_to_merge              = 1
       max_entries_to_merge              = 5
@@ -30,8 +30,8 @@ locals {
       check_response_timeout_minutes    = 60
     }
     delivery = {
-      description = "Argo CD applications (GitOps) for the hub cluster."
-      protected   = true
+      description                       = "Argo CD applications (GitOps) for the hub cluster."
+      protected                         = true
       max_entries_to_build              = 5
       min_entries_to_merge              = 1
       max_entries_to_merge              = 5
@@ -39,8 +39,8 @@ locals {
       check_response_timeout_minutes    = 60
     }
     octomatron = {
-      description = "CI orchestrator: a GitHub App that runs Tekton pipelines."
-      protected   = true
+      description                       = "CI orchestrator: a GitHub App that runs Tekton pipelines."
+      protected                         = true
       max_entries_to_build              = 5
       min_entries_to_merge              = 1
       max_entries_to_merge              = 5
@@ -48,8 +48,8 @@ locals {
       check_response_timeout_minutes    = 60
     }
     tooling = {
-      description = "Claude Code web bundle."
-      protected   = true
+      description                       = "Claude Code web bundle."
+      protected                         = true
       max_entries_to_build              = 5
       min_entries_to_merge              = 1
       max_entries_to_merge              = 5

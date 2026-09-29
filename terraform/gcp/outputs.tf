@@ -32,3 +32,8 @@ output "bucket_names" {
   description = "Buckets."
   value       = sort([for bucket in google_storage_bucket.this : bucket.name])
 }
+
+output "octomaton_dev_name_servers" {
+  description = "Name servers to set for octomaton.dev at its registrar."
+  value       = google_dns_managed_zone.this["octomaton-dev"].name_servers
+}
