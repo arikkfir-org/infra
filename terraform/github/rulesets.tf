@@ -1,5 +1,5 @@
 resource "github_repository_ruleset" "protected" {
-  for_each = { for name, repo in local.repositories : name => repo if repo.protected }
+  for_each = { for name, repo in local.repositories : name => repo }
 
   name        = "default-branch"
   repository  = github_repository.this[each.key].name
@@ -17,7 +17,7 @@ resource "github_repository_ruleset" "protected" {
   # OrganizationAdmin takes no actor_id (the API ignores it and the provider docs say to leave it unset).
   bypass_actors {
     actor_type  = "OrganizationAdmin"
-    bypass_mode = "pull_request"
+    bypass_mode = "always"
   }
 
   rules {
@@ -27,8 +27,9 @@ resource "github_repository_ruleset" "protected" {
     pull_request {
       required_approving_review_count   = 1
       dismiss_stale_reviews_on_push     = true
+      require_last_push_approval        = true
       required_review_thread_resolution = true
-      allowed_merge_methods             = ["squash"]
+      allowed_merge_methods             = ["merge"]
     }
 
     required_status_checks {
@@ -41,34 +42,13 @@ resource "github_repository_ruleset" "protected" {
     }
 
     merge_queue {
-      merge_method                      = "SQUASH"
+      merge_method                      = "MERGE"
       grouping_strategy                 = "ALLGREEN"
-      max_entries_to_build              = 5
-      min_entries_to_merge              = 1
-      max_entries_to_merge              = 5
-      min_entries_to_merge_wait_minutes = 5
-      check_response_timeout_minutes    = 60
+      max_entries_to_build              = each.value.max_entries_to_build || 1
+      min_entries_to_merge              = each.value.min_entries_to_merge || 1
+      max_entries_to_merge              = each.value.max_entries_to_merge || 1
+      min_entries_to_merge_wait_minutes = each.value.min_entries_to_merge_wait_minutes || 3
+      check_response_timeout_minutes    = each.value.check_response_timeout_minutes || 60
     }
-  }
-}
-
-resource "github_repository_ruleset" "direct_push" {
-  for_each = { for name, repo in local.repositories : name => repo if !repo.protected }
-
-  name        = "default-branch"
-  repository  = github_repository.this[each.key].name
-  target      = "branch"
-  enforcement = "active"
-
-  conditions {
-    ref_name {
-      include = ["~DEFAULT_BRANCH"]
-      exclude = []
-    }
-  }
-
-  rules {
-    deletion         = true
-    non_fast_forward = true
   }
 }

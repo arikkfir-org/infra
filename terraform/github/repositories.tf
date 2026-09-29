@@ -11,8 +11,13 @@ locals {
       protected   = false
     }
     infra = {
-      description = "Terraform for GitHub, GCP and the Argo CD bootstrap."
-      protected   = true
+      description                       = "Terraform for GitHub, GCP and the Argo CD bootstrap."
+      protected                         = true
+      max_entries_to_build              = 1
+      min_entries_to_merge              = 1
+      max_entries_to_merge              = 1
+      min_entries_to_merge_wait_minutes = 0
+      check_response_timeout_minutes    = 60
     }
     delivery = {
       description = "Argo CD applications (GitOps) for the hub cluster."
