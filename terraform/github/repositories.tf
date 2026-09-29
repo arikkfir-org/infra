@@ -49,6 +49,8 @@ resource "github_repository" "this" {
   allow_forking               = true
   allow_update_branch         = true
   archived                    = false
+  merge_commit_title          = "PR_TITLE"
+  merge_commit_message        = "PR_BODY"
   squash_merge_commit_title   = "PR_TITLE"
   squash_merge_commit_message = "PR_BODY"
 
