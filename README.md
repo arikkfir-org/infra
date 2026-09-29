@@ -68,10 +68,10 @@ list no `-master` rule, and `kubectl -n kube-system get deploy konnectivity-agen
 `-master` rule appears, the cluster uses VPC peering: add an ingress rule from that rule's source range for the
 webhook ports.
 
-**Load balancers.** The HTTP load balancing add-on stays enabled (GKE's default). Traefik's `LoadBalancer` Services
-use backend service-based external passthrough network load balancers (`loadBalancerClass:
-networking.gke.io/l4-regional-external`, GKE 1.33.1 or later), which bind the reserved `ingress-protected` and
-`ingress-public` IPs by name and require that add-on. No GKE Ingress or Gateway resources are used.
+**Load balancers.** Traefik's `LoadBalancer` Services use backend service-based external passthrough network load
+balancers (`loadBalancerClass: networking.gke.io/l4-regional-external`), which bind the reserved `ingress-protected`
+and `ingress-public` IPs by name. The HTTP load balancing add-on (GKE Ingress) is disabled; below GKE 1.36 those load
+balancers still depend on it, so the cluster's minimum version is 1.36. No GKE Ingress or Gateway resources are used.
 
 **Cost.** The cluster is zonal. The GKE free tier covers the management fee of one zonal cluster per billing account,
 but its single control plane is unavailable during control plane upgrades. Maintenance runs on Fridays and Saturdays, 00:00-08:00 UTC. The

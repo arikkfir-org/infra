@@ -24,6 +24,9 @@ resource "google_container_cluster" "hub" {
     channel = "REGULAR"
   }
 
+  # With the HTTP load-balancing add-on disabled, Traefik's LoadBalancer Services need GKE 1.36 or later.
+  min_master_version = "1.36"
+
   # Dataplane V2 (eBPF); it also enforces NetworkPolicy, so no network_policy block or addon.
   datapath_provider = "ADVANCED_DATAPATH"
 
@@ -57,8 +60,8 @@ resource "google_container_cluster" "hub" {
     channel = "CHANNEL_DISABLED"
   }
 
-  # Kept enabled (GKE's default): backend-service-based external passthrough load balancers, which Traefik's
-  # LoadBalancer Services use to bind the reserved static IPs by name, depend on it. No GKE Ingress or Gateway is used.
+  # HTTP load balancing is GKE Ingress, which the hub doesn't use. Below GKE 1.36 it also backs the
+  # backend-service-based load balancers of Traefik's LoadBalancer Services; min_master_version rules that out.
   addons_config {
     http_load_balancing {
       disabled = true
