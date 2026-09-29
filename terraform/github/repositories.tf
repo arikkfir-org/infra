@@ -60,11 +60,3 @@ resource "github_repository" "this" {
     prevent_destroy = true
   }
 }
-
-# Replaces the deprecated github_repository.vulnerability_alerts argument.
-resource "github_repository_vulnerability_alerts" "this" {
-  for_each = github_repository.this
-
-  repository = each.value.name
-  enabled    = true
-}
