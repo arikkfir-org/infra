@@ -12,7 +12,7 @@ resource "helm_release" "argocd" {
   create_namespace = true
   repository       = local.argo_helm_repository
   chart            = "argo-cd"
-  version          = "10.9.2"
+  version          = "10.9.4"
   timeout          = 600
 
   # Mirrors the self-managed values where it matters at bootstrap; in particular Dex stays off, so no bootstrap-only
@@ -39,7 +39,7 @@ resource "helm_release" "root" {
   namespace  = "argocd"
   repository = local.argo_helm_repository
   chart      = "argocd-apps"
-  version    = "2.0.5"
+  version    = "2.0.6"
 
   values = [yamlencode({
     applications = {
