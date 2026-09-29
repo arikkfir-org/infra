@@ -38,7 +38,7 @@ locals {
       min_entries_to_merge_wait_minutes = 3
       check_response_timeout_minutes    = 60
     }
-    octomatron = {
+    octomaton = {
       description                       = "CI orchestrator: a GitHub App that runs Tekton pipelines."
       protected                         = true
       max_entries_to_build              = 5
@@ -89,4 +89,26 @@ resource "github_repository" "this" {
   lifecycle {
     prevent_destroy = true
   }
+}
+
+# Dependabot alerts and security updates. Version updates need a dependabot.yml in the repository itself.
+resource "github_repository_vulnerability_alerts" "this" {
+  for_each = local.repositories
+
+  repository = github_repository.this[each.key].name
+  enabled    = true
+}
+
+resource "github_repository_dependabot_security_updates" "this" {
+  for_each = local.repositories
+
+  # Security updates need the alerts enabled first.
+  repository = github_repository_vulnerability_alerts.this[each.key].repository
+  enabled    = true
+}
+
+# Renamed from octomatron: Terraform renames the repository in place. Remove once applied.
+moved {
+  from = github_repository.this["octomatron"]
+  to   = github_repository.this["octomaton"]
 }

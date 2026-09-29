@@ -37,7 +37,7 @@ resource "github_repository_ruleset" "default-branch" {
 
       required_check {
         context        = "ci"
-        integration_id = var.octomatron_app_id
+        integration_id = var.octomaton_app_id
       }
     }
 
@@ -51,4 +51,10 @@ resource "github_repository_ruleset" "default-branch" {
       check_response_timeout_minutes    = coalesce(each.value.check_response_timeout_minutes, 60)
     }
   }
+}
+
+# Follows the repository's rename (see repositories.tf). Remove once applied.
+moved {
+  from = github_repository_ruleset.default-branch["octomatron"]
+  to   = github_repository_ruleset.default-branch["octomaton"]
 }
