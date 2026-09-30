@@ -15,7 +15,7 @@ To build the hub from scratch, follow the
 | --- | --- | --- |
 | `terraform/gcp` | APIs, VPC and Cloud NAT, ingress IPs, GKE cluster and node pools, Artifact Registry, buckets, secret containers, IAM, DNS zones and records | `gcp` |
 | `terraform/argocd` | Argo CD (bootstrap only) and the `root` Application | `argocd` |
-| `terraform/github` | Repositories, their default-branch rulesets, Dependabot alerts and Dependabot security updates | `github` |
+| `terraform/github` | Repositories, their default-branch rulesets, Dependabot alerts and Dependabot security updates; team `reviewers` (the pull request reviewer, `push` on every repository) | `github` |
 | `.octomaton.yaml`, `.tekton/ci.yaml` | CI: `terraform fmt` and `validate` on pull requests and in the merge queue | none |
 | `Makefile` | `make terraform <root>`: `init`, then `apply` of one root | none |
 
@@ -36,8 +36,9 @@ State lives in the GCS bucket `arikkfir-devops`, one prefix per root.
   project owner. The `argocd` root reaches the cluster through its DNS endpoint, which needs the
   `container.clusters.connect` permission (owners have it).
 - For `terraform/github`, a token in `GITHUB_TOKEN`: a fine-grained personal access token with resource owner
-  `arikkfir-org`, access to all repositories, and the repository permissions **Administration: read and write** and
-  **Metadata: read**. The organization must allow fine-grained tokens. A classic token with the `repo` scope also works.
+  `arikkfir-org`, access to all repositories, the repository permissions **Administration: read and write** and
+  **Metadata: read**, and the organization permission **Members: read and write** (for team `reviewers`). The
+  organization must allow fine-grained tokens. A classic token with the `repo` and `admin:org` scopes also works.
 
 ## Apply order
 
