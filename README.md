@@ -47,9 +47,9 @@ then `apply`, which shows the plan and asks before it changes anything. Pass var
 1. `gcp`: the cluster must exist before Argo CD can be installed. The first plan imports the existing `kfirs-com` and
    `kfirfamily-com` zones and must show no changes to them.
 2. `argocd`: installs Argo CD, which then syncs everything from `arikkfir-org/delivery`, including Octomaton.
-3. `github`: the first plan imports the six existing repositories. The rulesets require the `ci` check, so apply them
-   once Octomaton reports it. Pass the Octomaton App's ID so that only the App can satisfy the check:
-   `make terraform github ARGS='-var octomaton_app_id=<id>'`.
+3. `github`: the first plan imports the six existing repositories. The rulesets require the `Continuous Integration`
+   check, so apply them once Octomaton reports it. Pass the Octomaton App's ID so that only the App can satisfy the
+   check: `make terraform github ARGS='-var octomaton_app_id=<id>'`.
 
 ## Notes
 
