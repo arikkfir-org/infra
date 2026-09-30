@@ -36,7 +36,7 @@ resource "github_repository_ruleset" "default-branch" {
       strict_required_status_checks_policy = false
 
       required_check {
-        context        = "ci"
+        context        = "Continuous Integration"
         integration_id = var.octomaton_app_id
       }
     }
