@@ -54,27 +54,3 @@ resource "google_dns_record_set" "octomaton" {
   ttl          = 300
   rrdatas      = [google_compute_address.ingress["public"].address]
 }
-
-# Private names, resolvable only inside the hub VPC (GKE's cluster DNS forwards to the VPC resolver).
-resource "google_dns_managed_zone" "internal" {
-  name        = "hub-internal"
-  dns_name    = "hub.internal."
-  description = "Private names inside the hub VPC"
-  visibility  = "private"
-
-  private_visibility_config {
-    networks {
-      network_url = google_compute_network.hub.id
-    }
-  }
-
-  depends_on = [google_project_service.this]
-}
-
-resource "google_dns_record_set" "postgres" {
-  name         = "postgres.${google_dns_managed_zone.internal.dns_name}"
-  managed_zone = google_dns_managed_zone.internal.name
-  type         = "A"
-  ttl          = 300
-  rrdatas      = [google_sql_database_instance.hub.private_ip_address]
-}

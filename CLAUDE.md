@@ -19,7 +19,7 @@
 
 - Keep one root per target (`terraform/<target>`) with state prefix = directory name. Do not add modules.
 - Split files by concern: `versions.tf` (terraform block, backend, providers), `variables.tf`, `outputs.tf`,
-  `imports.tf`, then one file per area (in `gcp`: `apis`, `network`, `gke`, `registry`, `storage`, `sql`, `secrets`,
+  `imports.tf`, then one file per area (in `gcp`: `apis`, `network`, `gke`, `registry`, `storage`, `secrets`,
   `iam`, `dns`).
 - Name a resource after its object (`hub`, `images`, `gke_nodes`). Name a for_each group after what its members
   share (`ingress`, `public`, `protected`), or `this` when it is the only group of that type. Key for_each
@@ -46,5 +46,3 @@
   `terraform/gcp/iam.tf`, then add an entry to the map for its scope: `project_iam`, `bucket_iam` or `images_iam`.
   For another resource type, add an `*_iam_member` resource on that resource.
 - Hostname: add it to `local.ingress_hosts` in `terraform/gcp/dns.tf` with its gateway (`protected` or `public`).
-- Database: add its name to `local.databases` in `terraform/gcp/sql.tf`, and a secret for its password (above). The
-  owner creates its user by hand (README, "PostgreSQL"). Workloads reach it at `postgres.hub.internal:5432` with TLS.

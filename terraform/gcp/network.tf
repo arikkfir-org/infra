@@ -56,23 +56,3 @@ resource "google_compute_address" "ingress" {
 
   depends_on = [google_project_service.this]
 }
-
-# Private services access: Google-managed services (Cloud SQL, sql.tf) take addresses from this range, peered into the
-# VPC. The cluster's control plane uses Private Service Connect, not this peering.
-resource "google_compute_global_address" "peered_services" {
-  name          = "peered-services"
-  description   = "Private services access (Cloud SQL)"
-  purpose       = "VPC_PEERING"
-  address_type  = "INTERNAL"
-  address       = cidrhost(var.cidrs.peered_services, 0)
-  prefix_length = tonumber(split("/", var.cidrs.peered_services)[1])
-  network       = google_compute_network.hub.id
-}
-
-resource "google_service_networking_connection" "peered_services" {
-  network                 = google_compute_network.hub.id
-  service                 = "servicenetworking.googleapis.com"
-  reserved_peering_ranges = [google_compute_global_address.peered_services.name]
-
-  depends_on = [google_project_service.this]
-}
