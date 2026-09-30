@@ -3,7 +3,7 @@ locals {
   # protected = false: direct pushes to the default branch are allowed (deletion and force-push are not).
   repositories = {
     ".github" = {
-      description                       = "Organization profile and org-wide GitHub defaults."
+      description                       = "The organization's welcome page on GitHub."
       protected                         = true
       max_entries_to_build              = 5
       min_entries_to_merge              = 1
@@ -48,7 +48,7 @@ locals {
       check_response_timeout_minutes    = 60
     }
     tooling = {
-      description                       = "Claude Code web bundle."
+      description                       = "Org-wide tooling: the Claude Code bundle, the pull request reviewer and the organization pipelines."
       protected                         = true
       max_entries_to_build              = 5
       min_entries_to_merge              = 1
