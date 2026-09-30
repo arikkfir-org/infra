@@ -37,7 +37,7 @@
 - Repository: add an entry (description, `protected`) to `local.repositories` in `terraform/github/repositories.tf`. It
   is created, not imported. Protected repositories get the PR, merge queue and `Continuous Integration` check ruleset;
   unprotected ones allow direct pushes but block deletion and force-pushes. Every repository gets Dependabot alerts and
-  security updates.
+  security updates, and team `reviewers` (`terraform/github/teams.tf`) gets `push` on it.
 - Bucket: add its name and public access prevention (`enforced` unless it must be public) to the map in
   `terraform/gcp/storage.tf`, and its grants to `local.bucket_iam` in `terraform/gcp/iam.tf`.
 - Secret: add its ID to the set in `terraform/gcp/secrets.tf`. The External Secrets accessor grant follows

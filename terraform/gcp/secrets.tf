@@ -2,6 +2,8 @@
 # External Secrets Operator is the only reader (see iam.tf).
 resource "google_secret_manager_secret" "this" {
   for_each = toset([
+    "reviewer-deepseek-api-key",
+    "reviewer-github-pat",
     "octomaton-github-app-id",
     "octomaton-github-private-key",
     "octomaton-github-webhook-secret",
