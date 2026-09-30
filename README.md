@@ -13,7 +13,7 @@ To build the hub from scratch, follow the
 
 | Path | Manages | State prefix |
 | --- | --- | --- |
-| `terraform/gcp` | APIs, VPC and Cloud NAT, ingress IPs, GKE cluster and node pools, Artifact Registry, buckets, secret containers, IAM, DNS zones and records | `gcp` |
+| `terraform/gcp` | APIs, VPC, Cloud NAT and private services access, ingress IPs, GKE cluster and node pools, Artifact Registry, buckets, the PostgreSQL instance and its databases, secret containers, IAM, DNS zones and records | `gcp` |
 | `terraform/argocd` | Argo CD (bootstrap only) and the `root` Application | `argocd` |
 | `terraform/github` | Repositories, their default-branch rulesets, Dependabot alerts and Dependabot security updates | `github` |
 | `.octomaton.yaml`, `.tekton/ci.yaml` | CI: `terraform fmt` and `validate` on pull requests and in the merge queue | none |
@@ -52,6 +52,16 @@ then `apply`, which shows the plan and asks before it changes anything. Pass var
    check: `make terraform github ARGS='-var octomaton_app_id=<id>'`.
 
 ## Notes
+
+**PostgreSQL.** The instance `hub` (Cloud SQL) has a private address only, from the range peered into the VPC, and
+requires TLS. Pods reach it as `postgres.hub.internal:5432`. Terraform creates its databases; users are created by
+hand, like secret values, with their passwords in Secret Manager:
+
+```sh
+pw="$(openssl rand -base64 32 | tr -d '\n')"
+gcloud sql users create grafana --instance=hub --password="$pw"
+printf %s "$pw" | gcloud secrets versions add grafana-db-password --data-file=-
+```
 
 **Control plane access.** Only the DNS-based endpoint is enabled; both IP-based endpoints are off. Access needs IAM
 (`gcloud container clusters get-credentials hub --location=me-west1-a --dns-endpoint`). Nodes still reach the control

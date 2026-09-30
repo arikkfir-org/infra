@@ -29,16 +29,18 @@ variable "domain" {
 }
 
 variable "cidrs" {
-  description = "Primary range of the hub subnet (nodes) and its secondary ranges for GKE Pods and Services."
+  description = "Subnet range (nodes), its GKE Pod and Service ranges, and the range peered to Google services (Cloud SQL)."
   type = object({
-    nodes    = string
-    pods     = string
-    services = string
+    nodes           = string
+    pods            = string
+    services        = string
+    peered_services = string
   })
   default = {
-    nodes    = "10.10.0.0/20"
-    pods     = "10.20.0.0/16"
-    services = "10.30.0.0/20"
+    nodes           = "10.10.0.0/20"
+    pods            = "10.20.0.0/16"
+    services        = "10.30.0.0/20"
+    peered_services = "10.40.0.0/20"
   }
 }
 

@@ -7,6 +7,7 @@ resource "google_secret_manager_secret" "this" {
     "octomaton-github-webhook-secret",
     "oidc-client-secret",
     "oauth2-proxy-cookie-secret",
+    "grafana-db-password",
   ])
 
   secret_id = each.key
