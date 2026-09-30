@@ -13,7 +13,7 @@ locals {
     }
     docs = {
       description                       = "Knowledge base of the development hub, published to the arikkfir-docs bucket."
-      protected                         = false
+      protected                         = true
       max_entries_to_build              = 5
       min_entries_to_merge              = 1
       max_entries_to_merge              = 5
