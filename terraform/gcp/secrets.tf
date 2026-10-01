@@ -1,5 +1,5 @@
 # Containers only: values are added by hand (`gcloud secrets versions add <name> --data-file=-`).
-# External Secrets Operator is the only reader (see iam.tf).
+# External Secrets Operator reads them all; infra's pipelines also read their own GitHub token (see iam.tf).
 resource "google_secret_manager_secret" "this" {
   for_each = toset([
     "reviewer-deepseek-api-key",
@@ -10,6 +10,8 @@ resource "google_secret_manager_secret" "this" {
     "oidc-client-secret",
     "oauth2-proxy-cookie-secret",
     "grafana-postgres-admin-password",
+    "infra-plan-github-pat",
+    "infra-apply-github-pat",
   ])
 
   secret_id = each.key

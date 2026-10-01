@@ -1,6 +1,9 @@
 locals {
   # The App ID of octomaton-dev, the Octomaton GitHub App (hub reference).
   octomaton_app_id = 5114814
+
+  # Their merge queue takes one pull request at a time: infra plans each merge after the previous one was applied.
+  serial_merge_queues = toset(["infra"])
 }
 
 resource "github_repository_ruleset" "default-branch" {
@@ -65,9 +68,9 @@ resource "github_repository_ruleset" "default-branch" {
     merge_queue {
       merge_method                      = "MERGE"
       grouping_strategy                 = "ALLGREEN"
-      max_entries_to_build              = 5
+      max_entries_to_build              = contains(local.serial_merge_queues, each.key) ? 1 : 5
       min_entries_to_merge              = 1
-      max_entries_to_merge              = 5
+      max_entries_to_merge              = contains(local.serial_merge_queues, each.key) ? 1 : 5
       min_entries_to_merge_wait_minutes = 3
       check_response_timeout_minutes    = 60
     }
