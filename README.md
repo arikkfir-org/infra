@@ -56,9 +56,11 @@ then `apply`, which shows the plan and asks before it changes anything.
 
 After that, every merge to `main` applies `gcp` and `github` through Octomaton (hub reference, "Terraform applies"):
 
-- Pull requests and the merge queue plan both roots as `ci-infra/ci-infra-plan`, which can only read. The
-  `Continuous Integration` check lists the planned changes (a long list is cut short; its log has them all). The merge
-  queue takes one pull request at a time, after the previous merge was applied.
+- Pull requests and the merge queue plan both roots as `ci-infra/ci-infra-plan`. Its GCP roles only read, but its
+  GitHub token also writes contents (GitHub shows merge settings only to such tokens), so code in a pull request can
+  push branches and tags to every repository, though not to default branches. The `Continuous Integration` check lists
+  the planned changes (a long list is cut short; its log has them all). The merge queue takes one pull request at a
+  time, after the previous merge was applied.
 - Pipeline `apply` plans both again as `ci-infra/ci-infra-apply` and applies the saved plans, `gcp` first. If either
   plan deletes or replaces anything, it stops before applying and the `Apply` check lists the changes.
 - By hand, with `make terraform <root>`: `argocd`, an apply the pipeline stopped, and a change to the pipelines' own

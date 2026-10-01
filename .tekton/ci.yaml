@@ -1,5 +1,6 @@
 # Pull requests and the merge queue: checks formatting, validates every root, and plans gcp and github as the
-# read-only ServiceAccount ci-infra-plan, without taking the state lock (see the hub reference, "Terraform applies").
+# ServiceAccount ci-infra-plan (read-only GCP roles), without taking the state lock (see the hub reference,
+# "Terraform applies").
 # Octomaton sets spec.params (repo-url, revision) from .octomaton.yaml.
 apiVersion: tekton.dev/v1
 kind: PipelineRun
