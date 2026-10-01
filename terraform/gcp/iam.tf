@@ -48,14 +48,30 @@ locals {
     "ci-infra-apply/iam.securityAdmin"              = { role = "roles/iam.securityAdmin", member = local.principals.ci_infra_apply }
   }
 
-  bucket_iam = {
+  # Every repository with a CI tenant publishes its docs to its own layer of arikkfir-docs, .layers/<repository>/ (see
+  # the reference, "Docs site").
+  docs_layers = toset(["delivery", "docs", "fin", "infra", "octomaton", "tooling"])
+
+  # The docs site's pipelines list the bucket's object names: docs-reader on pull requests, docs-publisher on main.
+  docs_listers = merge([
+    for repository in local.docs_layers : {
+      for sa in ["docs-reader", "docs-publisher"] :
+      "arikkfir-docs/ci-${repository}/${sa}/storage.legacyBucketReader" => {
+        bucket = "arikkfir-docs"
+        role   = "roles/storage.legacyBucketReader"
+        member = "${local.k8s_principal_prefix}/ns/ci-${repository}/sa/${sa}"
+      }
+    }
+  ]...)
+
+  bucket_iam = merge(local.docs_listers, {
     "arikkfir-docs/docs/storage.objectViewer"               = { bucket = "arikkfir-docs", role = "roles/storage.objectViewer", member = local.principals.docs }
     "arikkfir-docs/ci-docs/storage.objectUser"              = { bucket = "arikkfir-docs", role = "roles/storage.objectUser", member = local.principals.ci_docs }
     "arikkfir-docs/ci-docs/storage.legacyBucketReader"      = { bucket = "arikkfir-docs", role = "roles/storage.legacyBucketReader", member = local.principals.ci_docs }
     "arikkfir-claude/allUsers/storage.legacyObjectReader"   = { bucket = "arikkfir-claude", role = "roles/storage.legacyObjectReader", member = "allUsers" }
     "arikkfir-claude/ci-tooling/storage.objectUser"         = { bucket = "arikkfir-claude", role = "roles/storage.objectUser", member = local.principals.ci_tooling }
     "arikkfir-claude/ci-tooling/storage.legacyBucketReader" = { bucket = "arikkfir-claude", role = "roles/storage.legacyBucketReader", member = local.principals.ci_tooling }
-  }
+  })
 
   images_iam = {
     "ci-octomaton/artifactregistry.writer" = { role = "roles/artifactregistry.writer", member = local.principals.ci_octomaton }
@@ -77,6 +93,20 @@ resource "google_storage_bucket_iam_member" "this" {
   bucket = google_storage_bucket.this[each.value.bucket].name
   role   = each.value.role
   member = each.value.member
+}
+
+# Each repository's docs-publisher, on main only (its octomaton.dev/branches), writes its own layer and nothing else.
+resource "google_storage_bucket_iam_member" "docs_publisher" {
+  for_each = local.docs_layers
+
+  bucket = google_storage_bucket.this["arikkfir-docs"].name
+  role   = "roles/storage.objectUser"
+  member = "${local.k8s_principal_prefix}/ns/ci-${each.key}/sa/docs-publisher"
+
+  condition {
+    title      = "layer-${each.key}"
+    expression = "resource.name.startsWith(\"projects/_/buckets/arikkfir-docs/objects/.layers/${each.key}/\")"
+  }
 }
 
 # infra's plans read each bucket's settings.
