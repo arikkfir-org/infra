@@ -57,7 +57,7 @@ variable "system_pool" {
 }
 
 variable "ci_pool" {
-  description = "Machine type and autoscaling bounds (total nodes across its zones) of the Spot CI node pool."
+  description = "Machine type and autoscaling bounds (total nodes across its zones) of the on-demand CI node pool."
   type = object({
     machine_type = string
     min_nodes    = number
