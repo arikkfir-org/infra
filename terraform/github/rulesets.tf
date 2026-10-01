@@ -50,9 +50,14 @@ resource "github_repository_ruleset" "default-branch" {
     required_status_checks {
       strict_required_status_checks_policy = false
 
-      # Only Octomaton may report it; a repository's own checks may come from any source.
+      # Only Octomaton may report these two; a repository's own checks may come from any source.
       required_check {
         context        = "Continuous Integration"
+        integration_id = local.octomaton_app_id
+      }
+
+      required_check {
+        context        = "Docs"
         integration_id = local.octomaton_app_id
       }
 
