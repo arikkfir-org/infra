@@ -9,7 +9,6 @@ locals {
     grafana              = "${local.k8s_principal_prefix}/ns/grafana/sa/grafana"
     docs                 = "${local.k8s_principal_prefix}/ns/docs/sa/docs"
     octomaton            = "${local.k8s_principal_prefix}/ns/octomaton/sa/octomaton"
-    ci_docs              = "${local.k8s_principal_prefix}/ns/ci-docs/sa/pipeline"
     ci_tooling_publish   = "${local.k8s_principal_prefix}/ns/ci-tooling/sa/ci-tooling-publish"
     ci_octomaton_release = "${local.k8s_principal_prefix}/ns/ci-octomaton/sa/ci-octomaton-release"
     ci_infra_plan        = "${local.k8s_principal_prefix}/ns/ci-infra/sa/ci-infra-plan"
@@ -66,8 +65,6 @@ locals {
 
   bucket_iam = merge(local.docs_listers, {
     "arikkfir-docs/docs/storage.objectViewer"             = { bucket = "arikkfir-docs", role = "roles/storage.objectViewer", member = local.principals.docs }
-    "arikkfir-docs/ci-docs/storage.objectUser"            = { bucket = "arikkfir-docs", role = "roles/storage.objectUser", member = local.principals.ci_docs }
-    "arikkfir-docs/ci-docs/storage.legacyBucketReader"    = { bucket = "arikkfir-docs", role = "roles/storage.legacyBucketReader", member = local.principals.ci_docs }
     "arikkfir-claude/allUsers/storage.legacyObjectReader" = { bucket = "arikkfir-claude", role = "roles/storage.legacyObjectReader", member = "allUsers" }
     # tooling's publish pipeline, on main only (the ServiceAccount's octomaton.dev/branches).
     "arikkfir-claude/ci-tooling-publish/storage.objectUser"         = { bucket = "arikkfir-claude", role = "roles/storage.objectUser", member = local.principals.ci_tooling_publish }
