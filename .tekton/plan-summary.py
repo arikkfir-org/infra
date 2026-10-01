@@ -1,14 +1,11 @@
 #!/usr/bin/env python3
 """Summarize Terraform plans (`terraform show -json`) for a check run's title and summary.
 
-Usage: plan-summary.py --title FILE --summary FILE [--stop-on-destroy] ROOT=PLAN.json...
-
-With --stop-on-destroy, exits 1 when any plan deletes or replaces a resource.
+Usage: plan-summary.py --title FILE --summary FILE ROOT=PLAN.json...
 """
 
 import argparse
 import json
-import sys
 
 # Tekton hands results to its controller in each step's termination message, and the kubelet cuts every container's
 # message to 12 KiB divided by the number of containers in its pod (normalizeStatus in Kubernetes'
@@ -49,8 +46,8 @@ def summarize(root, plan):
     return f"{root}: {title}", lines
 
 
-def render(intro, sections, hidden):
-    out = list(intro)
+def render(sections, hidden):
+    out = []
     for i, (root, lines) in enumerate(sections):
         shown = [line for j, (line, _) in enumerate(lines) if (i, j) not in hidden]
         out += [f"### `{root}`", ""] + (shown or ["…" if lines else "No changes."]) + [""]
@@ -59,11 +56,11 @@ def render(intro, sections, hidden):
     return "\n".join(out).rstrip() + "\n"
 
 
-def fit(intro, sections):
+def fit(sections):
     """Renders the summary, leaving out lines from the end of the longest list until it fits SUMMARY_LIMIT, deletes
     last."""
     hidden = set()
-    summary = render(intro, sections, hidden)
+    summary = render(sections, hidden)
     for deletes in (False, True):
         while encoded_size(summary) > SUMMARY_LIMIT:
             shown = [[j for j, (_, d) in enumerate(lines) if d == deletes and (i, j) not in hidden]
@@ -72,7 +69,7 @@ def fit(intro, sections):
             if not shown[i]:
                 break
             hidden.add((i, shown[i][-1]))
-            summary = render(intro, sections, hidden)
+            summary = render(sections, hidden)
     return summary
 
 
@@ -80,7 +77,6 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--title", required=True)
     parser.add_argument("--summary", required=True)
-    parser.add_argument("--stop-on-destroy", action="store_true")
     parser.add_argument("plans", nargs="+", metavar="ROOT=PLAN.json")
     args = parser.parse_args()
 
@@ -93,24 +89,18 @@ def main():
         sections.append((root, lines))
 
     title = "; ".join(titles)
-    intro = []
-    stop = args.stop_on_destroy and any(deletes for _, lines in sections for _, deletes in lines)
-    if stop:
-        title = "Stopped: a plan deletes or replaces resources"
-        intro = ["Nothing was applied. Apply these plans by hand (`make terraform <root>`) after reading them.", ""]
     if encoded_size(title) > TITLE_LIMIT:
         while encoded_size(title + "…") > TITLE_LIMIT:
             title = title[:-1]
         title += "…"
 
     print(title)
-    print(render(intro, sections, set()))
+    print(render(sections, set()))
     with open(args.title, "w") as f:
         f.write(title)
     with open(args.summary, "w") as f:
-        f.write(fit(intro, sections))
-    return 1 if stop else 0
+        f.write(fit(sections))
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()
