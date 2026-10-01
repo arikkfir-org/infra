@@ -5,3 +5,9 @@ import {
   to       = github_repository.this[each.key]
   id       = each.key
 }
+
+# The organization exists; import adopts its settings.
+import {
+  to = github_organization_settings.arikkfir_org
+  id = "arikkfir-org"
+}
