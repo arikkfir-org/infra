@@ -1,5 +1,6 @@
 # The pull request reviewer's GitHub user. Resolving review threads takes write access, so the team has push on
-# every repository; its token (Secret Manager reviewer-github-pat) is limited to pull requests.
+# every repository; its token (Secret Manager reviewer-github-pat) writes pull requests and contents, which GitHub
+# requires of a token that resolves threads.
 resource "github_team" "reviewers" {
   name        = "reviewers"
   description = "Automated pull request reviewers"
