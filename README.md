@@ -15,7 +15,7 @@ To build the hub from scratch, follow the
 | --- | --- | --- |
 | `terraform/gcp` | APIs, VPC and Cloud NAT, ingress IPs, GKE cluster and node pools, Artifact Registry, buckets, secret containers, IAM, DNS zones and records | `gcp` |
 | `terraform/argocd` | Argo CD (bootstrap only) and the `root` Application | `argocd` |
-| `terraform/github` | Repositories, their settings, `Default branch` rulesets and `ENG-` autolinks to Linear, Dependabot alerts and Dependabot security updates; team `reviewers` (the pull request reviewer, `push` on every repository) | `github` |
+| `terraform/github` | The organization's settings; repositories, their settings, `Default branch` rulesets and `ENG-` autolinks to Linear, Dependabot alerts and Dependabot security updates; team `reviewers` (the pull request reviewer, `push` on every repository) | `github` |
 | `.octomaton.yaml`, `.tekton/ci.yaml` | CI: `terraform fmt` and `validate` on pull requests and in the merge queue | none |
 | `Makefile` | `make terraform <root>`: `init`, then `apply` of one root | none |
 
@@ -37,8 +37,8 @@ State lives in the GCS bucket `arikkfir-devops`, one prefix per root.
   `container.clusters.connect` permission (owners have it).
 - For `terraform/github`, a token in `GITHUB_TOKEN`: a fine-grained personal access token with resource owner
   `arikkfir-org`, access to all repositories, the repository permissions **Administration: read and write** and
-  **Metadata: read**, and the organization permission **Members: read and write** (for team `reviewers`). The
-  organization must allow fine-grained tokens. A classic token with the `repo` and `admin:org` scopes also works.
+  **Metadata: read**, and the organization permissions **Administration: read and write** (the organization's
+  settings) and **Members: read and write** (team `reviewers`). The organization must allow fine-grained tokens. A classic token with the `repo` and `admin:org` scopes also works.
 
 ## Apply order
 
@@ -58,7 +58,9 @@ repository's Settings → General, new repositories included: under Features, Sp
 repository off. Two more are GitHub's defaults and need nothing unless someone changes them: pull requests open to
 all users (Features → Pull requests) and comments on individual commits allowed (Commits). In the `Default branch`
 ruleset, likewise, the provider sets neither "Restrict who can dismiss pull request reviews" (off by default) nor
-"Require an additional approval for unattributed Copilot pull requests" (on by default).
+"Require an additional approval for unattributed Copilot pull requests" (on by default). For the organization,
+Terraform sets the name, description and billing email, and leaves the rest of the profile and the security defaults
+for new repositories as they are: GitHub replaced those defaults with code security configurations.
 
 **Control plane access.** Only the DNS-based endpoint is enabled; both IP-based endpoints are off. Access needs IAM
 (`gcloud container clusters get-credentials hub --location=me-west1-a --dns-endpoint`). Nodes still reach the control
