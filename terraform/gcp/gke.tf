@@ -154,12 +154,11 @@ resource "google_container_node_pool" "ci" {
   name           = "ci"
   cluster        = google_container_cluster.hub.name
   location       = google_container_cluster.hub.location
-  node_locations = ["${var.region}-a", "${var.region}-b", "${var.region}-c"]
+  node_locations = [var.zone]
 
   autoscaling {
     total_min_node_count = var.ci_pool.min_nodes
     total_max_node_count = var.ci_pool.max_nodes
-    location_policy      = "ANY"
   }
 
   management {
