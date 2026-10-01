@@ -1,6 +1,7 @@
 resource "github_organization_settings" "arikkfir_org" {
-  # Required by the provider but never sent changed: see ignore_changes.
-  billing_email = "billing@example.com"
+  billing_email = "arikkfir@gmail.com"
+  name          = "arikkfir-org"
+  description   = "A personal development hub: the home of personal projects, and of the platform they are built and run on."
 
   has_organization_projects     = false
   has_repository_projects       = false
@@ -23,16 +24,13 @@ resource "github_organization_settings" "arikkfir_org" {
     # Destroying this resource would reset the billing email.
     prevent_destroy = true
 
-    # Kept by hand: the profile, and the billing email, which stays out of this public repository. GitHub has closed
-    # down the *_enabled_for_new_repositories parameters in favour of code security configurations.
+    # Kept by hand: the rest of the profile. GitHub has closed down the *_enabled_for_new_repositories parameters in
+    # favour of code security configurations.
     ignore_changes = [
-      billing_email,
       blog,
       company,
-      description,
       email,
       location,
-      name,
       twitter_username,
       advanced_security_enabled_for_new_repositories,
       dependabot_alerts_enabled_for_new_repositories,

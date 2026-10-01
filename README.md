@@ -59,8 +59,8 @@ repository off. Two more are GitHub's defaults and need nothing unless someone c
 all users (Features → Pull requests) and comments on individual commits allowed (Commits). In the `Default branch`
 ruleset, likewise, the provider sets neither "Restrict who can dismiss pull request reviews" (off by default) nor
 "Require an additional approval for unattributed Copilot pull requests" (on by default). For the organization,
-Terraform leaves the profile, the billing email (kept out of this public repository) and the security defaults for
-new repositories as they are: GitHub replaced those defaults with code security configurations.
+Terraform sets the name, description and billing email, and leaves the rest of the profile and the security defaults
+for new repositories as they are: GitHub replaced those defaults with code security configurations.
 
 **Control plane access.** Only the DNS-based endpoint is enabled; both IP-based endpoints are off. Access needs IAM
 (`gcloud container clusters get-credentials hub --location=me-west1-a --dns-endpoint`). Nodes still reach the control
