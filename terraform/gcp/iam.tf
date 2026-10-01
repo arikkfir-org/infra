@@ -4,17 +4,19 @@ locals {
   k8s_principal_prefix = "principal://iam.googleapis.com/projects/${var.project_number}/locations/global/workloadIdentityPools/${var.project_id}.svc.id.goog/subject"
 
   principals = {
-    external_secrets = "${local.k8s_principal_prefix}/ns/external-secrets/sa/external-secrets"
-    cert_manager     = "${local.k8s_principal_prefix}/ns/cert-manager/sa/cert-manager"
-    grafana          = "${local.k8s_principal_prefix}/ns/grafana/sa/grafana"
-    docs             = "${local.k8s_principal_prefix}/ns/docs/sa/docs"
-    octomaton        = "${local.k8s_principal_prefix}/ns/octomaton/sa/octomaton"
-    ci_docs          = "${local.k8s_principal_prefix}/ns/ci-docs/sa/pipeline"
-    ci_tooling       = "${local.k8s_principal_prefix}/ns/ci-tooling/sa/pipeline"
-    ci_octomaton     = "${local.k8s_principal_prefix}/ns/ci-octomaton/sa/pipeline"
-    ci_infra_plan    = "${local.k8s_principal_prefix}/ns/ci-infra/sa/ci-infra-plan"
-    ci_infra_apply   = "${local.k8s_principal_prefix}/ns/ci-infra/sa/ci-infra-apply"
-    gke_nodes        = google_service_account.gke_nodes.member
+    external_secrets     = "${local.k8s_principal_prefix}/ns/external-secrets/sa/external-secrets"
+    cert_manager         = "${local.k8s_principal_prefix}/ns/cert-manager/sa/cert-manager"
+    grafana              = "${local.k8s_principal_prefix}/ns/grafana/sa/grafana"
+    docs                 = "${local.k8s_principal_prefix}/ns/docs/sa/docs"
+    octomaton            = "${local.k8s_principal_prefix}/ns/octomaton/sa/octomaton"
+    ci_docs              = "${local.k8s_principal_prefix}/ns/ci-docs/sa/pipeline"
+    ci_tooling           = "${local.k8s_principal_prefix}/ns/ci-tooling/sa/pipeline"
+    ci_octomaton         = "${local.k8s_principal_prefix}/ns/ci-octomaton/sa/pipeline"
+    ci_tooling_publish   = "${local.k8s_principal_prefix}/ns/ci-tooling/sa/ci-tooling-publish"
+    ci_octomaton_release = "${local.k8s_principal_prefix}/ns/ci-octomaton/sa/ci-octomaton-release"
+    ci_infra_plan        = "${local.k8s_principal_prefix}/ns/ci-infra/sa/ci-infra-plan"
+    ci_infra_apply       = "${local.k8s_principal_prefix}/ns/ci-infra/sa/ci-infra-apply"
+    gke_nodes            = google_service_account.gke_nodes.member
   }
 
   project_iam = {
@@ -71,11 +73,16 @@ locals {
     "arikkfir-claude/allUsers/storage.legacyObjectReader"   = { bucket = "arikkfir-claude", role = "roles/storage.legacyObjectReader", member = "allUsers" }
     "arikkfir-claude/ci-tooling/storage.objectUser"         = { bucket = "arikkfir-claude", role = "roles/storage.objectUser", member = local.principals.ci_tooling }
     "arikkfir-claude/ci-tooling/storage.legacyBucketReader" = { bucket = "arikkfir-claude", role = "roles/storage.legacyBucketReader", member = local.principals.ci_tooling }
+    # tooling's publish pipeline, on main only (the ServiceAccount's octomaton.dev/branches).
+    "arikkfir-claude/ci-tooling-publish/storage.objectUser"         = { bucket = "arikkfir-claude", role = "roles/storage.objectUser", member = local.principals.ci_tooling_publish }
+    "arikkfir-claude/ci-tooling-publish/storage.legacyBucketReader" = { bucket = "arikkfir-claude", role = "roles/storage.legacyBucketReader", member = local.principals.ci_tooling_publish }
   })
 
   images_iam = {
     "ci-octomaton/artifactregistry.writer" = { role = "roles/artifactregistry.writer", member = local.principals.ci_octomaton }
-    "gke-nodes/artifactregistry.reader"    = { role = "roles/artifactregistry.reader", member = local.principals.gke_nodes }
+    # octomaton's release pipeline, on main only (the ServiceAccount's octomaton.dev/branches).
+    "ci-octomaton-release/artifactregistry.writer" = { role = "roles/artifactregistry.writer", member = local.principals.ci_octomaton_release }
+    "gke-nodes/artifactregistry.reader"            = { role = "roles/artifactregistry.reader", member = local.principals.gke_nodes }
   }
 }
 
