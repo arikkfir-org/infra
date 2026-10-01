@@ -15,7 +15,7 @@ To build the hub from scratch, follow the
 | --- | --- | --- |
 | `terraform/gcp` | APIs, VPC and Cloud NAT, ingress IPs, GKE cluster and node pools, Artifact Registry, buckets, secret containers, IAM, DNS zones and records | `gcp` |
 | `terraform/argocd` | Argo CD (bootstrap only) and the `root` Application | `argocd` |
-| `terraform/github` | Repositories, their default-branch rulesets, Dependabot alerts and Dependabot security updates; team `reviewers` (the pull request reviewer, `push` on every repository) | `github` |
+| `terraform/github` | Repositories, their settings, `Default branch` rulesets and `ENG-` autolinks to Linear, Dependabot alerts and Dependabot security updates; team `reviewers` (the pull request reviewer, `push` on every repository) | `github` |
 | `.octomaton.yaml`, `.tekton/ci.yaml` | CI: `terraform fmt` and `validate` on pull requests and in the merge queue | none |
 | `Makefile` | `make terraform <root>`: `init`, then `apply` of one root | none |
 
@@ -43,16 +43,22 @@ State lives in the GCS bucket `arikkfir-devops`, one prefix per root.
 ## Apply order
 
 Apply the roots in this order, each with `make terraform <root>`. It runs `terraform -chdir=terraform/<root> init` and
-then `apply`, which shows the plan and asks before it changes anything. Pass variables in `ARGS` or as `TF_VAR_*`:
+then `apply`, which shows the plan and asks before it changes anything.
 
 1. `gcp`: the cluster must exist before Argo CD can be installed. The first plan imports the existing `kfirs-com` and
    `kfirfamily-com` zones and must show no changes to them.
 2. `argocd`: installs Argo CD, which then syncs everything from `arikkfir-org/delivery`, including Octomaton.
 3. `github`: the first plan imports the six existing repositories. The rulesets require the `Continuous Integration`
-   check, so apply them once Octomaton reports it. Pass the Octomaton App's ID so that only the App can satisfy the
-   check: `make terraform github ARGS='-var octomaton_app_id=<id>'`.
+   check, so apply them once Octomaton reports it.
 
 ## Notes
+
+**GitHub settings outside Terraform.** The provider has no argument for these, so set them by hand in each
+repository's Settings → General, new repositories included: under Features, Sponsorships on and Preserve this
+repository off. Two more are GitHub's defaults and need nothing unless someone changes them: pull requests open to
+all users (Features → Pull requests) and comments on individual commits allowed (Commits). In the `Default branch`
+ruleset, likewise, the provider sets neither "Restrict who can dismiss pull request reviews" (off by default) nor
+"Require an additional approval for unattributed Copilot pull requests" (on by default).
 
 **Control plane access.** Only the DNS-based endpoint is enabled; both IP-based endpoints are off. Access needs IAM
 (`gcloud container clusters get-credentials hub --location=me-west1-a --dns-endpoint`). Nodes still reach the control

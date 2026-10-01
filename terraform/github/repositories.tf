@@ -1,60 +1,29 @@
 locals {
-  # protected = true: default branch changes only through a reviewed pull request and the merge queue.
-  # protected = false: direct pushes to the default branch are allowed (deletion and force-push are not).
+  # checks: required status checks beyond Continuous Integration, which every repository requires.
   repositories = {
     ".github" = {
-      description                       = "The organization's welcome page on GitHub."
-      protected                         = true
-      max_entries_to_build              = 5
-      min_entries_to_merge              = 1
-      max_entries_to_merge              = 5
-      min_entries_to_merge_wait_minutes = 3
-      check_response_timeout_minutes    = 60
+      description = "The organization's welcome page on GitHub."
+      checks      = []
     }
     docs = {
-      description                       = "Knowledge base of the development hub, published to the arikkfir-docs bucket."
-      protected                         = true
-      max_entries_to_build              = 5
-      min_entries_to_merge              = 1
-      max_entries_to_merge              = 5
-      min_entries_to_merge_wait_minutes = 3
-      check_response_timeout_minutes    = 60
+      description = "Knowledge base of the development hub, published to the arikkfir-docs bucket."
+      checks      = []
     }
     infra = {
-      description                       = "Terraform for GitHub, GCP and the Argo CD bootstrap."
-      protected                         = true
-      max_entries_to_build              = 1
-      min_entries_to_merge              = 1
-      max_entries_to_merge              = 1
-      min_entries_to_merge_wait_minutes = 0
-      check_response_timeout_minutes    = 60
+      description = "Terraform for GitHub, GCP and the Argo CD bootstrap."
+      checks      = []
     }
     delivery = {
-      description                       = "Argo CD applications (GitOps) for the hub cluster."
-      protected                         = true
-      max_entries_to_build              = 5
-      min_entries_to_merge              = 1
-      max_entries_to_merge              = 5
-      min_entries_to_merge_wait_minutes = 3
-      check_response_timeout_minutes    = 60
+      description = "Argo CD applications (GitOps) for the hub cluster."
+      checks      = []
     }
     octomaton = {
-      description                       = "CI orchestrator: a GitHub App that runs Tekton pipelines."
-      protected                         = true
-      max_entries_to_build              = 5
-      min_entries_to_merge              = 1
-      max_entries_to_merge              = 5
-      min_entries_to_merge_wait_minutes = 3
-      check_response_timeout_minutes    = 60
+      description = "CI orchestrator: a GitHub App that runs Tekton pipelines."
+      checks      = []
     }
     tooling = {
-      description                       = "Org-wide tooling: the Claude Code bundle, the pull request reviewer and the organization pipelines."
-      protected                         = true
-      max_entries_to_build              = 5
-      min_entries_to_merge              = 1
-      max_entries_to_merge              = 5
-      min_entries_to_merge_wait_minutes = 3
-      check_response_timeout_minutes    = 60
+      description = "Org-wide tooling: the Claude Code bundle, the pull request reviewer and the organization pipelines."
+      checks      = []
     }
   }
 }
@@ -69,7 +38,7 @@ resource "github_repository" "this" {
   has_issues      = false
   has_projects    = false
   has_wiki        = false
-  has_discussions = false
+  has_discussions = true
 
   allow_squash_merge          = true
   allow_merge_commit          = true
@@ -105,4 +74,13 @@ resource "github_repository_dependabot_security_updates" "this" {
   # Security updates need the alerts enabled first.
   repository = github_repository_vulnerability_alerts.this[each.key].repository
   enabled    = true
+}
+
+resource "github_repository_autolink_reference" "linear" {
+  for_each = local.repositories
+
+  repository          = github_repository.this[each.key].name
+  key_prefix          = "ENG-"
+  target_url_template = "https://linear.app/arikkfir/issue/ENG-<num>"
+  is_alphanumeric     = true
 }
