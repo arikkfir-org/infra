@@ -66,6 +66,10 @@ spec:
             - name: github
               emptyDir:
                 medium: Memory
+            # Terraform's provider cache. init links .terraform/providers into it, so every step that runs terraform
+            # must see the same cache, not its own container's /tmp.
+            - name: terraform-plugins
+              emptyDir: {}
           stepTemplate:
             workingDir: $(workspaces.source.path)
             env:
@@ -76,6 +80,8 @@ spec:
             volumeMounts:
               - name: github
                 mountPath: /var/run/github
+              - name: terraform-plugins
+                mountPath: /tmp/terraform-plugins
           # plan-summary.py sizes its results for a pod of at most 10 containers: three init containers and the steps.
           steps:
             - name: clone
