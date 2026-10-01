@@ -47,6 +47,9 @@ resource "github_repository" "this" {
   description = each.value.description
   visibility  = each.value.visibility
 
+  # Public repositories can always be forked; the organization forbids forking private and internal ones.
+  allow_forking = each.value.visibility == "public"
+
   has_issues      = false
   has_projects    = false
   has_wiki        = false
@@ -57,7 +60,6 @@ resource "github_repository" "this" {
   allow_rebase_merge          = true
   allow_auto_merge            = true
   delete_branch_on_merge      = true
-  allow_forking               = true
   allow_update_branch         = true
   archived                    = false
   merge_commit_title          = "PR_TITLE"
