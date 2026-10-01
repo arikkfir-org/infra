@@ -95,5 +95,6 @@ self-managed values no longer render are not pruned; delete them once by hand.
 
 **Cost.** The cluster is zonal. The GKE free tier covers the management fee of one zonal cluster per billing account,
 but its single control plane is unavailable during control plane upgrades. Maintenance runs on Fridays and Saturdays, 00:00-08:00 UTC. The
-Spot `ci` pool scales to zero. Monitoring collects free system metrics only. Managed Prometheus is on for
+`ci` pool scales to zero. It runs on-demand VMs: Spot capacity in the region ran out often enough to preempt most CI
+runs. Monitoring collects free system metrics only. Managed Prometheus is on for
 `PodMonitoring` resources.

@@ -170,7 +170,6 @@ resource "google_container_node_pool" "ci" {
   node_config {
     machine_type    = var.ci_pool.machine_type
     image_type      = "COS_CONTAINERD"
-    spot            = true
     service_account = google_service_account.gke_nodes.email
     oauth_scopes    = ["https://www.googleapis.com/auth/cloud-platform"]
 
