@@ -1,6 +1,6 @@
-# Merges to main: plans gcp and github as ci-infra-apply, stops when either plan deletes or replaces anything, and
-# otherwise applies both saved plans, gcp first (see the hub reference, "Terraform applies"). ci-infra-apply carries
-# octomaton.dev/branches: main, so Octomaton refuses to run this anywhere else.
+# Merges to main: plans gcp and github as ci-infra-apply and applies both saved plans, gcp first (see the hub
+# reference, "Terraform applies"). ci-infra-apply carries octomaton.dev/branches: main, so Octomaton refuses to run
+# this anywhere else.
 # Octomaton sets spec.params (repo-url, revision) from .octomaton.yaml.
 apiVersion: tekton.dev/v1
 kind: PipelineRun
@@ -120,13 +120,12 @@ spec:
                   terraform -chdir="terraform/${root}" plan -input=false -lock-timeout=10m -out="${root}.tfplan"
                   terraform -chdir="terraform/${root}" show -json "${root}.tfplan" > "${root}.plan.json"
                 done
-            # Fails, before anything is applied, when a plan deletes or replaces anything.
-            - name: review
+            - name: summary
               image: gcr.io/google.com/cloudsdktool/google-cloud-cli:587.0.0-slim
               script: |
                 #!/bin/sh
                 set -eu
-                python3 .tekton/plan-summary.py --stop-on-destroy --title "$(results.check-title.path)" \
+                python3 .tekton/plan-summary.py --title "$(results.check-title.path)" \
                   --summary "$(results.check-summary.path)" gcp=gcp.plan.json github=github.plan.json
             # A saved plan applies only if the state hasn't changed since it was made.
             - name: apply

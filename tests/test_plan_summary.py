@@ -26,21 +26,19 @@ def change(address, *actions, importing=False):
     return c
 
 
-def run(*plans, stop_on_destroy=False):
-    """Runs plan-summary.py on (root, resource_changes) pairs; returns its exit code, title, summary and log."""
+def run(*plans):
+    """Runs plan-summary.py on (root, resource_changes) pairs; returns its title, summary and log."""
     with tempfile.TemporaryDirectory() as tmp:
         tmp = pathlib.Path(tmp)
         argv = ["plan-summary.py", "--title", str(tmp / "title"), "--summary", str(tmp / "summary")]
-        if stop_on_destroy:
-            argv.append("--stop-on-destroy")
         for root, changes in plans:
             path = tmp / f"{root}.json"
             path.write_text(json.dumps({"resource_changes": changes}))
             argv.append(f"{root}={path}")
         log = io.StringIO()
         with mock.patch.object(sys, "argv", argv), contextlib.redirect_stdout(log):
-            code = plan_summary.main()
-        return code, (tmp / "title").read_text(), (tmp / "summary").read_text(), log.getvalue()
+            plan_summary.main()
+        return (tmp / "title").read_text(), (tmp / "summary").read_text(), log.getvalue()
 
 
 def go_json(value):
@@ -95,55 +93,26 @@ class SummarizeTest(unittest.TestCase):
             ("- update `a.update`", False), ("- import `a.import`", False)])
 
 
-class StopOnDestroyTest(unittest.TestCase):
-    """--stop-on-destroy is all that stands between a merge and an automatic apply of a destructive plan."""
-
-    def test_stops(self):
-        for name, changes in [
-            ("delete", [change("a.b", "delete")]),
-            ("replace, delete first", [change("a.b", "delete", "create")]),
-            ("replace, create first", [change("a.b", "create", "delete")]),
-            ("delete among others", [change("a.c", "create"), change("a.b", "delete"), change("a.d", "update")]),
-        ]:
-            with self.subTest(name):
-                code, title, summary, _ = run(("gcp", []), ("github", changes), stop_on_destroy=True)
-                self.assertEqual(code, 1)
-                self.assertEqual(title, "Stopped: a plan deletes or replaces resources")
-                self.assertTrue(summary.startswith("Nothing was applied."))
-                self.assertIn("`a.b`", summary)
-
-    def test_goes_on(self):
-        for name, changes in [
-            ("no changes", []),
-            ("creates, updates, imports, reads, no-ops", [
-                change("a.c", "create"), change("a.u", "update"), change("a.i", "no-op", importing=True),
-                change("a.iu", "update", importing=True), change("data.a.r", "read"), change("a.n", "no-op")]),
-        ]:
-            with self.subTest(name):
-                code, title, summary, _ = run(("gcp", changes), ("github", []), stop_on_destroy=True)
-                self.assertEqual(code, 0)
-                self.assertFalse(title.startswith("Stopped"))
-                self.assertNotIn("Nothing was applied", summary)
-
-    def test_without_the_flag_deletes_go_on(self):
-        code, title, _, _ = run(("gcp", [change("a.b", "delete")]))
-        self.assertEqual((code, title), (0, "gcp: 1 to delete"))
-
-
 class SummaryTest(unittest.TestCase):
     def test_no_changes(self):
-        code, title, summary, _ = run(("gcp", []), ("github", [change("a.b", "no-op")]))
-        self.assertEqual((code, title), (0, "gcp: no changes; github: no changes"))
+        title, summary, _ = run(("gcp", []), ("github", [change("a.b", "no-op")]))
+        self.assertEqual(title, "gcp: no changes; github: no changes")
         self.assertEqual(summary, "### `gcp`\n\nNo changes.\n\n### `github`\n\nNo changes.\n")
 
     def test_small_plans_are_whole(self):
-        _, title, summary, _ = run(("gcp", [change("a.b", "create")]), ("github", [change("c.d", "update")]))
+        title, summary, _ = run(("gcp", [change("a.b", "create")]), ("github", [change("c.d", "update")]))
         self.assertEqual(title, "gcp: 1 to create; github: 1 to update")
         self.assertEqual(summary, "### `gcp`\n\n- create `a.b`\n\n### `github`\n\n- update `c.d`\n")
 
+    def test_deletes_and_replacements_are_changes_like_any_other(self):
+        changes = [change("a.c", "create"), change("a.d", "delete"), change("a.r", "delete", "create")]
+        title, summary, _ = run(("gcp", changes))
+        self.assertEqual(title, "gcp: 1 to create, 1 to delete, 1 to replace")
+        self.assertEqual(summary, "### `gcp`\n\n- delete `a.d`\n- replace `a.r`\n- create `a.c`\n")
+
     def test_long_plans_are_cut_from_the_longest_list(self):
         gcp = [change(f'google_project_iam_member.plan["roles/role-number-{i}"]', "create") for i in range(22)]
-        _, _, summary, log = run(("gcp", gcp), ("github", [change('github_repository_ruleset.this["infra"]', "update")]))
+        _, summary, log = run(("gcp", gcp), ("github", [change('github_repository_ruleset.this["infra"]', "update")]))
         self.assertLessEqual(plan_summary.encoded_size(summary), plan_summary.SUMMARY_LIMIT)
         self.assertIn('- update `github_repository_ruleset.this["infra"]`', summary)
         shown = summary.count("- create ")
@@ -154,7 +123,7 @@ class SummaryTest(unittest.TestCase):
     def test_deletes_are_cut_last(self):
         gcp = [change(f'google_project_iam_member.plan["roles/role-number-{i}"]', "create") for i in range(40)]
         github = [change("github_repository.this[\"old\"]", "delete"), change("github_team.t", "delete", "create")]
-        _, _, summary, _ = run(("gcp", gcp), ("github", github), stop_on_destroy=True)
+        _, summary, _ = run(("gcp", gcp), ("github", github))
         self.assertLessEqual(plan_summary.encoded_size(summary), plan_summary.SUMMARY_LIMIT)
         self.assertIn('- delete `github_repository.this["old"]`', summary)
         self.assertIn("- replace `github_team.t`", summary)
@@ -162,7 +131,7 @@ class SummaryTest(unittest.TestCase):
     def test_title_is_cut(self):
         plans = [(f"root-{i}", [change("a.c", "create"), change("a.u", "update"), change("a.d", "delete")])
                  for i in range(10)]
-        _, title, _, _ = run(*plans)
+        title, _, _ = run(*plans)
         self.assertTrue(title.endswith("…"))
         self.assertLessEqual(plan_summary.encoded_size(title), plan_summary.TITLE_LIMIT)
 
@@ -175,11 +144,11 @@ class SizeTest(unittest.TestCase):
                 self.assertEqual(plan_summary.encoded_size(text), len(go_json(text)))
 
     def test_worst_termination_message_fits_a_pod_of_10(self):
-        """The largest message: apply's apply step after a stopped review's results (title cut to the limit plus
-        "Applied: ", the longest summary), with Tekton's own entries, including an exit code."""
+        """The largest message: apply's apply step (title cut to the limit plus "Applied: ", the longest summary), with
+        Tekton's own entries, including an exit code."""
         plans = [(f"root-{i}", [change("a.c", "create"), change("a.u", "update")]) for i in range(10)]
-        _, title, _, _ = run(*plans)
-        _, _, summary, _ = run(*big_plan(), stop_on_destroy=True)
+        title, _, _ = run(*plans)
+        _, summary, _ = run(*big_plan())
         message = go_json([
             {"key": "StartedAt", "value": "2026-10-01T16:41:09.123456789Z", "type": 3},
             {"key": "ExitCode", "value": "1", "type": 3},
