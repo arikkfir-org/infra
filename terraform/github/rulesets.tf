@@ -1,3 +1,8 @@
+locals {
+  # The App ID of octomaton-dev, the Octomaton GitHub App (hub reference).
+  octomaton_app_id = 5114814
+}
+
 resource "github_repository_ruleset" "default-branch" {
   for_each = local.repositories
 
@@ -39,12 +44,17 @@ resource "github_repository_ruleset" "default-branch" {
       allowed_merge_methods             = ["merge"]
     }
 
-    # No integration_id: any source may report a required check.
     required_status_checks {
       strict_required_status_checks_policy = false
 
+      # Only Octomaton may report it; a repository's own checks may come from any source.
+      required_check {
+        context        = "Continuous Integration"
+        integration_id = local.octomaton_app_id
+      }
+
       dynamic "required_check" {
-        for_each = toset(concat(["Continuous Integration"], each.value.checks))
+        for_each = toset(each.value.checks)
 
         content {
           context = required_check.value

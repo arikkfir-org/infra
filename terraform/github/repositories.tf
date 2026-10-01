@@ -1,29 +1,41 @@
 locals {
   # checks: required status checks beyond Continuous Integration, which every repository requires.
+  # visibility: public, or internal (members of the organization's enterprise only).
   repositories = {
     ".github" = {
       description = "The organization's welcome page on GitHub."
       checks      = []
+      visibility  = "public"
     }
     docs = {
       description = "Knowledge base of the development hub, published to the arikkfir-docs bucket."
       checks      = []
+      visibility  = "public"
     }
     infra = {
       description = "Terraform for GitHub, GCP and the Argo CD bootstrap."
       checks      = []
+      visibility  = "public"
     }
     delivery = {
       description = "Argo CD applications (GitOps) for the hub cluster."
       checks      = []
+      visibility  = "public"
     }
     octomaton = {
       description = "CI orchestrator: a GitHub App that runs Tekton pipelines."
       checks      = []
+      visibility  = "public"
     }
     tooling = {
       description = "Org-wide tooling: the Claude Code bundle, the pull request reviewer and the organization pipelines."
       checks      = []
+      visibility  = "public"
+    }
+    fin = {
+      description = "Your personal finance manager and assistant."
+      checks      = []
+      visibility  = "internal"
     }
   }
 }
@@ -33,7 +45,7 @@ resource "github_repository" "this" {
 
   name        = each.key
   description = each.value.description
-  visibility  = "public"
+  visibility  = each.value.visibility
 
   has_issues      = false
   has_projects    = false

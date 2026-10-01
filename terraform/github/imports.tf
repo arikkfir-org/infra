@@ -1,7 +1,7 @@
-# Repositories that existed before this repository; import adopts them. Repositories added to
-# local.repositories later are created instead, so do not extend this list.
+# Repositories created by hand; import adopts them. A repository first added to local.repositories is created
+# instead, so list only repositories that already exist.
 import {
-  for_each = toset([".github", "docs", "infra", "delivery", "octomaton", "tooling"])
+  for_each = toset([".github", "docs", "infra", "delivery", "octomaton", "tooling", "fin"])
   to       = github_repository.this[each.key]
   id       = each.key
 }
