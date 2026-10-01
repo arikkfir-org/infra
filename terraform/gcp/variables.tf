@@ -17,7 +17,7 @@ variable "region" {
 }
 
 variable "zone" {
-  description = "Zone of the (zonal) GKE cluster control plane and of the system node pool."
+  description = "Zone of the (zonal) GKE cluster control plane and of both node pools."
   type        = string
   default     = "me-west1-a"
 }
@@ -57,7 +57,7 @@ variable "system_pool" {
 }
 
 variable "ci_pool" {
-  description = "Machine type and autoscaling bounds (total nodes across its zones) of the on-demand CI node pool."
+  description = "Machine type and autoscaling bounds of the on-demand CI node pool."
   type = object({
     machine_type = string
     min_nodes    = number
