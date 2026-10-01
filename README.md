@@ -37,9 +37,11 @@ State lives in the GCS bucket `arikkfir-devops`, one prefix per root.
   project owner. The `argocd` root reaches the cluster through its DNS endpoint, which needs the
   `container.clusters.connect` permission (owners have it).
 - For `terraform/github`, a token in `GITHUB_TOKEN`: a fine-grained personal access token with resource owner
-  `arikkfir-org`, access to all repositories, the repository permissions **Administration: read and write** and
-  **Metadata: read**, and the organization permissions **Administration: read and write** (the organization's
-  settings) and **Members: read and write** (team `reviewers`). The organization must allow fine-grained tokens. A classic token with the `repo` and `admin:org` scopes also works.
+  `arikkfir-org`, access to all repositories, the repository permissions **Administration: read and write**,
+  **Contents: read and write** (GitHub shows merge settings only to tokens with it; without it every plan shows them
+  changed) and **Metadata: read**, and the organization permissions **Administration: read and write** (the
+  organization's settings) and **Members: read and write** (team `reviewers`). The organization must allow
+  fine-grained tokens. A classic token with the `repo` and `admin:org` scopes also works.
 
 ## Apply order
 
@@ -61,7 +63,8 @@ After that, every merge to `main` applies `gcp` and `github` through Octomaton (
   plan deletes or replaces anything, it stops before applying and the `Apply` check lists the changes.
 - By hand, with `make terraform <root>`: `argocd`, an apply the pipeline stopped, and a change to the pipelines' own
   roles or tokens, which they can't apply to themselves the first time. The tokens are the Secret Manager secrets
-  `infra-plan-github-pat` and `infra-apply-github-pat` (`gcloud secrets versions add`).
+  `infra-plan-github-pat` and `infra-apply-github-pat` (`gcloud secrets versions add`), with the permissions the hub
+  reference lists; both need Contents read and write, for the same reason.
 
 ## Notes
 
