@@ -1,14 +1,14 @@
-# Pull requests and the merge queue: checks formatting, validates every root, and plans gcp and github as the
-# ServiceAccount ci-infra-plan (read-only GCP roles), without taking the state lock (see the hub reference,
-# "Terraform applies").
+# Merges to main: plans gcp and github as ci-infra-apply, stops when either plan deletes or replaces anything, and
+# otherwise applies both saved plans, gcp first (see the hub reference, "Terraform applies"). ci-infra-apply carries
+# octomaton.dev/branches: main, so Octomaton refuses to run this anywhere else.
 # Octomaton sets spec.params (repo-url, revision) from .octomaton.yaml.
 apiVersion: tekton.dev/v1
 kind: PipelineRun
 metadata:
-  generateName: infra-ci-
+  generateName: infra-apply-
 spec:
   taskRunTemplate:
-    serviceAccountName: ci-infra-plan
+    serviceAccountName: ci-infra-apply
   # Reserved once for all of the task's steps (step-level requests would add up as if the steps ran at once).
   taskRunSpecs:
     - pipelineTaskName: terraform
@@ -19,7 +19,7 @@ spec:
         limits:
           memory: 2Gi
   timeouts:
-    pipeline: 30m
+    pipeline: 1h
   workspaces:
     - name: source
       emptyDir: {}
@@ -30,7 +30,7 @@ spec:
         description: Clone URL of the repository.
       - name: revision
         type: string
-        description: Commit SHA to check.
+        description: Commit SHA to apply.
     workspaces:
       - name: source
     results:
@@ -92,36 +92,13 @@ spec:
                 git remote add origin "$REPO_URL"
                 git fetch --quiet --depth=1 origin "$REVISION"
                 git checkout --quiet FETCH_HEAD
-            - name: test
-              image: gcr.io/google.com/cloudsdktool/google-cloud-cli:587.0.0-slim
-              script: |
-                #!/bin/sh
-                set -eu
-                python3 -m unittest discover -s tests
-            - name: fmt
-              image: hashicorp/terraform:1.16.4
-              script: |
-                #!/bin/sh
-                set -eu
-                terraform fmt -check -recursive -diff
-            - name: validate
-              image: hashicorp/terraform:1.16.4
-              script: |
-                #!/bin/sh
-                set -eu
-                mkdir -p "$TF_PLUGIN_CACHE_DIR"
-                for root in terraform/gcp terraform/argocd terraform/github; do
-                  echo "==> ${root}"
-                  terraform -chdir="${root}" init -backend=false -input=false
-                  terraform -chdir="${root}" validate
-                done
             - name: token
               image: gcr.io/google.com/cloudsdktool/google-cloud-cli:587.0.0-slim
               script: |
                 #!/bin/sh
                 set -eu
                 umask 077
-                gcloud secrets versions access latest --secret=infra-plan-github-pat --project=arikkfir \
+                gcloud secrets versions access latest --secret=infra-apply-github-pat --project=arikkfir \
                   > /var/run/github/token
             - name: plan
               image: hashicorp/terraform:1.16.4
@@ -134,13 +111,28 @@ spec:
                 for root in gcp github; do
                   echo "==> terraform/${root}"
                   terraform -chdir="terraform/${root}" init -input=false
-                  terraform -chdir="terraform/${root}" plan -input=false -lock=false -out="${root}.tfplan"
+                  terraform -chdir="terraform/${root}" plan -input=false -lock-timeout=10m -out="${root}.tfplan"
                   terraform -chdir="terraform/${root}" show -json "${root}.tfplan" > "${root}.plan.json"
                 done
-            - name: summary
+            # Fails, before anything is applied, when a plan deletes or replaces anything.
+            - name: review
               image: gcr.io/google.com/cloudsdktool/google-cloud-cli:587.0.0-slim
               script: |
                 #!/bin/sh
                 set -eu
-                python3 .tekton/plan-summary.py --title "$(results.check-title.path)" \
+                python3 .tekton/plan-summary.py --stop-on-destroy --title "$(results.check-title.path)" \
                   --summary "$(results.check-summary.path)" gcp=gcp.plan.json github=github.plan.json
+            # A saved plan applies only if the state hasn't changed since it was made.
+            - name: apply
+              image: hashicorp/terraform:1.16.4
+              script: |
+                #!/bin/sh
+                set -eu
+                mkdir -p "$TF_PLUGIN_CACHE_DIR"
+                GITHUB_TOKEN="$(cat /var/run/github/token)"
+                export GITHUB_TOKEN
+                for root in gcp github; do
+                  echo "==> terraform/${root}"
+                  terraform -chdir="terraform/${root}" apply -input=false -lock-timeout=10m "${root}.tfplan"
+                done
+                printf 'Applied: %s' "$(cat "$(results.check-title.path)")" > "$(results.check-title.path)"

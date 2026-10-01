@@ -5,10 +5,11 @@
 - Treat the hub reference (`hub/reference.md` in `arikkfir-org/docs`) as the contract for every name, ID, CIDR, role
   and host. If a change needs a new or different value, say so; do not diverge silently.
 - Never run `terraform apply`, `make terraform`, `destroy`, `import`, `state …`, `taint`, `force-unlock` or anything
-  else that changes real infrastructure or state. Never call GCP or GitHub APIs to inspect live resources. The owner
-  plans and applies.
+  else that changes real infrastructure or state. Never call GCP or GitHub APIs to inspect live resources. Pipeline
+  `apply` applies `gcp` and `github` on each merge to `main`; the owner applies the rest by hand (see README.md).
 - Before finishing, run `terraform fmt -recursive` at the repository root, then, in each root under `terraform/`:
-  `terraform init -backend=false -input=false && terraform validate`. CI (`.tekton/ci.yaml`) runs the same checks.
+  `terraform init -backend=false -input=false && terraform validate`. After changing `.tekton/plan-summary.py`, run
+  `python3 -m unittest discover -s tests`. CI (`.tekton/ci.yaml`) runs the same checks and plans `gcp` and `github`.
 - Check every argument against the pinned provider schema (`terraform providers schema -json`). Do not use deprecated
   arguments.
 - After changing provider versions, run

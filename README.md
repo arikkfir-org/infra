@@ -16,7 +16,8 @@ To build the hub from scratch, follow the
 | `terraform/gcp` | APIs, VPC and Cloud NAT, ingress IPs, GKE cluster and node pools, Artifact Registry, buckets, secret containers, IAM, DNS zones and records | `gcp` |
 | `terraform/argocd` | Argo CD (bootstrap only) and the `root` Application | `argocd` |
 | `terraform/github` | The organization's settings; repositories, their settings, `Default branch` rulesets and `ENG-` autolinks to Linear, Dependabot alerts and Dependabot security updates; team `reviewers` (the pull request reviewer, `push` on every repository) | `github` |
-| `.octomaton.yaml`, `.tekton/ci.yaml` | CI: `terraform fmt` and `validate` on pull requests and in the merge queue | none |
+| `.octomaton.yaml`, `.tekton/` | Pipeline `ci` (`Continuous Integration`): unit tests, `terraform fmt`, `validate`, and plans of `gcp` and `github` on pull requests and in the merge queue. Pipeline `apply` (`Apply`): applies `gcp` and `github` on each merge to `main` | none |
+| `tests/` | Unit tests of `.tekton/plan-summary.py` (`python3 -m unittest discover -s tests`), which `ci` runs | none |
 | `Makefile` | `make terraform <root>`: `init`, then `apply` of one root | none |
 
 State lives in the GCS bucket `arikkfir-devops`, one prefix per root.
@@ -36,9 +37,11 @@ State lives in the GCS bucket `arikkfir-devops`, one prefix per root.
   project owner. The `argocd` root reaches the cluster through its DNS endpoint, which needs the
   `container.clusters.connect` permission (owners have it).
 - For `terraform/github`, a token in `GITHUB_TOKEN`: a fine-grained personal access token with resource owner
-  `arikkfir-org`, access to all repositories, the repository permissions **Administration: read and write** and
-  **Metadata: read**, and the organization permissions **Administration: read and write** (the organization's
-  settings) and **Members: read and write** (team `reviewers`). The organization must allow fine-grained tokens. A classic token with the `repo` and `admin:org` scopes also works.
+  `arikkfir-org`, access to all repositories, the repository permissions **Administration: read and write**,
+  **Contents: read and write** (GitHub shows merge settings only to tokens with it; without it every plan shows them
+  changed) and **Metadata: read**, and the organization permissions **Administration: read and write** (the
+  organization's settings) and **Members: read and write** (team `reviewers`). The organization must allow
+  fine-grained tokens. A classic token with the `repo` and `admin:org` scopes also works.
 
 ## Apply order
 
@@ -50,6 +53,20 @@ then `apply`, which shows the plan and asks before it changes anything.
 2. `argocd`: installs Argo CD, which then syncs everything from `arikkfir-org/delivery`, including Octomaton.
 3. `github`: the first plan imports the existing repositories (`imports.tf`). The rulesets require the `Continuous Integration`
    check from the Octomaton App, so apply them once Octomaton reports it.
+
+After that, every merge to `main` applies `gcp` and `github` through Octomaton (hub reference, "Terraform applies"):
+
+- Pull requests and the merge queue plan both roots as `ci-infra/ci-infra-plan`. Its GCP roles only read, but its
+  GitHub token also writes contents (GitHub shows merge settings only to such tokens), so code in a pull request can
+  push branches and tags to every repository, though not to default branches. The `Continuous Integration` check lists
+  the planned changes (a long list is cut short; its log has them all). The merge queue takes one pull request at a
+  time, after the previous merge was applied.
+- Pipeline `apply` plans both again as `ci-infra/ci-infra-apply` and applies the saved plans, `gcp` first. If either
+  plan deletes or replaces anything, it stops before applying and the `Apply` check lists the changes.
+- By hand, with `make terraform <root>`: `argocd`, an apply the pipeline stopped, and a change to the pipelines' own
+  roles or tokens, which they can't apply to themselves the first time. The tokens are the Secret Manager secrets
+  `infra-plan-github-pat` and `infra-apply-github-pat` (`gcloud secrets versions add`), with the permissions the hub
+  reference lists; both need Contents read and write, for the same reason.
 
 ## Notes
 
