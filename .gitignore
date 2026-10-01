@@ -42,3 +42,6 @@ terraform.rc
 
 # JetBrains IDE project files
 .idea/
+
+# Python bytecode from tests/
+__pycache__/

@@ -91,6 +91,12 @@ spec:
                 git remote add origin "$REPO_URL"
                 git fetch --quiet --depth=1 origin "$REVISION"
                 git checkout --quiet FETCH_HEAD
+            - name: test
+              image: gcr.io/google.com/cloudsdktool/google-cloud-cli:587.0.0-slim
+              script: |
+                #!/bin/sh
+                set -eu
+                python3 -m unittest discover -s tests
             - name: fmt
               image: hashicorp/terraform:1.16.4
               script: |

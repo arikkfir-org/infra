@@ -16,7 +16,8 @@ To build the hub from scratch, follow the
 | `terraform/gcp` | APIs, VPC and Cloud NAT, ingress IPs, GKE cluster and node pools, Artifact Registry, buckets, secret containers, IAM, DNS zones and records | `gcp` |
 | `terraform/argocd` | Argo CD (bootstrap only) and the `root` Application | `argocd` |
 | `terraform/github` | The organization's settings; repositories, their settings, `Default branch` rulesets and `ENG-` autolinks to Linear, Dependabot alerts and Dependabot security updates; team `reviewers` (the pull request reviewer, `push` on every repository) | `github` |
-| `.octomaton.yaml`, `.tekton/` | Pipeline `ci` (`Continuous Integration`): `terraform fmt`, `validate`, and plans of `gcp` and `github` on pull requests and in the merge queue. Pipeline `apply` (`Apply`): applies `gcp` and `github` on each merge to `main` | none |
+| `.octomaton.yaml`, `.tekton/` | Pipeline `ci` (`Continuous Integration`): unit tests, `terraform fmt`, `validate`, and plans of `gcp` and `github` on pull requests and in the merge queue. Pipeline `apply` (`Apply`): applies `gcp` and `github` on each merge to `main` | none |
+| `tests/` | Unit tests of `.tekton/plan-summary.py` (`python3 -m unittest discover -s tests`), which `ci` runs | none |
 | `Makefile` | `make terraform <root>`: `init`, then `apply` of one root | none |
 
 State lives in the GCS bucket `arikkfir-devops`, one prefix per root.

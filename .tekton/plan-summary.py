@@ -10,17 +10,20 @@ import argparse
 import json
 import sys
 
-# Tekton hands results to its controller in each step's termination message, and the kubelet keeps 12 KiB of
-# termination messages per pod, split evenly over its containers: 1228 bytes each in a pod of 10 (the pipelines'
-# pods have 8 and 9: three init containers and the steps). Tekton's own entries take about 200 of them. Limits are
-# in bytes of the JSON-encoded value.
+# Tekton hands results to its controller in each step's termination message, and the kubelet cuts every container's
+# message to 12 KiB divided by the number of containers in its pod (normalizeStatus in Kubernetes'
+# pkg/kubelet/status/status_manager.go): 1228 bytes in a pod of 10. The pipelines' pods have 8 and 10 (three init
+# containers and the steps). Tekton's own entries take about 200 bytes and apply's "Applied: " prefix 9. Limits are
+# in bytes of the JSON string, quotes included.
 TITLE_LIMIT = 120
 SUMMARY_LIMIT = 850
 
 
 def encoded_size(text):
-    """Size of text in a termination message: JSON as Go encodes it, which also escapes <, > and &."""
-    return len(json.dumps(text, ensure_ascii=False).encode()) - 2 + 5 * sum(text.count(c) for c in "<>&")
+    """Size of text as a JSON string in a termination message, as Go encodes it: it also escapes <, >, & (6 bytes
+    instead of 1) and U+2028, U+2029 (6 instead of 3)."""
+    return (len(json.dumps(text, ensure_ascii=False).encode()) + 5 * sum(text.count(c) for c in "<>&")
+            + 3 * sum(text.count(c) for c in "  "))
 
 
 def verb(change):

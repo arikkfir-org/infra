@@ -8,8 +8,8 @@
   else that changes real infrastructure or state. Never call GCP or GitHub APIs to inspect live resources. Pipeline
   `apply` applies `gcp` and `github` on each merge to `main`; the owner applies the rest by hand (see README.md).
 - Before finishing, run `terraform fmt -recursive` at the repository root, then, in each root under `terraform/`:
-  `terraform init -backend=false -input=false && terraform validate`. CI (`.tekton/ci.yaml`) runs the same checks and
-  plans `gcp` and `github`.
+  `terraform init -backend=false -input=false && terraform validate`. After changing `.tekton/plan-summary.py`, run
+  `python3 -m unittest discover -s tests`. CI (`.tekton/ci.yaml`) runs the same checks and plans `gcp` and `github`.
 - Check every argument against the pinned provider schema (`terraform providers schema -json`). Do not use deprecated
   arguments.
 - After changing provider versions, run
