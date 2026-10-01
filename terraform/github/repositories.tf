@@ -1,5 +1,5 @@
 locals {
-  # checks: required status checks beyond Continuous Integration, which every repository requires.
+  # checks: required status checks beyond Continuous Integration and Docs, which every repository requires.
   # visibility: public, or internal (members of the organization's enterprise only).
   repositories = {
     ".github" = {
