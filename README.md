@@ -16,7 +16,7 @@ To build the hub from scratch, follow the
 | `terraform/gcp` | APIs, VPC and Cloud NAT, ingress IPs, GKE cluster and node pools, Artifact Registry, buckets, secret containers, IAM, DNS zones and records | `gcp` |
 | `terraform/argocd` | Argo CD (bootstrap only) and the `root` Application | `argocd` |
 | `terraform/github` | The organization's settings; repositories, their settings, `Default branch` rulesets and `ENG-` autolinks to Linear, Dependabot alerts and Dependabot security updates; team `reviewers` (the pull request reviewer, `push` on every repository) | `github` |
-| `.octomaton.yaml`, `.tekton/ci.yaml` | CI: `terraform fmt` and `validate` on pull requests and in the merge queue | none |
+| `.octomaton.yaml`, `.tekton/` | Pipeline `ci` (`Continuous Integration`): `terraform fmt`, `validate`, and plans of `gcp` and `github` on pull requests and in the merge queue. Pipeline `apply` (`Apply`): applies `gcp` and `github` on each merge to `main` | none |
 | `Makefile` | `make terraform <root>`: `init`, then `apply` of one root | none |
 
 State lives in the GCS bucket `arikkfir-devops`, one prefix per root.
@@ -50,6 +50,17 @@ then `apply`, which shows the plan and asks before it changes anything.
 2. `argocd`: installs Argo CD, which then syncs everything from `arikkfir-org/delivery`, including Octomaton.
 3. `github`: the first plan imports the existing repositories (`imports.tf`). The rulesets require the `Continuous Integration`
    check from the Octomaton App, so apply them once Octomaton reports it.
+
+After that, every merge to `main` applies `gcp` and `github` through Octomaton (hub reference, "Terraform applies"):
+
+- Pull requests and the merge queue plan both roots as `ci-infra/ci-infra-plan`, which can only read. The
+  `Continuous Integration` check lists the planned changes (a long list is cut short; its log has them all). The merge
+  queue takes one pull request at a time, after the previous merge was applied.
+- Pipeline `apply` plans both again as `ci-infra/ci-infra-apply` and applies the saved plans, `gcp` first. If either
+  plan deletes or replaces anything, it stops before applying and the `Apply` check lists the changes.
+- By hand, with `make terraform <root>`: `argocd`, an apply the pipeline stopped, and a change to the pipelines' own
+  roles or tokens, which they can't apply to themselves the first time. The tokens are the Secret Manager secrets
+  `infra-plan-github-pat` and `infra-apply-github-pat` (`gcloud secrets versions add`).
 
 ## Notes
 

@@ -10,3 +10,20 @@ pipelines:
     params:
       repo-url: "{{ .Repository.CloneURL }}"
       revision: "{{ .Revision }}"
+    # The merge queue's runs share group terraform with apply, so each entry is planned after the previous merge was
+    # applied. The policy can't vary by event, so pull request runs queue too, per pull request.
+    concurrency:
+      group: '{{ if eq .Event "merge_group" }}terraform{{ else }}pr-{{ .PullRequest.Number }}{{ end }}'
+      policy: queue
+  - name: apply
+    displayName: Apply
+    pipelineRun: .tekton/apply.yaml
+    on:
+      push:
+        branches: [main]
+    params:
+      repo-url: "{{ .Repository.CloneURL }}"
+      revision: "{{ .Revision }}"
+    concurrency:
+      group: terraform
+      policy: queue
