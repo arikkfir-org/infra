@@ -1,5 +1,10 @@
+locals {
+  # infra's GitHub tokens: only infra's pipelines read them, so no Kubernetes Secret ever holds them (see iam.tf).
+  pipeline_secrets = toset(["infra-plan-github-pat", "infra-apply-github-pat"])
+}
+
 # Containers only: values are added by hand (`gcloud secrets versions add <name> --data-file=-`).
-# External Secrets Operator reads them all; infra's pipelines also read their own GitHub token (see iam.tf).
+# External Secrets Operator reads all but the pipeline secrets.
 resource "google_secret_manager_secret" "this" {
   for_each = toset([
     "reviewer-deepseek-api-key",

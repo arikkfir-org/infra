@@ -24,7 +24,8 @@ locals {
     "octomaton/serviceusage.serviceUsageConsumer"   = { role = "roles/serviceusage.serviceUsageConsumer", member = local.principals.octomaton }
     "gke-nodes/container.defaultNodeServiceAccount" = { role = "roles/container.defaultNodeServiceAccount", member = local.principals.gke_nodes }
 
-    # infra's plans: read access to everything terraform/gcp manages.
+    # infra's plans: read access to everything terraform/gcp manages. iam.securityReviewer reads every IAM policy, the
+    # buckets', DNS zones' and repository's included.
     "ci-infra-plan/iam.securityReviewer"            = { role = "roles/iam.securityReviewer", member = local.principals.ci_infra_plan }
     "ci-infra-plan/serviceusage.serviceUsageViewer" = { role = "roles/serviceusage.serviceUsageViewer", member = local.principals.ci_infra_plan }
     "ci-infra-plan/compute.networkViewer"           = { role = "roles/compute.networkViewer", member = local.principals.ci_infra_plan }
@@ -105,7 +106,7 @@ resource "google_artifact_registry_repository_iam_member" "images" {
 }
 
 resource "google_secret_manager_secret_iam_member" "external_secrets" {
-  for_each = google_secret_manager_secret.this
+  for_each = { for id, secret in google_secret_manager_secret.this : id => secret if !contains(local.pipeline_secrets, id) }
 
   secret_id = each.value.id
   role      = "roles/secretmanager.secretAccessor"
