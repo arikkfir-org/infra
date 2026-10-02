@@ -1,6 +1,6 @@
-# Pull requests and the merge queue: checks formatting, validates every root, and plans gcp, github and keycloak as
-# the ServiceAccount ci-infra-plan (read-only GCP roles) and Keycloak's client terraform-plan (view roles), without
-# taking the state lock (see the hub reference, "Terraform applies").
+# Pull requests and the merge queue: checks formatting and validates every root (task check), and plans gcp, github
+# and keycloak in a task each, all at once, as the ServiceAccount ci-infra-plan (read-only GCP roles) and Keycloak's
+# client terraform-plan (view roles), without taking the state lock (see the hub reference, "Terraform applies").
 # Octomaton sets spec.params (repo-url, revision) from .octomaton.yaml.
 apiVersion: tekton.dev/v1
 kind: PipelineRun
@@ -9,17 +9,24 @@ metadata:
 spec:
   taskRunTemplate:
     serviceAccountName: ci-infra-plan
-  # Reserved once for all of the task's steps (step-level requests would add up as if the steps ran at once).
+  # Reserved once for all of a task's steps (step-level requests would add up as if the steps ran at once).
   taskRunSpecs:
-    - pipelineTaskName: terraform
-      computeResources:
+    - pipelineTaskName: check
+      computeResources: &resources
         requests:
-          cpu: "1"
+          cpu: 500m
           memory: 1Gi
         limits:
           memory: 2Gi
+    - pipelineTaskName: gcp
+      computeResources: *resources
+    - pipelineTaskName: github
+      computeResources: *resources
+    - pipelineTaskName: keycloak
+      computeResources: *resources
   timeouts:
     pipeline: 30m
+  # An emptyDir: each task's pod gets its own, so every task clones the commit itself.
   workspaces:
     - name: source
       emptyDir: {}
@@ -33,13 +40,21 @@ spec:
         description: Commit SHA to check.
     workspaces:
       - name: source
+    # Tekton leaves these out when a root's task fails; each root's own check (taskChecks in .octomaton.yaml) still
+    # shows its plan.
     results:
       - name: check-title
-        value: $(tasks.terraform.results.check-title)
+        value: >-
+          $(tasks.gcp.results.check-title); $(tasks.github.results.check-title); $(tasks.keycloak.results.check-title)
       - name: check-summary
-        value: $(tasks.terraform.results.check-summary)
+        value: |-
+          $(tasks.gcp.results.check-summary)
+
+          $(tasks.github.results.check-summary)
+
+          $(tasks.keycloak.results.check-summary)
     tasks:
-      - name: terraform
+      - name: check
         params:
           - name: repo-url
             value: $(params.repo-url)
@@ -56,35 +71,11 @@ spec:
               type: string
           workspaces:
             - name: source
-          results:
-            - name: check-title
-              type: string
-            - name: check-summary
-              type: string
-          # The GitHub token and the Keycloak client secret, in memory, for this task's steps only.
-          volumes:
-            - name: credentials
-              emptyDir:
-                medium: Memory
-            # Terraform's provider cache. init links .terraform/providers into it, so every step that runs terraform
-            # must see the same cache, not its own container's /tmp.
-            - name: terraform-plugins
-              emptyDir: {}
           stepTemplate:
             workingDir: $(workspaces.source.path)
-            env:
-              - name: TF_IN_AUTOMATION
-                value: "true"
-              - name: TF_PLUGIN_CACHE_DIR
-                value: /tmp/terraform-plugins
-            volumeMounts:
-              - name: credentials
-                mountPath: /var/run/credentials
-              - name: terraform-plugins
-                mountPath: /tmp/terraform-plugins
-          # plan-summary.py sizes its results for a pod of at most 10 containers: three init containers and the steps.
           steps:
-            - name: clone
+            - &clone
+              name: clone
               image: alpine/git:2.54.0
               env:
                 - name: REPO_URL
@@ -112,6 +103,11 @@ spec:
                 terraform fmt -check -recursive -diff
             - name: validate
               image: hashicorp/terraform:1.16.4
+              env:
+                - name: TF_IN_AUTOMATION
+                  value: "true"
+                - name: TF_PLUGIN_CACHE_DIR
+                  value: /tmp/terraform-plugins
               script: |
                 #!/bin/sh
                 set -eu
@@ -121,6 +117,62 @@ spec:
                   terraform -chdir="${root}" init -backend=false -input=false
                   terraform -chdir="${root}" validate
                 done
+      # One task per root, all with this taskSpec (the YAML anchor plan).
+      - name: gcp
+        params:
+          - name: repo-url
+            value: $(params.repo-url)
+          - name: revision
+            value: $(params.revision)
+          - name: root
+            value: gcp
+        workspaces:
+          - name: source
+            workspace: source
+        taskSpec: &plan
+          params:
+            - name: repo-url
+              type: string
+            - name: revision
+              type: string
+            - name: root
+              type: string
+            - name: refresh
+              type: string
+              default: "true"
+          workspaces:
+            - name: source
+          results:
+            - name: check-title
+              type: string
+            - name: check-summary
+              type: string
+          # The GitHub token and the Keycloak client secret, in memory, for this task's steps only.
+          volumes:
+            - name: credentials
+              emptyDir:
+                medium: Memory
+            # Terraform's provider cache. init links .terraform/providers into it, so every step that runs terraform
+            # must see the same cache, not its own container's /tmp.
+            - name: terraform-plugins
+              emptyDir: {}
+          stepTemplate:
+            workingDir: $(workspaces.source.path)
+            env:
+              - name: ROOT
+                value: $(params.root)
+              - name: TF_IN_AUTOMATION
+                value: "true"
+              - name: TF_PLUGIN_CACHE_DIR
+                value: /tmp/terraform-plugins
+            volumeMounts:
+              - name: credentials
+                mountPath: /var/run/credentials
+              - name: terraform-plugins
+                mountPath: /tmp/terraform-plugins
+          # plan-summary.py sizes its results for a pod of at most 10 containers: three init containers and the steps.
+          steps:
+            - *clone
             - name: token
               image: gcr.io/google.com/cloudsdktool/google-cloud-cli:587.0.0-slim
               script: |
@@ -136,6 +188,8 @@ spec:
               env:
                 - name: KEYCLOAK_CLIENT_ID
                   value: terraform-plan
+                - name: REFRESH
+                  value: $(params.refresh)
               script: |
                 #!/bin/sh
                 set -eu
@@ -143,22 +197,42 @@ spec:
                 GITHUB_TOKEN="$(cat /var/run/credentials/github-token)"
                 KEYCLOAK_CLIENT_SECRET="$(cat /var/run/credentials/keycloak-secret)"
                 export GITHUB_TOKEN KEYCLOAK_CLIENT_SECRET
-                for root in gcp github keycloak; do
-                  echo "==> terraform/${root}"
-                  # Keycloak shows a client's secret only to client managers, and its provider reads the secret to
-                  # refresh a client, so keycloak's plan compares the code with the state alone.
-                  refresh=true
-                  if [ "${root}" = keycloak ]; then refresh=false; fi
-                  terraform -chdir="terraform/${root}" init -input=false
-                  terraform -chdir="terraform/${root}" plan -input=false -lock=false -refresh="${refresh}" \
-                    -out="${root}.tfplan"
-                  terraform -chdir="terraform/${root}" show -json "${root}.tfplan" > "${root}.plan.json"
-                done
+                terraform -chdir="terraform/${ROOT}" init -input=false
+                terraform -chdir="terraform/${ROOT}" plan -input=false -lock=false -refresh="${REFRESH}" \
+                  -out="${ROOT}.tfplan"
+                terraform -chdir="terraform/${ROOT}" show -json "${ROOT}.tfplan" > "${ROOT}.plan.json"
             - name: summary
               image: gcr.io/google.com/cloudsdktool/google-cloud-cli:587.0.0-slim
               script: |
                 #!/bin/sh
                 set -eu
                 python3 .tekton/plan-summary.py --title "$(results.check-title.path)" \
-                  --summary "$(results.check-summary.path)" gcp=gcp.plan.json github=github.plan.json \
-                  keycloak=keycloak.plan.json
+                  --summary "$(results.check-summary.path)" "${ROOT}=${ROOT}.plan.json"
+      - name: github
+        params:
+          - name: repo-url
+            value: $(params.repo-url)
+          - name: revision
+            value: $(params.revision)
+          - name: root
+            value: github
+        workspaces:
+          - name: source
+            workspace: source
+        taskSpec: *plan
+      - name: keycloak
+        params:
+          - name: repo-url
+            value: $(params.repo-url)
+          - name: revision
+            value: $(params.revision)
+          - name: root
+            value: keycloak
+          # Keycloak shows a client's secret only to client managers, and its provider reads the secret to refresh a
+          # client, so keycloak's plan compares the code with the state alone.
+          - name: refresh
+            value: "false"
+        workspaces:
+          - name: source
+            workspace: source
+        taskSpec: *plan
