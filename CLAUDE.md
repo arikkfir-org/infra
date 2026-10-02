@@ -12,6 +12,14 @@
   `python3 -m unittest discover -s tests`. CI (`.tekton/ci.yaml`) runs the same checks and plans `gcp` and `github`.
 - Check every argument against the pinned provider schema (`terraform providers schema -json`). Do not use deprecated
   arguments.
+- Before adding a resource type, or an argument that calls an API this configuration hasn't called before, check that
+  the pipelines can handle it: `ci-infra-plan` must read it and `ci-infra-apply` must change it (their roles are in
+  `local.project_iam` in `terraform/gcp/iam.tf` and in the hub reference; `terraform/github` runs on the tokens
+  `infra-plan-github-pat` and `infra-apply-github-pat`). Read a role's permissions, not its name. A plan only reads, so
+  a missing write permission plans green and fails partway through the apply, with the state half-written. A missing
+  role goes in a pull request of its own first, which the owner applies by hand, since the pipelines can't apply
+  changes to their own roles (README.md, "Apply order"). A missing token permission is the owner's to add before the
+  merge.
 - After changing provider versions, run
   `terraform providers lock -platform=linux_amd64 -platform=linux_arm64 -platform=darwin_arm64` in that root and keep
   `.terraform.lock.hcl`.
