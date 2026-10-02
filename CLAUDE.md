@@ -6,20 +6,23 @@
   and host. If a change needs a new or different value, say so; do not diverge silently.
 - Never run `terraform apply`, `make terraform`, `destroy`, `import`, `state …`, `taint`, `force-unlock` or anything
   else that changes real infrastructure or state. Never call GCP or GitHub APIs to inspect live resources. Pipeline
-  `apply` applies `gcp` and `github` on each merge to `main`; the owner applies the rest by hand (see README.md).
+  `apply` applies `gcp`, `github` and `keycloak` on each merge to `main`; the owner applies the rest by hand (see
+  README.md).
 - Before finishing, run `terraform fmt -recursive` at the repository root, then, in each root under `terraform/`:
   `terraform init -backend=false -input=false && terraform validate`. After changing `.tekton/plan-summary.py`, run
-  `python3 -m unittest discover -s tests`. CI (`.tekton/ci.yaml`) runs the same checks and plans `gcp` and `github`.
+  `python3 -m unittest discover -s tests`. CI (`.tekton/ci.yaml`) runs the same checks and plans `gcp`, `github` and
+  `keycloak`.
 - Check every argument against the pinned provider schema (`terraform providers schema -json`). Do not use deprecated
   arguments.
 - Before adding a resource type, or an argument that calls an API this configuration hasn't called before, check that
   the pipelines can handle it: `ci-infra-plan` must read it and `ci-infra-apply` must change it (their roles are in
   `local.project_iam` in `terraform/gcp/iam.tf` and in the hub reference; `terraform/github` runs on the tokens
-  `infra-plan-github-pat` and `infra-apply-github-pat`). Read a role's permissions, not its name. A plan only reads, so
-  a missing write permission plans green and fails partway through the apply, with the state half-written. A missing
-  role goes in a pull request of its own first, which the owner applies by hand, since the pipelines can't apply
-  changes to their own roles (README.md, "Apply order"). A missing token permission is the owner's to add before the
-  merge.
+  `infra-plan-github-pat` and `infra-apply-github-pat`; `terraform/keycloak` on the clients `terraform-plan` and
+  `terraform-apply` in `terraform/keycloak/pipelines.tf`, and since its pull request plans don't refresh,
+  `terraform-plan` reads only its data sources). Read a role's permissions, not its name. A plan only reads, so a
+  missing write permission plans green and fails partway through the apply, with the state half-written. A missing role
+  goes in a pull request of its own first, which the owner applies by hand, since the pipelines can't apply changes to
+  their own roles (README.md, "Apply order"). A missing token permission is the owner's to add before the merge.
 - After changing provider versions, run
   `terraform providers lock -platform=linux_amd64 -platform=linux_arm64 -platform=darwin_arm64` in that root and keep
   `.terraform.lock.hcl`.

@@ -18,7 +18,7 @@ To build the hub from scratch, follow the
 | `terraform/argocd` | Argo CD (bootstrap only) and the `root` Application | `argocd` |
 | `terraform/github` | The organization's settings; repositories, their settings, `Default branch` rulesets and `ENG-` autolinks to Linear, Dependabot alerts and Dependabot security updates; team `reviewers` (the pull request reviewer, `push` on every repository) | `github` |
 | `terraform/keycloak` | Keycloak's realm `hub` (its sign-in flows, the Google identity provider, client `hub` and the people who may sign in) and the pipelines' clients in realm `master`; it writes the clients' generated secrets to Secret Manager | `keycloak` |
-| `.octomaton.yaml`, `.tekton/` | Pipeline `ci` (`Continuous Integration`): unit tests, `terraform fmt`, `validate`, and plans of `gcp` and `github` on pull requests and in the merge queue. Pipeline `apply` (`Apply`): applies `gcp` and `github` on each merge to `main` | none |
+| `.octomaton.yaml`, `.tekton/` | Pipeline `ci` (`Continuous Integration`): unit tests, `terraform fmt`, `validate`, and plans of `gcp`, `github` and `keycloak` on pull requests and in the merge queue. Pipeline `apply` (`Apply`): applies `gcp`, `github` and `keycloak` on each merge to `main` | none |
 | `tests/` | Unit tests of `.tekton/plan-summary.py` (`python3 -m unittest discover -s tests`), which `ci` runs | none |
 | `Makefile` | `make terraform <root>`: `init`, then `apply` of one root | none |
 
@@ -62,17 +62,21 @@ then `apply`, which shows the plan and asks before it changes anything.
    `bootstrap-admin`, `KEYCLOAK_CLIENT_SECRET` the Secret Manager secret `keycloak-bootstrap-admin`). It creates the
    pipelines' own clients, `terraform-plan` and `terraform-apply`, and writes their secrets.
 
-After that, every merge to `main` applies `gcp` and `github` through Octomaton (hub reference, "Terraform applies"):
+After that, every merge to `main` applies `gcp`, `github` and `keycloak` through Octomaton (hub reference, "Terraform
+applies"):
 
-- Pull requests and the merge queue plan both roots as `ci-infra/ci-infra-plan`. Its GCP roles only read, but its
-  GitHub token also writes contents (GitHub shows merge settings only to such tokens), so code in a pull request can
-  push branches and tags to every repository, though not to default branches. The `Continuous Integration` check lists
-  the planned changes, deletions and replacements first (a long list is cut short; its log has them all). The merge
-  queue takes one pull request at a time, after the previous merge was applied.
-- Pipeline `apply` plans both again as `ci-infra/ci-infra-apply` and applies both saved plans in full, deletions and
-  replacements included, `gcp` first. The `Apply` check lists the changes.
-- By hand, with `make terraform <root>`: `argocd`, `keycloak` until the pipelines plan and apply it, and a change to
-  the pipelines' own roles or tokens, which they can't
+- Pull requests and the merge queue plan the three roots as `ci-infra/ci-infra-plan`, and `keycloak` as Keycloak's
+  client `terraform-plan`. Its GCP and Keycloak roles only read, but its GitHub token also writes contents (GitHub shows
+  merge settings only to such tokens), so code in a pull request can push branches and tags to every repository, though
+  not to default branches. The `Continuous Integration` check lists the planned changes, deletions and replacements
+  first (a long list is cut short; its log has them all). The merge queue takes one pull request at a time, after the
+  previous merge was applied.
+- `keycloak`'s pull request plans don't refresh: Keycloak shows a client's secret only to client managers, and the
+  provider reads the secret to refresh a client. They compare the code with the state, so they miss changes made in
+  Keycloak itself; `apply` refreshes and reverts them.
+- Pipeline `apply` plans the three again as `ci-infra/ci-infra-apply`, `keycloak` as `terraform-apply`, and applies the
+  saved plans in full, deletions and replacements included, in that order. The `Apply` check lists the changes.
+- By hand, with `make terraform <root>`: `argocd`, and a change to the pipelines' own roles or tokens, which they can't
   apply to themselves the first time. The tokens are the Secret Manager secrets `infra-plan-github-pat` and
   `infra-apply-github-pat` (`gcloud secrets versions add`), with the permissions the hub reference lists; both need
   Contents read and write, for the same reason.
