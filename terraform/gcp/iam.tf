@@ -160,11 +160,20 @@ resource "google_secret_manager_secret_iam_member" "external_secrets" {
   member    = local.principals.external_secrets
 }
 
-# infra's plans read their GitHub token at run time; applies read theirs through roles/secretmanager.admin.
+# infra's plans read their GitHub token and Keycloak credential at run time; applies read theirs through
+# roles/secretmanager.admin.
 resource "google_secret_manager_secret_iam_member" "ci_infra_plan" {
-  secret_id = google_secret_manager_secret.this["infra-plan-github-pat"].id
+  for_each = toset(["infra-plan-github-pat", "infra-plan-keycloak-secret"])
+
+  secret_id = google_secret_manager_secret.this[each.key].id
   role      = "roles/secretmanager.secretAccessor"
   member    = local.principals.ci_infra_plan
+}
+
+# The grant on the GitHub token predates for_each. Remove once applied.
+moved {
+  from = google_secret_manager_secret_iam_member.ci_infra_plan
+  to   = google_secret_manager_secret_iam_member.ci_infra_plan["infra-plan-github-pat"]
 }
 
 # Applies create node pools that run as gke-hub-nodes@.

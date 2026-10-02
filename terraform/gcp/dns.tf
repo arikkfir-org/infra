@@ -19,6 +19,9 @@ locals {
     "nui.dev"     = "protected"
     "docs.dev"    = "protected"
     auth          = "public"
+    # Keycloak: realm hub, and its admin console behind the hub's sign-in.
+    id         = "public"
+    "admin.id" = "protected"
     # Fin: production, and every pull request's preview (app.pr-<number>.fin.dev, api.pr-<number>.fin.dev).
     "app.fin"   = "protected"
     "api.fin"   = "protected"
