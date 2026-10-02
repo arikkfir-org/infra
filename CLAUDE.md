@@ -63,5 +63,7 @@
 - Hostname: add it to `local.ingress_hosts` in `terraform/gcp/dns.tf` with its gateway (`protected` or `public`).
 - Person who may sign in to the hub: add the email of their Google account, with their first and last name, to
   `local.users` in `terraform/keycloak/users.tf`. Their first Google sign-in links to that user; nobody else gets in.
+  `admin = true` also makes them a Keycloak administrator: a user in realm `master` with realm role `admin`, who signs
+  in to the admin console with Google.
 - Keycloak client secret: generate it in `terraform/keycloak` (an `ephemeral "random_password"` written with
   `*_wo` and `*_wo_version`), never read it into state. Bump its entry in `local.secret_versions` to rotate it.
