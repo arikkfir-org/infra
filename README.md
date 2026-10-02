@@ -18,7 +18,7 @@ To build the hub from scratch, follow the
 | `terraform/argocd` | Argo CD (bootstrap only) and the `root` Application | `argocd` |
 | `terraform/github` | The organization's settings; repositories, their settings, `Default branch` rulesets and `ENG-` autolinks to Linear, Dependabot alerts and Dependabot security updates; team `reviewers` (the pull request reviewer, `push` on every repository) | `github` |
 | `terraform/keycloak` | Keycloak's realm `hub` (its sign-in flows, the Google identity provider, client `hub` and the people who may sign in) and, in realm `master`, the same Google sign-in for the admins and the pipelines' clients; it writes the clients' generated secrets to Secret Manager | `keycloak` |
-| `.octomaton.yaml`, `.tekton/` | Pipeline `ci` (`Continuous Integration`): unit tests, `terraform fmt`, `validate`, and plans of `gcp`, `github` and `keycloak` on pull requests and in the merge queue. Pipeline `apply` (`Apply`): applies `gcp`, `github` and `keycloak` on each merge to `main` | none |
+| `.octomaton.yaml`, `.tekton/` | Pipeline `ci` (`Continuous Integration`): unit tests, `terraform fmt`, `validate`, and plans of `gcp`, `github` and `keycloak`, a task each, all at once, on pull requests and in the merge queue. Pipeline `apply` (`Apply`): applies `gcp` and `github` at once and `keycloak` after `gcp`, on each merge to `main`. Each task is also its own check, such as `Continuous Integration / gcp` | none |
 | `tests/` | Unit tests of `.tekton/plan-summary.py` (`python3 -m unittest discover -s tests`), which `ci` runs | none |
 | `Makefile` | `make terraform <root>`: `init`, then `apply` of one root | none |
 
@@ -69,13 +69,17 @@ applies"):
   client `terraform-plan`. Its GCP and Keycloak roles only read, but its GitHub token also writes contents (GitHub shows
   merge settings only to such tokens), so code in a pull request can push branches and tags to every repository, though
   not to default branches. The `Continuous Integration` check lists the planned changes, deletions and replacements
-  first (a long list is cut short; its log has them all). The merge queue takes one pull request at a time, after the
+  first (a long list is cut short; the root's task log has them all), and `Continuous Integration / <root>` lists one
+  root's, even when another root's plan fails. The merge queue takes one pull request at a time, after the
   previous merge was applied.
 - `keycloak`'s pull request plans don't refresh: Keycloak shows a client's secret only to client managers, and the
   provider reads the secret to refresh a client. They compare the code with the state, so they miss changes made in
   Keycloak itself; `apply` refreshes and reverts them.
 - Pipeline `apply` plans the three again as `ci-infra/ci-infra-apply`, `keycloak` as `terraform-apply`, and applies the
-  saved plans in full, deletions and replacements included, in that order. The `Apply` check lists the changes.
+  saved plans in full, deletions and replacements included, a task per root: `gcp` and `github` at once, and `keycloak`
+  once `gcp` is applied, because it writes secret versions into secrets `gcp` creates. So one root can be applied while
+  another fails; a failure stops no task already running, but no task starts after it. The `Apply` check lists the
+  changes, and `Apply / <root>` one root's.
 - By hand, with `make terraform <root>`: `argocd`, and a change to the pipelines' own roles or tokens, which they can't
   apply to themselves the first time. The tokens are the Secret Manager secrets `infra-plan-github-pat` and
   `infra-apply-github-pat` (`gcloud secrets versions add`), with the permissions the hub reference lists; both need

@@ -15,6 +15,9 @@ pipelines:
     concurrency:
       group: '{{ if eq .Event "merge_group" }}terraform{{ else }}pr-{{ .PullRequest.Number }}{{ end }}'
       policy: queue
+    # Each task is also its own check, such as "Continuous Integration / gcp", which shows that root's plan even when
+    # another root fails.
+    taskChecks: true
   - name: apply
     displayName: Apply
     pipelineRun: .tekton/apply.yaml
@@ -27,3 +30,5 @@ pipelines:
     concurrency:
       group: terraform
       policy: queue
+    # "Apply / gcp" and so on, as for ci.
+    taskChecks: true

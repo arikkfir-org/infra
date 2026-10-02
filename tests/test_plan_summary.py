@@ -135,6 +135,16 @@ class SummaryTest(unittest.TestCase):
         self.assertTrue(title.endswith("…"))
         self.assertLessEqual(plan_summary.encoded_size(title), plan_summary.TITLE_LIMIT)
 
+    def test_run_title_fits_github(self):
+        """The pipelines join the three roots' titles with "; " into the run's check title, which GitHub refuses
+        beyond 255 characters."""
+        kinds = [("create",), ("delete",), ("update",), ("delete", "create")]
+        plan = [change(f"a.{i}-{j}", *actions) for i in range(100) for j, actions in enumerate(kinds)]
+        plan += [change(f"b.{i}", "no-op", importing=True) for i in range(100)]
+        plan += [change(f"c.{i}", "update", importing=True) for i in range(100)]
+        titles = [run((root, plan))[0] for root in ("gcp", "github", "keycloak")]
+        self.assertLessEqual(len("; ".join(titles)), 255)
+
 
 class SizeTest(unittest.TestCase):
     def test_encoded_size_is_gos(self):
@@ -144,7 +154,7 @@ class SizeTest(unittest.TestCase):
                 self.assertEqual(plan_summary.encoded_size(text), len(go_json(text)))
 
     def test_worst_termination_message_fits_a_pod_of_10(self):
-        """The largest message: apply's apply step (title cut to the limit plus "Applied: ", the longest summary), with
+        """The largest message: apply's apply step (title cut to the limit, the longest summary), with
         Tekton's own entries, including an exit code."""
         plans = [(f"root-{i}", [change("a.c", "create"), change("a.u", "update")]) for i in range(10)]
         title, _, _ = run(*plans)
@@ -153,7 +163,7 @@ class SizeTest(unittest.TestCase):
             {"key": "StartedAt", "value": "2026-10-01T16:41:09.123456789Z", "type": 3},
             {"key": "ExitCode", "value": "1", "type": 3},
             {"key": "check-summary", "value": summary, "type": 1},
-            {"key": "check-title", "value": "Applied: " + title, "type": 1},
+            {"key": "check-title", "value": title, "type": 1},
         ])
         self.assertLessEqual(len(message), CONTAINER_LIMIT)
 

@@ -1,6 +1,7 @@
-# Merges to main: plans gcp, github and keycloak as ci-infra-apply and Keycloak's client terraform-apply, and
-# applies the saved plans in that order (see the hub reference, "Terraform applies"). ci-infra-apply carries
-# octomaton.dev/branches: main, so Octomaton refuses to run this anywhere else.
+# Merges to main: plans gcp, github and keycloak as ci-infra-apply and Keycloak's client terraform-apply, and applies
+# each saved plan, in a task per root: gcp and github at once, keycloak after gcp, which creates the secrets keycloak
+# writes (see the hub reference, "Terraform applies"). ci-infra-apply carries octomaton.dev/branches: main, so Octomaton
+# refuses to run this anywhere else.
 # Octomaton sets spec.params (repo-url, revision) from .octomaton.yaml.
 apiVersion: tekton.dev/v1
 kind: PipelineRun
@@ -9,17 +10,22 @@ metadata:
 spec:
   taskRunTemplate:
     serviceAccountName: ci-infra-apply
-  # Reserved once for all of the task's steps (step-level requests would add up as if the steps ran at once).
+  # Reserved once for all of a task's steps (step-level requests would add up as if the steps ran at once).
   taskRunSpecs:
-    - pipelineTaskName: terraform
-      computeResources:
+    - pipelineTaskName: gcp
+      computeResources: &resources
         requests:
-          cpu: "1"
+          cpu: 500m
           memory: 1Gi
         limits:
           memory: 2Gi
+    - pipelineTaskName: github
+      computeResources: *resources
+    - pipelineTaskName: keycloak
+      computeResources: *resources
   timeouts:
     pipeline: 1h
+  # An emptyDir: each task's pod gets its own, so every task clones the commit itself.
   workspaces:
     - name: source
       emptyDir: {}
@@ -33,26 +39,39 @@ spec:
         description: Commit SHA to apply.
     workspaces:
       - name: source
+    # Tekton leaves these out when a root's task fails; each root's own check (taskChecks in .octomaton.yaml) still
+    # shows its plan.
     results:
       - name: check-title
-        value: $(tasks.terraform.results.check-title)
+        value: >-
+          $(tasks.gcp.results.check-title); $(tasks.github.results.check-title); $(tasks.keycloak.results.check-title)
       - name: check-summary
-        value: $(tasks.terraform.results.check-summary)
+        value: |-
+          $(tasks.gcp.results.check-summary)
+
+          $(tasks.github.results.check-summary)
+
+          $(tasks.keycloak.results.check-summary)
     tasks:
-      - name: terraform
+      # One task per root, all with this taskSpec (the YAML anchor apply).
+      - name: gcp
         params:
           - name: repo-url
             value: $(params.repo-url)
           - name: revision
             value: $(params.revision)
+          - name: root
+            value: gcp
         workspaces:
           - name: source
             workspace: source
-        taskSpec:
+        taskSpec: &apply
           params:
             - name: repo-url
               type: string
             - name: revision
+              type: string
+            - name: root
               type: string
           workspaces:
             - name: source
@@ -73,6 +92,8 @@ spec:
           stepTemplate:
             workingDir: $(workspaces.source.path)
             env:
+              - name: ROOT
+                value: $(params.root)
               - name: TF_IN_AUTOMATION
                 value: "true"
               - name: TF_PLUGIN_CACHE_DIR
@@ -120,20 +141,16 @@ spec:
                 GITHUB_TOKEN="$(cat /var/run/credentials/github-token)"
                 KEYCLOAK_CLIENT_SECRET="$(cat /var/run/credentials/keycloak-secret)"
                 export GITHUB_TOKEN KEYCLOAK_CLIENT_SECRET
-                for root in gcp github keycloak; do
-                  echo "==> terraform/${root}"
-                  terraform -chdir="terraform/${root}" init -input=false
-                  terraform -chdir="terraform/${root}" plan -input=false -lock-timeout=10m -out="${root}.tfplan"
-                  terraform -chdir="terraform/${root}" show -json "${root}.tfplan" > "${root}.plan.json"
-                done
+                terraform -chdir="terraform/${ROOT}" init -input=false
+                terraform -chdir="terraform/${ROOT}" plan -input=false -lock-timeout=10m -out="${ROOT}.tfplan"
+                terraform -chdir="terraform/${ROOT}" show -json "${ROOT}.tfplan" > "${ROOT}.plan.json"
             - name: summary
               image: gcr.io/google.com/cloudsdktool/google-cloud-cli:587.0.0-slim
               script: |
                 #!/bin/sh
                 set -eu
                 python3 .tekton/plan-summary.py --title "$(results.check-title.path)" \
-                  --summary "$(results.check-summary.path)" gcp=gcp.plan.json github=github.plan.json \
-                  keycloak=keycloak.plan.json
+                  --summary "$(results.check-summary.path)" "${ROOT}=${ROOT}.plan.json"
             # A saved plan applies only if the state hasn't changed since it was made.
             - name: apply
               image: hashicorp/terraform:1.16.4
@@ -147,8 +164,30 @@ spec:
                 GITHUB_TOKEN="$(cat /var/run/credentials/github-token)"
                 KEYCLOAK_CLIENT_SECRET="$(cat /var/run/credentials/keycloak-secret)"
                 export GITHUB_TOKEN KEYCLOAK_CLIENT_SECRET
-                for root in gcp github keycloak; do
-                  echo "==> terraform/${root}"
-                  terraform -chdir="terraform/${root}" apply -input=false -lock-timeout=10m "${root}.tfplan"
-                done
-                printf 'Applied: %s' "$(cat "$(results.check-title.path)")" > "$(results.check-title.path)"
+                terraform -chdir="terraform/${ROOT}" apply -input=false -lock-timeout=10m "${ROOT}.tfplan"
+      - name: github
+        params:
+          - name: repo-url
+            value: $(params.repo-url)
+          - name: revision
+            value: $(params.revision)
+          - name: root
+            value: github
+        workspaces:
+          - name: source
+            workspace: source
+        taskSpec: *apply
+      - name: keycloak
+        runAfter:
+          - gcp
+        params:
+          - name: repo-url
+            value: $(params.repo-url)
+          - name: revision
+            value: $(params.revision)
+          - name: root
+            value: keycloak
+        workspaces:
+          - name: source
+            workspace: source
+        taskSpec: *apply

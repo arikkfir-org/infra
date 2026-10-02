@@ -9,10 +9,11 @@ import json
 
 # Tekton hands results to its controller in each step's termination message, and the kubelet cuts every container's
 # message to 12 KiB divided by the number of containers in its pod (normalizeStatus in Kubernetes'
-# pkg/kubelet/status/status_manager.go): 1228 bytes in a pod of 10. The pipelines' pods have 8 and 10 (three init
-# containers and the steps). Tekton's own entries take about 200 bytes and apply's "Applied: " prefix 9. Limits are
-# in bytes of the JSON string, quotes included.
-TITLE_LIMIT = 120
+# pkg/kubelet/status/status_manager.go): 1228 bytes in a pod of 10. The pipelines' pods have 7 and 8 (three init
+# containers and the steps). Tekton's own entries take about 200 bytes. Limits are
+# in bytes of the JSON string, quotes included. The pipelines join the three roots' titles with "; " into the run's
+# title, which GitHub refuses beyond 255 characters.
+TITLE_LIMIT = 80
 SUMMARY_LIMIT = 850
 
 
