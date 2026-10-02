@@ -1,7 +1,8 @@
 # infra
 
 Terraform for the `arikkfir-org` development hub: the GCP project (network, GKE, Artifact Registry, buckets, Secret
-Manager, IAM, DNS), the Argo CD bootstrap, and the organization's GitHub repositories and rulesets.
+Manager, IAM, DNS), the Argo CD bootstrap, the organization's GitHub repositories and rulesets, and Keycloak's
+configuration.
 
 Every name, ID, CIDR, role and host comes from the hub reference (`hub/reference.md` in
 [arikkfir-org/docs](https://github.com/arikkfir-org/docs)). It is the contract: change it first, then this code.
@@ -16,6 +17,7 @@ To build the hub from scratch, follow the
 | `terraform/gcp` | APIs, VPC and Cloud NAT, ingress IPs, GKE cluster and node pools, Artifact Registry, buckets, secret containers, IAM, DNS zones and records | `gcp` |
 | `terraform/argocd` | Argo CD (bootstrap only) and the `root` Application | `argocd` |
 | `terraform/github` | The organization's settings; repositories, their settings, `Default branch` rulesets and `ENG-` autolinks to Linear, Dependabot alerts and Dependabot security updates; team `reviewers` (the pull request reviewer, `push` on every repository) | `github` |
+| `terraform/keycloak` | Keycloak's realm `hub` (its sign-in flows, the Google identity provider, client `hub` and the people who may sign in) and the pipelines' clients in realm `master`; it writes the clients' generated secrets to Secret Manager | `keycloak` |
 | `.octomaton.yaml`, `.tekton/` | Pipeline `ci` (`Continuous Integration`): unit tests, `terraform fmt`, `validate`, and plans of `gcp` and `github` on pull requests and in the merge queue. Pipeline `apply` (`Apply`): applies `gcp` and `github` on each merge to `main` | none |
 | `tests/` | Unit tests of `.tekton/plan-summary.py` (`python3 -m unittest discover -s tests`), which `ci` runs | none |
 | `Makefile` | `make terraform <root>`: `init`, then `apply` of one root | none |
@@ -42,6 +44,9 @@ State lives in the GCS bucket `arikkfir-devops`, one prefix per root.
   changed) and **Metadata: read**, and the organization permissions **Administration: read and write** (the
   organization's settings) and **Members: read and write** (team `reviewers`). The organization must allow
   fine-grained tokens. A classic token with the `repo` and `admin:org` scopes also works.
+- For `terraform/keycloak`, a service account in Keycloak's realm `master` in `KEYCLOAK_CLIENT_ID` and
+  `KEYCLOAK_CLIENT_SECRET`, and Keycloak's admin API: from a workstation, `kubectl -n keycloak port-forward
+  svc/keycloak-service 8080` and `ARGS="-var keycloak_url=http://localhost:8080"`.
 
 ## Apply order
 
@@ -53,6 +58,9 @@ then `apply`, which shows the plan and asks before it changes anything.
 2. `argocd`: installs Argo CD, which then syncs everything from `arikkfir-org/delivery`, including Octomaton.
 3. `github`: the first plan imports the existing repositories (`imports.tf`). The rulesets require the
    `Continuous Integration` and `Docs` checks from the Octomaton App, so apply them once Octomaton reports both.
+4. `keycloak`, once Keycloak runs (`delivery`): the first apply runs as the bootstrap admin (`KEYCLOAK_CLIENT_ID` is
+   `bootstrap-admin`, `KEYCLOAK_CLIENT_SECRET` the Secret Manager secret `keycloak-bootstrap-admin`). It creates the
+   pipelines' own clients, `terraform-plan` and `terraform-apply`, and writes their secrets.
 
 After that, every merge to `main` applies `gcp` and `github` through Octomaton (hub reference, "Terraform applies"):
 
@@ -63,7 +71,8 @@ After that, every merge to `main` applies `gcp` and `github` through Octomaton (
   queue takes one pull request at a time, after the previous merge was applied.
 - Pipeline `apply` plans both again as `ci-infra/ci-infra-apply` and applies both saved plans in full, deletions and
   replacements included, `gcp` first. The `Apply` check lists the changes.
-- By hand, with `make terraform <root>`: `argocd` and a change to the pipelines' own roles or tokens, which they can't
+- By hand, with `make terraform <root>`: `argocd`, `keycloak` until the pipelines plan and apply it, and a change to
+  the pipelines' own roles or tokens, which they can't
   apply to themselves the first time. The tokens are the Secret Manager secrets `infra-plan-github-pat` and
   `infra-apply-github-pat` (`gcloud secrets versions add`), with the permissions the hub reference lists; both need
   Contents read and write, for the same reason.

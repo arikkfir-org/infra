@@ -29,7 +29,7 @@
 - Keep one root per target (`terraform/<target>`) with state prefix = directory name. Do not add modules.
 - Split files by concern: `versions.tf` (terraform block, backend, providers), `variables.tf`, `outputs.tf`,
   `imports.tf`, then one file per area (in `gcp`: `apis`, `network`, `gke`, `registry`, `storage`, `secrets`,
-  `iam`, `dns`).
+  `iam`, `dns`; in `keycloak`: `realm`, `clients`, `users`, `pipelines`).
 - Name a resource after its object (`hub`, `images`, `gke_nodes`). Name a for_each group after what its members
   share (`ingress`, `public`, `protected`), or `this` when it is the only group of that type. Key for_each
   collections by the real object name.
@@ -58,3 +58,7 @@
   `terraform/gcp/iam.tf`, then add an entry to the map for its scope: `project_iam`, `bucket_iam` or `images_iam`.
   For another resource type, add an `*_iam_member` resource on that resource.
 - Hostname: add it to `local.ingress_hosts` in `terraform/gcp/dns.tf` with its gateway (`protected` or `public`).
+- Person who may sign in to the hub: add the email of their Google account, with their first and last name, to
+  `local.users` in `terraform/keycloak/users.tf`. Their first Google sign-in links to that user; nobody else gets in.
+- Keycloak client secret: generate it in `terraform/keycloak` (an `ephemeral "random_password"` written with
+  `*_wo` and `*_wo_version`), never read it into state. Bump its entry in `local.secret_versions` to rotate it.
