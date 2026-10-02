@@ -15,6 +15,9 @@ resource "google_secret_manager_secret" "this" {
     "oidc-client-secret",
     "oauth2-proxy-cookie-secret",
     "grafana-postgres-admin-password",
+    "argocd-github-app-id",
+    "argocd-github-app-private-key",
+    "fin-postgres-arik-password",
     "infra-plan-github-pat",
     "infra-apply-github-pat",
   ])

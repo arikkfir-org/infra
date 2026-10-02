@@ -28,3 +28,36 @@ resource "google_artifact_registry_repository" "images" {
 
   depends_on = [google_project_service.this]
 }
+
+# Pull requests' preview images: any branch's CI may push here, so production never pulls from it. A preview needs its
+# images only while its pull request is open.
+resource "google_artifact_registry_repository" "previews" {
+  location      = var.region
+  repository_id = "previews"
+  format        = "DOCKER"
+  description   = "Container images of pull requests' previews, built by the hub CI from any branch."
+
+  cleanup_policy_dry_run = false
+
+  cleanup_policies {
+    id     = "delete-old"
+    action = "DELETE"
+
+    condition {
+      tag_state  = "ANY"
+      older_than = "14d"
+    }
+  }
+
+  # KEEP wins over DELETE: the 20 newest versions of each image survive, so a quiet pull request's preview still pulls.
+  cleanup_policies {
+    id     = "keep-recent"
+    action = "KEEP"
+
+    most_recent_versions {
+      keep_count = 20
+    }
+  }
+
+  depends_on = [google_project_service.this]
+}

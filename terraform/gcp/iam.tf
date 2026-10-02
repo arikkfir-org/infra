@@ -11,6 +11,8 @@ locals {
     octomaton            = "${local.k8s_principal_prefix}/ns/octomaton/sa/octomaton"
     ci_tooling_publish   = "${local.k8s_principal_prefix}/ns/ci-tooling/sa/ci-tooling-publish"
     ci_octomaton_release = "${local.k8s_principal_prefix}/ns/ci-octomaton/sa/ci-octomaton-release"
+    ci_fin_preview       = "${local.k8s_principal_prefix}/ns/ci-fin/sa/ci-fin-preview"
+    ci_fin_release       = "${local.k8s_principal_prefix}/ns/ci-fin/sa/ci-fin-release"
     ci_infra_plan        = "${local.k8s_principal_prefix}/ns/ci-infra/sa/ci-infra-plan"
     ci_infra_apply       = "${local.k8s_principal_prefix}/ns/ci-infra/sa/ci-infra-apply"
     gke_nodes            = google_service_account.gke_nodes.member
@@ -72,9 +74,16 @@ locals {
   })
 
   images_iam = {
-    # octomaton's release pipeline, on main only (the ServiceAccount's octomaton.dev/branches).
+    # octomaton's and fin's release pipelines, on main only (the ServiceAccounts' octomaton.dev/branches).
     "ci-octomaton-release/artifactregistry.writer" = { role = "roles/artifactregistry.writer", member = local.principals.ci_octomaton_release }
+    "ci-fin-release/artifactregistry.writer"       = { role = "roles/artifactregistry.writer", member = local.principals.ci_fin_release }
     "gke-nodes/artifactregistry.reader"            = { role = "roles/artifactregistry.reader", member = local.principals.gke_nodes }
+  }
+
+  previews_iam = {
+    # fin's preview pipeline, from any branch: what it pushes runs only in previews.
+    "ci-fin-preview/artifactregistry.writer" = { role = "roles/artifactregistry.writer", member = local.principals.ci_fin_preview }
+    "gke-nodes/artifactregistry.reader"      = { role = "roles/artifactregistry.reader", member = local.principals.gke_nodes }
   }
 }
 
@@ -130,6 +139,15 @@ resource "google_artifact_registry_repository_iam_member" "images" {
 
   location   = google_artifact_registry_repository.images.location
   repository = google_artifact_registry_repository.images.name
+  role       = each.value.role
+  member     = each.value.member
+}
+
+resource "google_artifact_registry_repository_iam_member" "previews" {
+  for_each = local.previews_iam
+
+  location   = google_artifact_registry_repository.previews.location
+  repository = google_artifact_registry_repository.previews.name
   role       = each.value.role
   member     = each.value.member
 }

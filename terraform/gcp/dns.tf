@@ -19,6 +19,10 @@ locals {
     "nui.dev"     = "protected"
     "docs.dev"    = "protected"
     auth          = "public"
+    # Fin: production, and every pull request's preview (app.pr-<number>.fin.dev, api.pr-<number>.fin.dev).
+    "app.fin"   = "protected"
+    "api.fin"   = "protected"
+    "*.fin.dev" = "protected"
   }
 }
 
