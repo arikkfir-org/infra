@@ -19,7 +19,7 @@ resource "keycloak_user" "this" {
 }
 
 resource "keycloak_user" "admin" {
-  for_each = { for email, user in local.users : email => user if user.admin }
+  for_each = { for email, user in local.users : email => user if try(user.admin, false) }
 
   realm_id       = data.keycloak_realm.master.id
   username       = each.key
