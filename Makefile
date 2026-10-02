@@ -2,7 +2,7 @@
 # applies it. Terraform shows the plan and asks before it changes anything. Extra arguments for
 # apply go in ARGS, e.g. make terraform github ARGS=-refresh-only.
 
-ROOTS := gcp argocd github
+ROOTS := gcp argocd github keycloak
 root := $(filter $(ROOTS),$(MAKECMDGOALS))
 
 .PHONY: help terraform $(ROOTS)
