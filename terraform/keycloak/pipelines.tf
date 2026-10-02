@@ -2,13 +2,8 @@ data "keycloak_realm" "master" {
   realm = "master"
 }
 
-# The master realm's clients for administering realms hub (it exists once the realm does) and master. Keycloak shows
-# nobody their secrets, which the OpenID client data source always reads, so the SAML one looks them up.
-data "keycloak_saml_client" "hub_realm" {
-  realm_id  = data.keycloak_realm.master.id
-  client_id = "${keycloak_realm.hub.realm}-realm"
-}
-
+# The master realm's client for administering it. Keycloak shows nobody its secret, which the OpenID client data source
+# always reads, so the SAML one looks it up.
 data "keycloak_saml_client" "master_realm" {
   realm_id  = data.keycloak_realm.master.id
   client_id = "master-realm"
@@ -38,10 +33,9 @@ resource "google_secret_manager_secret_version" "terraform" {
 }
 
 locals {
-  plan_roles = merge(
-    { for role in ["view-realm", "view-clients", "view-users", "view-identity-providers", "view-events"] : "hub/${role}" => { client = data.keycloak_saml_client.hub_realm.id, role = role } },
-    { for role in ["view-realm", "view-clients", "view-users"] : "master/${role}" => { client = data.keycloak_saml_client.master_realm.id, role = role } },
-  )
+  # Pull request plans don't refresh: Keycloak shows a client's secret only to client managers, and the provider reads
+  # the secret to refresh a client. So terraform-plan reads only the data sources.
+  plan_roles = { for role in ["view-realm", "view-clients"] : "master/${role}" => role }
 }
 
 resource "keycloak_openid_client_service_account_role" "plan" {
@@ -49,8 +43,8 @@ resource "keycloak_openid_client_service_account_role" "plan" {
 
   realm_id                = data.keycloak_realm.master.id
   service_account_user_id = keycloak_openid_client.terraform["plan"].service_account_user_id
-  client_id               = each.value.client
-  role                    = each.value.role
+  client_id               = data.keycloak_saml_client.master_realm.id
+  role                    = each.value
 }
 
 resource "keycloak_openid_client_service_account_realm_role" "apply" {

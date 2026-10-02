@@ -1,6 +1,6 @@
-# Pull requests and the merge queue: checks formatting, validates every root, and plans gcp and github as the
-# ServiceAccount ci-infra-plan (read-only GCP roles), without taking the state lock (see the hub reference,
-# "Terraform applies").
+# Pull requests and the merge queue: checks formatting, validates every root, and plans gcp, github and keycloak as
+# the ServiceAccount ci-infra-plan (read-only GCP roles) and Keycloak's client terraform-plan (view roles), without
+# taking the state lock (see the hub reference, "Terraform applies").
 # Octomaton sets spec.params (repo-url, revision) from .octomaton.yaml.
 apiVersion: tekton.dev/v1
 kind: PipelineRun
@@ -61,9 +61,9 @@ spec:
               type: string
             - name: check-summary
               type: string
-          # The GitHub token, in memory, for this task's steps only.
+          # The GitHub token and the Keycloak client secret, in memory, for this task's steps only.
           volumes:
-            - name: github
+            - name: credentials
               emptyDir:
                 medium: Memory
             # Terraform's provider cache. init links .terraform/providers into it, so every step that runs terraform
@@ -78,8 +78,8 @@ spec:
               - name: TF_PLUGIN_CACHE_DIR
                 value: /tmp/terraform-plugins
             volumeMounts:
-              - name: github
-                mountPath: /var/run/github
+              - name: credentials
+                mountPath: /var/run/credentials
               - name: terraform-plugins
                 mountPath: /tmp/terraform-plugins
           # plan-summary.py sizes its results for a pod of at most 10 containers: three init containers and the steps.
@@ -128,19 +128,30 @@ spec:
                 set -eu
                 umask 077
                 gcloud secrets versions access latest --secret=infra-plan-github-pat --project=arikkfir \
-                  > /var/run/github/token
+                  > /var/run/credentials/github-token
+                gcloud secrets versions access latest --secret=infra-plan-keycloak-secret --project=arikkfir \
+                  > /var/run/credentials/keycloak-secret
             - name: plan
               image: hashicorp/terraform:1.16.4
+              env:
+                - name: KEYCLOAK_CLIENT_ID
+                  value: terraform-plan
               script: |
                 #!/bin/sh
                 set -eu
                 mkdir -p "$TF_PLUGIN_CACHE_DIR"
-                GITHUB_TOKEN="$(cat /var/run/github/token)"
-                export GITHUB_TOKEN
-                for root in gcp github; do
+                GITHUB_TOKEN="$(cat /var/run/credentials/github-token)"
+                KEYCLOAK_CLIENT_SECRET="$(cat /var/run/credentials/keycloak-secret)"
+                export GITHUB_TOKEN KEYCLOAK_CLIENT_SECRET
+                for root in gcp github keycloak; do
                   echo "==> terraform/${root}"
+                  # Keycloak shows a client's secret only to client managers, and its provider reads the secret to
+                  # refresh a client, so keycloak's plan compares the code with the state alone.
+                  refresh=true
+                  if [ "${root}" = keycloak ]; then refresh=false; fi
                   terraform -chdir="terraform/${root}" init -input=false
-                  terraform -chdir="terraform/${root}" plan -input=false -lock=false -out="${root}.tfplan"
+                  terraform -chdir="terraform/${root}" plan -input=false -lock=false -refresh="${refresh}" \
+                    -out="${root}.tfplan"
                   terraform -chdir="terraform/${root}" show -json "${root}.tfplan" > "${root}.plan.json"
                 done
             - name: summary
@@ -149,4 +160,5 @@ spec:
                 #!/bin/sh
                 set -eu
                 python3 .tekton/plan-summary.py --title "$(results.check-title.path)" \
-                  --summary "$(results.check-summary.path)" gcp=gcp.plan.json github=github.plan.json
+                  --summary "$(results.check-summary.path)" gcp=gcp.plan.json github=github.plan.json \
+                  keycloak=keycloak.plan.json
