@@ -1,9 +1,11 @@
 locals {
-  # infra's GitHub tokens: only infra's pipelines read them, so no Kubernetes Secret ever holds them (see iam.tf).
-  pipeline_secrets = toset(["infra-plan-github-pat", "infra-apply-github-pat"])
+  # infra's GitHub tokens and Keycloak credentials: only infra's pipelines read them, so no Kubernetes Secret ever holds
+  # them (see iam.tf).
+  pipeline_secrets = toset(["infra-plan-github-pat", "infra-apply-github-pat", "infra-plan-keycloak-secret", "infra-apply-keycloak-secret"])
 }
 
-# Containers only: values are added by hand (`gcloud secrets versions add <name> --data-file=-`).
+# Containers only: values are added by hand (`gcloud secrets versions add <name> --data-file=-`), except the Keycloak
+# clients' secrets, which terraform/keycloak generates and writes.
 # External Secrets Operator reads all but the pipeline secrets.
 resource "google_secret_manager_secret" "this" {
   for_each = toset([
@@ -18,8 +20,13 @@ resource "google_secret_manager_secret" "this" {
     "argocd-github-app-id",
     "argocd-github-app-private-key",
     "fin-postgres-arik-password",
+    "keycloak-bootstrap-admin",
+    "keycloak-google-client-secret",
+    "keycloak-hub-client-secret",
     "infra-plan-github-pat",
     "infra-apply-github-pat",
+    "infra-plan-keycloak-secret",
+    "infra-apply-keycloak-secret",
   ])
 
   secret_id = each.key
