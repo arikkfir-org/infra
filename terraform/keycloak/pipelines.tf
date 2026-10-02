@@ -39,7 +39,7 @@ resource "google_secret_manager_secret_version" "terraform" {
 locals {
   plan_roles = merge(
     { for role in ["view-realm", "view-clients", "view-users", "view-identity-providers", "view-events"] : "hub/${role}" => { client = data.keycloak_openid_client.hub_realm.id, role = role } },
-    { for role in ["view-realm", "view-clients"] : "master/${role}" => { client = data.keycloak_openid_client.master_realm.id, role = role } },
+    { for role in ["view-realm", "view-clients", "view-users"] : "master/${role}" => { client = data.keycloak_openid_client.master_realm.id, role = role } },
   )
 }
 
