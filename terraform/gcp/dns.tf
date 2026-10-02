@@ -22,6 +22,8 @@ locals {
     # Keycloak: realm hub, and its admin console behind the hub's sign-in.
     id         = "public"
     "admin.id" = "protected"
+    # The privacy policy and terms of service, from the docs site.
+    legal = "public"
     # Fin: production, and every pull request's preview (app.pr-<number>.fin.dev, api.pr-<number>.fin.dev).
     "app.fin"   = "protected"
     "api.fin"   = "protected"
