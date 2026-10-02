@@ -2,13 +2,14 @@ data "keycloak_realm" "master" {
   realm = "master"
 }
 
-# The master realm's client for administering realm hub; it exists once the realm does.
-data "keycloak_openid_client" "hub_realm" {
+# The master realm's clients for administering realms hub (it exists once the realm does) and master. Keycloak shows
+# nobody their secrets, which the OpenID client data source always reads, so the SAML one looks them up.
+data "keycloak_saml_client" "hub_realm" {
   realm_id  = data.keycloak_realm.master.id
   client_id = "${keycloak_realm.hub.realm}-realm"
 }
 
-data "keycloak_openid_client" "master_realm" {
+data "keycloak_saml_client" "master_realm" {
   realm_id  = data.keycloak_realm.master.id
   client_id = "master-realm"
 }
@@ -38,8 +39,8 @@ resource "google_secret_manager_secret_version" "terraform" {
 
 locals {
   plan_roles = merge(
-    { for role in ["view-realm", "view-clients", "view-users", "view-identity-providers", "view-events"] : "hub/${role}" => { client = data.keycloak_openid_client.hub_realm.id, role = role } },
-    { for role in ["view-realm", "view-clients", "view-users"] : "master/${role}" => { client = data.keycloak_openid_client.master_realm.id, role = role } },
+    { for role in ["view-realm", "view-clients", "view-users", "view-identity-providers", "view-events"] : "hub/${role}" => { client = data.keycloak_saml_client.hub_realm.id, role = role } },
+    { for role in ["view-realm", "view-clients", "view-users"] : "master/${role}" => { client = data.keycloak_saml_client.master_realm.id, role = role } },
   )
 }
 
