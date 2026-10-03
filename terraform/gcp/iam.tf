@@ -16,8 +16,7 @@ locals {
     ci_infra_plan        = "${local.k8s_principal_prefix}/ns/ci-infra/sa/ci-infra-plan"
     ci_infra_apply       = "${local.k8s_principal_prefix}/ns/ci-infra/sa/ci-infra-apply"
     gke_nodes            = google_service_account.gke_nodes.member
-    # Made by hand: Claude Code's cloud environments hold its key.
-    claude_code = "serviceAccount:claude-code@${var.project_id}.iam.gserviceaccount.com"
+    claude_code          = google_service_account.claude_code.member
   }
 
   project_iam = {
@@ -101,8 +100,20 @@ resource "google_project_iam_member" "this" {
   member  = each.value.member
 }
 
+# Claude Code's cloud sessions' identity; their environment holds its key, made by hand. The account and its viewer role
+# predate their management here (imports.tf).
+resource "google_service_account" "claude_code" {
+  account_id   = "claude-code"
+  display_name = "claude-code"
+  description  = "Claude Code web sessions."
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
 # Claude Code's cloud sessions look around the project. viewer reads no Kubernetes Secret or Secret Manager payload, and
-# changes nothing. Granted by hand before Terraform managed it (imports.tf).
+# changes nothing.
 resource "google_project_iam_member" "claude_code" {
   project = var.project_id
   role    = "roles/viewer"
