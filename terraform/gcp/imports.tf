@@ -13,5 +13,5 @@ import {
 
 import {
   to = google_project_iam_member.claude_code
-  id = "${var.project_id} roles/viewer serviceAccount:claude-code@${var.project_id}.iam.gserviceaccount.com"
+  id = "${var.project_id} roles/viewer ${google_service_account.claude_code.member}"
 }
