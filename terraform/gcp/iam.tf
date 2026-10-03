@@ -27,10 +27,8 @@ locals {
     "octomaton/serviceusage.serviceUsageConsumer"   = { role = "roles/serviceusage.serviceUsageConsumer", member = local.principals.octomaton }
     "gke-nodes/container.defaultNodeServiceAccount" = { role = "roles/container.defaultNodeServiceAccount", member = local.principals.gke_nodes }
 
-    # Claude Code's cloud sessions look around the project, and read the hub cluster's objects and pod logs through
-    # GKE's MCP server (container.googleapis.com/mcp). viewer reads no Kubernetes Secret or Secret Manager payload,
-    # and changes nothing.
-    "claude-code/viewer"       = { role = "roles/viewer", member = local.principals.claude_code }
+    # Claude Code's cloud sessions read the hub cluster's objects and pod logs through GKE's MCP server
+    # (container.googleapis.com/mcp), with the viewer role of google_project_iam_member.claude_code.
     "claude-code/mcp.toolUser" = { role = "roles/mcp.toolUser", member = local.principals.claude_code }
 
     # infra's plans: read access to everything terraform/gcp manages. iam.securityReviewer reads every IAM policy, the
@@ -101,6 +99,18 @@ resource "google_project_iam_member" "this" {
   project = var.project_id
   role    = each.value.role
   member  = each.value.member
+}
+
+# Claude Code's cloud sessions look around the project. viewer reads no Kubernetes Secret or Secret Manager payload, and
+# changes nothing. Granted by hand before Terraform managed it (imports.tf).
+resource "google_project_iam_member" "claude_code" {
+  project = var.project_id
+  role    = "roles/viewer"
+  member  = local.principals.claude_code
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 resource "google_storage_bucket_iam_member" "this" {
