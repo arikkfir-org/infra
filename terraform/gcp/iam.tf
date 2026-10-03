@@ -16,6 +16,8 @@ locals {
     ci_infra_plan        = "${local.k8s_principal_prefix}/ns/ci-infra/sa/ci-infra-plan"
     ci_infra_apply       = "${local.k8s_principal_prefix}/ns/ci-infra/sa/ci-infra-apply"
     gke_nodes            = google_service_account.gke_nodes.member
+    # Made by hand: Claude Code's cloud environments hold its key.
+    claude_code = "serviceAccount:claude-code@${var.project_id}.iam.gserviceaccount.com"
   }
 
   project_iam = {
@@ -24,6 +26,12 @@ locals {
     "octomaton/telemetry.tracesWriter"              = { role = "roles/telemetry.tracesWriter", member = local.principals.octomaton }
     "octomaton/serviceusage.serviceUsageConsumer"   = { role = "roles/serviceusage.serviceUsageConsumer", member = local.principals.octomaton }
     "gke-nodes/container.defaultNodeServiceAccount" = { role = "roles/container.defaultNodeServiceAccount", member = local.principals.gke_nodes }
+
+    # Claude Code's cloud sessions look around the project, and read the hub cluster's objects and pod logs through
+    # GKE's MCP server (container.googleapis.com/mcp). viewer reads no Kubernetes Secret or Secret Manager payload,
+    # and changes nothing.
+    "claude-code/viewer"       = { role = "roles/viewer", member = local.principals.claude_code }
+    "claude-code/mcp.toolUser" = { role = "roles/mcp.toolUser", member = local.principals.claude_code }
 
     # infra's plans: read access to everything terraform/gcp manages. iam.securityReviewer reads every IAM policy, the
     # buckets', DNS zones' and repository's included.
