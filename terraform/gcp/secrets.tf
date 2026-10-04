@@ -19,6 +19,7 @@ resource "google_secret_manager_secret" "this" {
     "argocd-github-app-id",
     "argocd-github-app-private-key",
     "fin-postgres-arik-password",
+    "fin-scraper-sealing-key",
     "keycloak-bootstrap-admin",
     "keycloak-google-client-secret",
     "keycloak-hub-client-secret",

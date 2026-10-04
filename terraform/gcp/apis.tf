@@ -1,5 +1,6 @@
 resource "google_project_service" "this" {
   for_each = toset([
+    "aiplatform.googleapis.com",
     "artifactregistry.googleapis.com",
     "cloudresourcemanager.googleapis.com",
     "cloudtrace.googleapis.com",
