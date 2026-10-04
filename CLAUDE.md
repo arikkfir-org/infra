@@ -53,8 +53,9 @@
   `checks` from any source), the `ENG-` autolink to Linear, Dependabot alerts and security updates, and team `reviewers`
   (`terraform/github/teams.tf`) gets `push` on it. Add it to `local.docs_layers` in `terraform/gcp/iam.tf` too, so its
   CI tenant can publish its docs. Tell the owner to set what the provider can't (README.md, Notes).
-- Bucket: add its name and public access prevention (`enforced` unless it must be public) to the map in
-  `terraform/gcp/storage.tf`, and its grants to `local.bucket_iam` in `terraform/gcp/iam.tf`.
+- Bucket: add its name, public access prevention (`enforced` unless it must be public) and the age in days after which
+  its objects are deleted (`null` keeps them) to the map in `terraform/gcp/storage.tf`, and its grants to
+  `local.bucket_iam` in `terraform/gcp/iam.tf`.
 - Secret: add its ID to the set in `terraform/gcp/secrets.tf`. The External Secrets accessor grant follows
   automatically. The owner adds the value with `gcloud secrets versions add`.
 - IAM binding: add the Kubernetes principal (namespace and ServiceAccount) to `local.principals` in

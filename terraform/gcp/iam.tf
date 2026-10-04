@@ -17,6 +17,11 @@ locals {
     ci_infra_apply       = "${local.k8s_principal_prefix}/ns/ci-infra/sa/ci-infra-apply"
     gke_nodes            = google_service_account.gke_nodes.member
     claude_code          = google_service_account.claude_code.member
+    fin_api              = "${local.k8s_principal_prefix}/ns/fin/sa/api"
+    fin_worker           = "${local.k8s_principal_prefix}/ns/fin/sa/worker"
+    fin_scraper          = "${local.k8s_principal_prefix}/ns/fin/sa/scraper"
+    # Every pod of a Fin pull request's environment that presents its projected token (pool fin-pull-requests below).
+    fin_pull_requests = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.fin_pull_requests.name}/*"
   }
 
   project_iam = {
@@ -25,6 +30,23 @@ locals {
     "octomaton/telemetry.tracesWriter"              = { role = "roles/telemetry.tracesWriter", member = local.principals.octomaton }
     "octomaton/serviceusage.serviceUsageConsumer"   = { role = "roles/serviceusage.serviceUsageConsumer", member = local.principals.octomaton }
     "gke-nodes/container.defaultNodeServiceAccount" = { role = "roles/container.defaultNodeServiceAccount", member = local.principals.gke_nodes }
+
+    # Fin: production's workloads, and every pull request's environment through pool fin-pull-requests. Traces and
+    # metrics from all of them; model calls (Claude and Gemini on Vertex AI) from fin-worker only.
+    "fin-api/telemetry.tracesWriter"                      = { role = "roles/telemetry.tracesWriter", member = local.principals.fin_api }
+    "fin-api/telemetry.metricsWriter"                     = { role = "roles/telemetry.metricsWriter", member = local.principals.fin_api }
+    "fin-api/serviceusage.serviceUsageConsumer"           = { role = "roles/serviceusage.serviceUsageConsumer", member = local.principals.fin_api }
+    "fin-worker/telemetry.tracesWriter"                   = { role = "roles/telemetry.tracesWriter", member = local.principals.fin_worker }
+    "fin-worker/telemetry.metricsWriter"                  = { role = "roles/telemetry.metricsWriter", member = local.principals.fin_worker }
+    "fin-worker/serviceusage.serviceUsageConsumer"        = { role = "roles/serviceusage.serviceUsageConsumer", member = local.principals.fin_worker }
+    "fin-worker/aiplatform.user"                          = { role = "roles/aiplatform.user", member = local.principals.fin_worker }
+    "fin-scraper/telemetry.tracesWriter"                  = { role = "roles/telemetry.tracesWriter", member = local.principals.fin_scraper }
+    "fin-scraper/telemetry.metricsWriter"                 = { role = "roles/telemetry.metricsWriter", member = local.principals.fin_scraper }
+    "fin-scraper/serviceusage.serviceUsageConsumer"       = { role = "roles/serviceusage.serviceUsageConsumer", member = local.principals.fin_scraper }
+    "fin-pull-requests/telemetry.tracesWriter"            = { role = "roles/telemetry.tracesWriter", member = local.principals.fin_pull_requests }
+    "fin-pull-requests/telemetry.metricsWriter"           = { role = "roles/telemetry.metricsWriter", member = local.principals.fin_pull_requests }
+    "fin-pull-requests/serviceusage.serviceUsageConsumer" = { role = "roles/serviceusage.serviceUsageConsumer", member = local.principals.fin_pull_requests }
+    "fin-pull-requests/aiplatform.user"                   = { role = "roles/aiplatform.user", member = local.principals.fin_pull_requests }
 
     # Claude Code's cloud sessions read the hub cluster's objects and pod logs through GKE's MCP server
     # (container.googleapis.com/mcp), with the viewer role of google_project_iam_member.claude_code.
@@ -78,6 +100,12 @@ locals {
     # tooling's publish pipeline, on main only (the ServiceAccount's octomaton.dev/branches).
     "arikkfir-claude/ci-tooling-publish/storage.objectUser"         = { bucket = "arikkfir-claude", role = "roles/storage.objectUser", member = local.principals.ci_tooling_publish }
     "arikkfir-claude/ci-tooling-publish/storage.legacyBucketReader" = { bucket = "arikkfir-claude", role = "roles/storage.legacyBucketReader", member = local.principals.ci_tooling_publish }
+    # Fin's scrape artifacts: the scraper writes what fin-api serves and fin-worker re-ingests, and may not read them back
+    # (traces keep the typed read-only passwords). Pull requests share one bucket, under a prefix each.
+    "arikkfir-fin/fin-scraper/storage.objectCreator"                  = { bucket = "arikkfir-fin", role = "roles/storage.objectCreator", member = local.principals.fin_scraper }
+    "arikkfir-fin/fin-api/storage.objectViewer"                       = { bucket = "arikkfir-fin", role = "roles/storage.objectViewer", member = local.principals.fin_api }
+    "arikkfir-fin/fin-worker/storage.objectViewer"                    = { bucket = "arikkfir-fin", role = "roles/storage.objectViewer", member = local.principals.fin_worker }
+    "arikkfir-fin-pull-requests/fin-pull-requests/storage.objectUser" = { bucket = "arikkfir-fin-pull-requests", role = "roles/storage.objectUser", member = local.principals.fin_pull_requests }
   })
 
   images_iam = {
@@ -227,4 +255,34 @@ resource "google_dns_managed_zone_iam_member" "cert_manager" {
 moved {
   from = google_dns_managed_zone_iam_member.cert_manager
   to   = google_dns_managed_zone_iam_member.cert_manager["kfirs-com"]
+}
+
+# Fin's pull requests' environments come and go with the pull requests, and GKE's own pool grants only to namespaces named
+# in advance. This pool trusts the hub cluster's ServiceAccount tokens from namespaces named fin-pr-* only: a pod there
+# presents a projected token of the provider's audience through an external_account credential file.
+resource "google_iam_workload_identity_pool" "fin_pull_requests" {
+  workload_identity_pool_id = "fin-pull-requests"
+  display_name              = "Fin pull requests"
+  description               = "Pods of Fin's pull requests' environments (namespaces fin-pr-*)."
+
+  depends_on = [google_project_service.this]
+}
+
+resource "google_iam_workload_identity_pool_provider" "gke_hub" {
+  workload_identity_pool_id          = google_iam_workload_identity_pool.fin_pull_requests.workload_identity_pool_id
+  workload_identity_pool_provider_id = "gke-hub"
+  display_name                       = "GKE cluster hub"
+  description                        = "ServiceAccount tokens of the hub cluster, from namespaces fin-pr-* only."
+
+  attribute_mapping = {
+    "google.subject"      = "assertion.sub"
+    "attribute.namespace" = "assertion['kubernetes.io']['namespace']"
+  }
+  attribute_condition = "assertion['kubernetes.io']['namespace'].startsWith('fin-pr-')"
+
+  oidc {
+    # The cluster's ServiceAccount token issuer, whose keys GKE publishes. No allowed_audiences: tokens must name the
+    # provider itself.
+    issuer_uri = "https://container.googleapis.com/v1/projects/${var.project_id}/locations/${google_container_cluster.hub.location}/clusters/${google_container_cluster.hub.name}"
+  }
 }
