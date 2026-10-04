@@ -24,13 +24,11 @@ locals {
     "admin.id" = "protected"
     # The privacy policy and terms of service, from the docs site.
     legal = "public"
-    # Fin: production, and every pull request's environment (pr-<number>.app.dev.fin, pr-<number>.api.dev.fin). The
-    # wildcards sit where their certificate's DNS-01 challenge records live: an existing _acme-challenge.app.dev.fin
+    # Fin: production, and every pull request's environment (pr-<number>.app.dev.fin), each with its API under /api.
+    # The wildcard sits where its certificate's DNS-01 challenge record lives: an existing _acme-challenge.app.dev.fin
     # would stop a wildcard higher up from answering for the names below app.dev.fin.
     "app.fin"       = "protected"
-    "api.fin"       = "protected"
     "*.app.dev.fin" = "protected"
-    "*.api.dev.fin" = "protected"
     # Fin's Go import page (fin.kfirs.com/apps/api): the go command fetches it without signing in.
     fin = "public"
   }
