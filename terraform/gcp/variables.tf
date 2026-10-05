@@ -66,6 +66,6 @@ variable "ci_pool" {
   default = {
     machine_type = "e2-standard-4"
     min_nodes    = 0
-    max_nodes    = 6
+    max_nodes    = 10
   }
 }
