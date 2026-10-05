@@ -2,7 +2,7 @@
 # arikkfir-claude is public: anyone can read objects by URL (https://storage.googleapis.com/<bucket>/<path>), nobody can
 # list them anonymously. arikkfir-docs is private; the docs site in the cluster serves it. arikkfir-fin and
 # arikkfir-fin-pull-requests hold Fin's scrape videos, traces and raw statements, which only fin-api serves.
-# arikkfir-fin-ci-cache holds Fin's CI caches, which its ci pipeline saves from merge queue runs. Readers and writers
+# arikkfir-fin-ci-cache holds Fin's CI caches, which its ci pipeline saves on pushes to main. Readers and writers
 # are granted in iam.tf.
 resource "google_storage_bucket" "this" {
   for_each = {
