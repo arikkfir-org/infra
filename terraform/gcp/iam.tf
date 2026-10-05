@@ -13,7 +13,6 @@ locals {
     ci_octomaton_release = "${local.k8s_principal_prefix}/ns/ci-octomaton/sa/ci-octomaton-release"
     ci_fin_preview       = "${local.k8s_principal_prefix}/ns/ci-fin/sa/ci-fin-preview"
     ci_fin_release       = "${local.k8s_principal_prefix}/ns/ci-fin/sa/ci-fin-release"
-    ci_fin_cache         = "${local.k8s_principal_prefix}/ns/ci-fin/sa/ci-fin-cache"
     ci_fin_ci            = "${local.k8s_principal_prefix}/ns/ci-fin/sa/ci-fin-ci"
     ci_infra_plan        = "${local.k8s_principal_prefix}/ns/ci-infra/sa/ci-infra-plan"
     ci_infra_apply       = "${local.k8s_principal_prefix}/ns/ci-infra/sa/ci-infra-apply"
@@ -108,10 +107,9 @@ locals {
     "arikkfir-fin/fin-api/storage.objectViewer"                       = { bucket = "arikkfir-fin", role = "roles/storage.objectViewer", member = local.principals.fin_api }
     "arikkfir-fin/fin-worker/storage.objectViewer"                    = { bucket = "arikkfir-fin", role = "roles/storage.objectViewer", member = local.principals.fin_worker }
     "arikkfir-fin-pull-requests/fin-pull-requests/storage.objectUser" = { bucket = "arikkfir-fin-pull-requests", role = "roles/storage.objectUser", member = local.principals.fin_pull_requests }
-    # Fin's CI caches: its pipeline cache writes them, on main only (the ServiceAccount's octomaton.dev/branches), and
-    # its other pipelines restore them, ci and preview from any branch.
-    "arikkfir-fin-ci-cache/ci-fin-cache/storage.objectUser"     = { bucket = "arikkfir-fin-ci-cache", role = "roles/storage.objectUser", member = local.principals.ci_fin_cache }
-    "arikkfir-fin-ci-cache/ci-fin-ci/storage.objectViewer"      = { bucket = "arikkfir-fin-ci-cache", role = "roles/storage.objectViewer", member = local.principals.ci_fin_ci }
+    # Fin's CI caches: its ci pipeline, from any branch, restores them and saves them from merge queue runs; preview and
+    # release restore them. They hold nothing secret.
+    "arikkfir-fin-ci-cache/ci-fin-ci/storage.objectUser"        = { bucket = "arikkfir-fin-ci-cache", role = "roles/storage.objectUser", member = local.principals.ci_fin_ci }
     "arikkfir-fin-ci-cache/ci-fin-preview/storage.objectViewer" = { bucket = "arikkfir-fin-ci-cache", role = "roles/storage.objectViewer", member = local.principals.ci_fin_preview }
     "arikkfir-fin-ci-cache/ci-fin-release/storage.objectViewer" = { bucket = "arikkfir-fin-ci-cache", role = "roles/storage.objectViewer", member = local.principals.ci_fin_release }
   })
