@@ -1,7 +1,8 @@
 # Bucket => public access prevention, and the age in days after which objects are deleted (null keeps them).
 # arikkfir-claude is public: anyone can read objects by URL (https://storage.googleapis.com/<bucket>/<path>), nobody can
 # list them anonymously. arikkfir-docs is private; the docs site in the cluster serves it. arikkfir-fin and
-# arikkfir-fin-pull-requests hold Fin's scrape videos, traces and raw statements, which only fin-api serves. Readers and
+# arikkfir-fin-pull-requests hold Fin's scrape videos, traces and raw statements, which only fin-api serves.
+# arikkfir-fin-ci-cache holds Fin's CI caches, which its pipeline cache builds afresh on every push to main. Readers and
 # writers are granted in iam.tf.
 resource "google_storage_bucket" "this" {
   for_each = {
@@ -9,6 +10,7 @@ resource "google_storage_bucket" "this" {
     "arikkfir-claude"            = { public_access_prevention = "inherited", delete_after_days = null }
     "arikkfir-fin"               = { public_access_prevention = "enforced", delete_after_days = 30 }
     "arikkfir-fin-pull-requests" = { public_access_prevention = "enforced", delete_after_days = 7 }
+    "arikkfir-fin-ci-cache"      = { public_access_prevention = "enforced", delete_after_days = 14 }
   }
 
   name                        = each.key
