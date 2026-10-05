@@ -107,7 +107,7 @@ locals {
     "arikkfir-fin/fin-api/storage.objectViewer"                       = { bucket = "arikkfir-fin", role = "roles/storage.objectViewer", member = local.principals.fin_api }
     "arikkfir-fin/fin-worker/storage.objectViewer"                    = { bucket = "arikkfir-fin", role = "roles/storage.objectViewer", member = local.principals.fin_worker }
     "arikkfir-fin-pull-requests/fin-pull-requests/storage.objectUser" = { bucket = "arikkfir-fin-pull-requests", role = "roles/storage.objectUser", member = local.principals.fin_pull_requests }
-    # Fin's CI caches: its ci pipeline, from any branch, restores them and saves them from merge queue runs; preview and
+    # Fin's CI caches: its ci pipeline, from any branch, restores them and saves them on pushes to main; preview and
     # release restore them. They hold nothing secret.
     "arikkfir-fin-ci-cache/ci-fin-ci/storage.objectUser"        = { bucket = "arikkfir-fin-ci-cache", role = "roles/storage.objectUser", member = local.principals.ci_fin_ci }
     "arikkfir-fin-ci-cache/ci-fin-preview/storage.objectViewer" = { bucket = "arikkfir-fin-ci-cache", role = "roles/storage.objectViewer", member = local.principals.ci_fin_preview }
