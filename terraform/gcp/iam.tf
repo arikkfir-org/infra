@@ -33,7 +33,7 @@ locals {
     "gke-nodes/container.defaultNodeServiceAccount" = { role = "roles/container.defaultNodeServiceAccount", member = local.principals.gke_nodes }
 
     # Fin: production's workloads, and every pull request's environment through pool fin-pull-requests. Traces and
-    # metrics from all of them; model calls (Claude and Gemini on Vertex AI) from fin-worker only.
+    # metrics from all of them; model calls (Gemini on Vertex AI) from fin-worker only.
     "fin-api/telemetry.tracesWriter"                      = { role = "roles/telemetry.tracesWriter", member = local.principals.fin_api }
     "fin-api/telemetry.metricsWriter"                     = { role = "roles/telemetry.metricsWriter", member = local.principals.fin_api }
     "fin-api/serviceusage.serviceUsageConsumer"           = { role = "roles/serviceusage.serviceUsageConsumer", member = local.principals.fin_api }
