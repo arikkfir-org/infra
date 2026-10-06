@@ -182,6 +182,22 @@ resource "google_storage_bucket_iam_member" "docs_publisher" {
   }
 }
 
+# Fin's CI uploads each run's end-to-end report under .reports/fin/, from any branch, since pull requests' runs need
+# theirs too: ci-fin-ci may create objects there and nowhere else, and can't change or delete them (see the reference,
+# "Docs site").
+resource "google_storage_bucket_iam_member" "ci_reports" {
+  for_each = { fin = local.principals.ci_fin_ci }
+
+  bucket = google_storage_bucket.this["arikkfir-docs"].name
+  role   = "roles/storage.objectCreator"
+  member = each.value
+
+  condition {
+    title      = "reports-${each.key}"
+    expression = "resource.name.startsWith(\"projects/_/buckets/arikkfir-docs/objects/.reports/${each.key}/\")"
+  }
+}
+
 # infra's plans read each bucket's settings.
 resource "google_storage_bucket_iam_member" "ci_infra_plan" {
   for_each = google_storage_bucket.this
