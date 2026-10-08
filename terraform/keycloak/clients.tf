@@ -50,6 +50,32 @@ resource "keycloak_openid_group_membership_protocol_mapper" "hub_groups" {
   add_to_userinfo     = true
 }
 
+# Fin's local development: its dev server signs a developer in through this client, as oauth2-proxy does in the
+# cluster, and the local fin-api accepts its ID tokens. Public, with PKCE: its codes reach only the developer's own
+# machine, and no deployed fin-api accepts its tokens.
+resource "keycloak_openid_client" "fin_local" {
+  realm_id                     = keycloak_realm.hub.id
+  client_id                    = "fin-local"
+  name                         = "Fin's local development"
+  access_type                  = "PUBLIC"
+  standard_flow_enabled        = true
+  direct_access_grants_enabled = false
+  pkce_code_challenge_method   = "S256"
+  valid_redirect_uris          = ["http://localhost:5173/oauth2/callback"]
+}
+
+# fin-api tells test users by fin-e2e locally too.
+resource "keycloak_openid_group_membership_protocol_mapper" "fin_local_groups" {
+  realm_id            = keycloak_realm.hub.id
+  client_id           = keycloak_openid_client.fin_local.id
+  name                = "groups"
+  claim_name          = "groups"
+  full_path           = false
+  add_to_id_token     = true
+  add_to_access_token = true
+  add_to_userinfo     = true
+}
+
 # Fin's end-to-end runs: they create, sign in and delete group fin-e2e's members, and nobody else
 # (docs/infra/designs/test-users.md). ci-fin-ci reads the secret at run time.
 resource "keycloak_openid_client" "fin_e2e" {
