@@ -40,7 +40,6 @@ sequenceDiagram
 | Part | Design | Where |
 | --- | --- | --- |
 | Login page | Realm `hub`'s browser flow `browser-form`: an existing session (`auth-cookie`), else Keycloak's login page, with the username and password form (`auth-username-password-form`) and a button for identity provider `google`. People keep signing in with Google; only test users have passwords. Realm `master` keeps `browser-google` | infra, `terraform/keycloak` |
-| Brute force | Realm `hub`'s brute-force detection: after 10 failed passwords, a username is locked out for a while, at most 15 minutes, now that a password form is public | infra, `terraform/keycloak` |
 | Group `admins` | The people Terraform declares with `admin = true`. The hub's tools admit only them | infra, `terraform/keycloak` |
 | Group `fin-e2e` | Test users, which runs create and delete, never Terraform. Each is `e2e-<uuid>@fin.example` (username and email, verified), with a first and a last name, so Keycloak asks nothing more at sign-in, and a random password | infra (the group), fin (its members) |
 | Groups claim | Client `hub`'s tokens carry `groups`, the user's groups by name (no path): oauth2-proxy checks it on the hub's tools, and fin-api reads it | infra, `terraform/keycloak` |
@@ -57,6 +56,7 @@ sequenceDiagram
 | Test users in realm `hub`, which each run creates and deletes | The hub's sign-in is the only way into Fin's environments, and tests that run at once need people of their own, a few hundred a day | A fixed pool of declared test users: runs would share them, and their passwords would live in Secret Manager. A realm of their own: not the hub's sign-in, and fin-api trusts only realm `hub` |
 | Keycloak's login page for everyone, with a password form and a Google button | A test can't sign in with Google. The owner's choice: one more click, on Google, when the SSO session lapses (7 idle days) | The form only when a test asks for it, through an extra scope and a conditional flow: Google stays automatic, but the tests rewrite Keycloak's redirect |
 | Realm `master` keeps going straight to Google | Only admins sign in there, and no test user exists in it | One flow for both realms |
+| No brute-force detection, for now | Keycloak counts a wrong password against the person the username names, even one with no password, and a locked-out person can't sign in with Google either: anyone who knows a person's email, the owner's included, could keep them out of the hub for 15 minutes at a time. Detection would guard nothing: only test users have passwords, random ones that last one run. The owner's call; a per-IP limit on sign-in attempts comes later ([Open questions](#open-questions)) | Detection on, which Keycloak can't exempt people from |
 | Fine-grained admin permissions on group `fin-e2e` only | `manage-users` would let a run from any branch take over any hub user, the owner's included, and with it Argo CD. Since 26.8, Keycloak lets whoever has `view`, `manage-members` and `manage-membership` on a group create users in it ([keycloak#53013](https://github.com/keycloak/keycloak/issues/53013)) | `manage-users` of realm `hub` |
 | The secret read at run time through Workload Identity | Octomaton mounts Secrets only for pipelines whose every trigger reads the default branch's definitions; a pull request's, a merge group's and a push's can't list one | An ExternalSecret in `ci-fin` |
 | `ci-fin/ci-fin-ci` reads it, from any branch | Pull requests' runs need test users. With it, a branch can create, sign in as and delete test users, which reach only Fin | An identity for `main` only: pull requests' runs couldn't sign in |
@@ -75,8 +75,9 @@ sequenceDiagram
 - **The groups claim comes first.** The `admins` middleware reads `groups` from the session: deployed before Keycloak
   sends the claim, it would lock everyone, the owner included, out of the hub's tools. A session that predates the claim
   gets it at its next refresh, within 5 minutes.
-- **Only test users have passwords.** People sign in with Google; the password form fails for them, and brute-force
-  detection slows anyone trying passwords.
+- **Only test users have passwords.** People sign in with Google, and the password form fails for them however often
+  anyone tries it: with no brute-force detection, wrong passwords lock no one out. A test user's password is 32 random
+  characters and lasts one run, which no guessing reaches.
 
 ## Rollout
 
@@ -84,7 +85,13 @@ sequenceDiagram
 | --- | --- | --- |
 | 1 | `docs` | The [reference](../../hub/reference.md#authentication) names everything the next steps make |
 | 2 | `infra` | This design; `terraform-plan` may view realm `hub`'s clients, for step 3's data source. A pull request of its own: its plan needs nothing new, and `apply` grants it as `terraform-apply` |
-| 3 | `infra` | Realm `hub`'s login page and brute-force detection; groups `admins` and `fin-e2e`; the groups claim; admin permissions; client `fin-e2e` and its secret. In `terraform/gcp`: the secret's container and `ci-fin-ci`'s access. The merge applies it |
+| 3 | `infra` | Realm `hub`'s login page; groups `admins` and `fin-e2e`; the groups claim; admin permissions; client `fin-e2e` and its secret. In `terraform/gcp`: the secret's container and `ci-fin-ci`'s access. The merge applies it |
 | 4 | Check | Sign in again: Keycloak's page shows the password form and Google; the ID token carries `groups: ["admins"]` |
 | 5 | `delivery` | Middleware `admins` on the hub's tools; Keycloak admits `ci-fin`. After step 4 |
 | 6 | `fin` | The suite creates its test users ([Fin's slice 12](../../fin/designs/architecture.md#rollout)) |
+
+## Open questions
+
+- **Where to limit sign-in attempts per IP address.** Traefik's `RateLimit` middleware on Keycloak's routes, or
+  Keycloak itself. The owner wants one, in the plan. Until then, a wrong password costs Keycloak one password hash and
+  locks no one out.
