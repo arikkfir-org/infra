@@ -105,11 +105,13 @@ data "keycloak_saml_client" "admin_permissions" {
   depends_on = [keycloak_realm.hub]
 }
 
-resource "keycloak_openid_client_client_policy" "fin_e2e" {
+# Client fin-e2e's service account user, by a user policy: searches, such as the runs' lookup of the group, filter in
+# the database through partial evaluation, which evaluates user, group, role and aggregated policies, not client ones.
+resource "keycloak_openid_client_user_policy" "fin_e2e" {
   realm_id           = keycloak_realm.hub.id
   resource_server_id = data.keycloak_saml_client.admin_permissions.id
   name               = "fin-e2e"
-  clients            = [keycloak_openid_client.fin_e2e.id]
+  users              = [keycloak_openid_client.fin_e2e.service_account_user_id]
   logic              = "POSITIVE"
   decision_strategy  = "UNANIMOUS"
 }
@@ -122,5 +124,5 @@ resource "keycloak_group_admin_permissions" "fin_e2e_members" {
   decision_strategy = "UNANIMOUS"
   group_ids         = [keycloak_group.fin_e2e.id]
   scopes            = ["view", "view-members", "manage-members", "manage-membership"]
-  policies          = [keycloak_openid_client_client_policy.fin_e2e.id]
+  policies          = [keycloak_openid_client_user_policy.fin_e2e.id]
 }
