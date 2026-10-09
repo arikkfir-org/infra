@@ -17,6 +17,11 @@ resource "keycloak_realm" "hub" {
   # Client fin-e2e's rights over group fin-e2e (clients.tf).
   admin_permissions_enabled = true
 
+  # Keycloak's own browser flow: an existing session, else Keycloak's login page, with the username and password form,
+  # which only test users can pass, beside the button for Google. Set here, not by a binding: an update of this realm
+  # writes its flows from state.
+  browser_flow = "browser"
+
   # No brute-force detection, though the login page's password form is public: it would count wrong passwords against
   # people too, who have none, and lock them out of Google sign-in (docs/infra/designs/test-users.md).
 
@@ -37,41 +42,6 @@ locals {
     master = data.keycloak_realm.master.id
   }
 
-  browser_flows = {
-    hub    = keycloak_authentication_flow.browser_form.alias
-    master = keycloak_authentication_flow.browser_google["master"].alias
-  }
-}
-
-# Realm hub's login page: an existing session, or the password form, which only test users can pass, beside a button
-# for Google.
-resource "keycloak_authentication_flow" "browser_form" {
-  realm_id = keycloak_realm.hub.id
-  alias    = "browser-form"
-}
-
-resource "keycloak_authentication_execution" "form_cookie" {
-  realm_id          = keycloak_realm.hub.id
-  parent_flow_alias = keycloak_authentication_flow.browser_form.alias
-  authenticator     = "auth-cookie"
-  requirement       = "ALTERNATIVE"
-  priority          = 10
-}
-
-resource "keycloak_authentication_subflow" "forms" {
-  realm_id          = keycloak_realm.hub.id
-  parent_flow_alias = keycloak_authentication_flow.browser_form.alias
-  alias             = "browser-form forms"
-  requirement       = "ALTERNATIVE"
-  priority          = 20
-}
-
-resource "keycloak_authentication_execution" "password_form" {
-  realm_id          = keycloak_realm.hub.id
-  parent_flow_alias = keycloak_authentication_subflow.forms.alias
-  authenticator     = "auth-username-password-form"
-  requirement       = "REQUIRED"
-  priority          = 10
 }
 
 # Browser logins go straight to Google: an existing session, or the Google redirect.
@@ -142,10 +112,10 @@ resource "keycloak_authentication_execution" "link_existing_user" {
 }
 
 resource "keycloak_authentication_bindings" "this" {
-  for_each = local.google_realms
+  for_each = local.google_redirect_realms
 
   realm_id     = each.value
-  browser_flow = local.browser_flows[each.key]
+  browser_flow = keycloak_authentication_flow.browser_google[each.key].alias
 }
 
 # The client secret stays in Kubernetes: Keycloak resolves the vault reference from a mounted file,

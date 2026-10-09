@@ -23,6 +23,9 @@
   missing write permission plans green and fails partway through the apply, with the state half-written. A missing role
   goes in a pull request of its own first, which the owner applies by hand, since the pipelines can't apply changes to
   their own roles (README.md, "Apply order"). A missing token permission is the owner's to add before the merge.
+- Terraform deletes a resource before it updates the resources that named it, and Keycloak refuses to delete the flow a
+  realm is bound to. So never rebind a realm and delete its old flow through `keycloak_authentication_bindings` in one
+  change; set realm `hub`'s flows on `keycloak_realm`, whose updates write them from state anyway.
 - After changing provider versions, run
   `terraform providers lock -platform=linux_amd64 -platform=linux_arm64 -platform=darwin_arm64` in that root and keep
   `.terraform.lock.hcl`.

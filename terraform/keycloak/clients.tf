@@ -2,7 +2,7 @@ locals {
   # Bump a version to rotate that secret: Terraform writes a new value to Keycloak and to Secret Manager.
   secret_versions = {
     hub             = "1"
-    fin-e2e         = "1"
+    fin-e2e         = "2"
     terraform-plan  = "1"
     terraform-apply = "1"
   }
