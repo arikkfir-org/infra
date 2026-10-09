@@ -105,8 +105,9 @@ data "keycloak_saml_client" "admin_permissions" {
   depends_on = [keycloak_realm.hub]
 }
 
-# Client fin-e2e's service account user, by a user policy, which holds for searches too: Keycloak filters those in the
-# database through partial evaluation, which evaluates user, group, role and aggregated policies, not client ones.
+# Client fin-e2e's service account user, by a user policy. The runs' checks are all direct, which a client policy would
+# pass too, but only a user, group, role or aggregated policy also holds for searches, which Keycloak filters in the
+# database through partial evaluation: a search then finds what the permission allows, not nothing.
 resource "keycloak_openid_client_user_policy" "fin_e2e" {
   realm_id           = keycloak_realm.hub.id
   resource_server_id = data.keycloak_saml_client.admin_permissions.id
