@@ -66,5 +66,7 @@
   `local.users` in `terraform/keycloak/users.tf`. Their first Google sign-in links to that user; nobody else gets in.
   `admin = true` also makes them a Keycloak administrator: a user in realm `master` with realm role `admin`, who signs
   in to the admin console with Google.
+- Test users are never declared: Fin's end-to-end runs create and delete them in group `fin-e2e` through client
+  `fin-e2e`, whose admin permissions reach no one else (`docs/infra/designs/test-users.md`). Don't widen them.
 - Keycloak client secret: generate it in `terraform/keycloak` (an `ephemeral "random_password"` written with
   `*_wo` and `*_wo_version`), never read it into state. Bump its entry in `local.secret_versions` to rotate it.

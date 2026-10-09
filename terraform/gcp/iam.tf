@@ -251,6 +251,14 @@ resource "google_secret_manager_secret_iam_member" "ci_infra_plan" {
   member    = local.principals.ci_infra_plan
 }
 
+# Fin's end-to-end runs read client fin-e2e's secret at run time, from any branch: it can create, sign in and delete only
+# test users (docs/infra/designs/test-users.md).
+resource "google_secret_manager_secret_iam_member" "ci_fin_ci" {
+  secret_id = google_secret_manager_secret.this["ci-fin-e2e-keycloak-secret"].id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = local.principals.ci_fin_ci
+}
+
 # The grant on the GitHub token predates for_each. Remove once applied.
 moved {
   from = google_secret_manager_secret_iam_member.ci_infra_plan
