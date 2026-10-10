@@ -22,8 +22,16 @@ resource "keycloak_realm" "hub" {
   # writes its flows from state.
   browser_flow = "browser"
 
-  # No brute-force detection, though the login page's password form is public: it would count wrong passwords against
-  # people too, who have none, and lock them out of Google sign-in (docs/infra/designs/test-users.md).
+  # A cap high enough that locking someone out, Google sign-in included, takes many addresses, since Traefik limits each
+  # one's attempts (docs/infra/designs/test-users.md). Every lockout lasts a minute, and two quick failures lock no one.
+  security_defenses {
+    brute_force_detection {
+      max_login_failures               = 1000
+      wait_increment_seconds           = 60
+      max_failure_wait_seconds         = 60
+      minimum_quick_login_wait_seconds = 0
+    }
+  }
 
   lifecycle {
     prevent_destroy = true
@@ -130,6 +138,33 @@ resource "keycloak_oidc_google_identity_provider" "google" {
   sync_mode                     = "IMPORT"
   default_scopes                = "openid email profile"
   first_broker_login_flow_alias = keycloak_authentication_flow.existing_users_only[each.key].alias
+}
+
+# Passwords go only through the login page, which Traefik limits per address: the token endpoint refuses password
+# grants for every client, built-in admin-cli included, before checking any password.
+resource "keycloak_realm_client_policy_profile" "no_password_grants" {
+  realm_id    = keycloak_realm.hub.id
+  name        = "no-password-grants"
+  description = "Refuses resource owner password credentials grants"
+
+  executor {
+    name = "reject-ropc-grant"
+    # Keycloak reads it on every client create and update in the realm, and has no default for it.
+    configuration = {
+      "auto-configure" = "false"
+    }
+  }
+}
+
+resource "keycloak_realm_client_policy_profile_policy" "no_password_grants" {
+  realm_id    = keycloak_realm.hub.id
+  name        = "no-password-grants"
+  description = "Every client refuses password grants"
+  profiles    = [keycloak_realm_client_policy_profile.no_password_grants.name]
+
+  condition {
+    name = "any-client"
+  }
 }
 
 # Realm hub's sign-in, from before realm master shared it.
