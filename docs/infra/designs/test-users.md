@@ -78,6 +78,7 @@ flowchart LR
 | A per-address limit on the login page's forms, in Traefik | The owner's call: it bounds what each address can try, and what each costs Keycloak in password hashes. 30 a minute fits Fin's runs, which sign in once per test, about 60 times a run from one pod, several runs at once. Only the forms' POSTs count, so a login page's own resources never do | Keycloak, which limits no address. Every path of `id.kfirs.com`, whose login page alone loads several resources. 10 a minute, which Fin's runs would exceed |
 | Brute-force detection on, with a cap of 1000 failures | The owner's call: a cap on wrong passwords per user, high enough that locking someone out fast takes many addresses. Each lockout lasts a minute. Keycloak's quick-login lockout, a minute for two failures within a second, is off: two requests would do it | Detection off, which caps nothing. Keycloak's defaults: 30 failures, lockouts growing to 15 minutes, and the quick-login lockout |
 | Password grants refused, by a client policy | Built-in client `admin-cli` takes passwords at the token endpoint, which every sign-in's code exchange goes through too, so Traefik can't limit them there without limiting oauth2-proxy. Nothing uses them. The policy refuses them before Keycloak checks the password, so they count no failures either | A limit on the token endpoint per address: oauth2-proxy's exchanges come from its own pods. Turning off `admin-cli`'s password grant: a built-in client to adopt into Terraform, and a client made later could allow them again |
+| The CI namespaces keep their direct path to Keycloak, login form included | The owner's call: a lockout through it takes push access to `fin` or `infra`, or code compromised inside their CI runs | A proxy in front of Keycloak for `ci-fin` and `ci-infra` that passes only the admin API and the token endpoint, or their calls routed through Traefik with the same path rules |
 | Fine-grained admin permissions on group `fin-e2e` only | `manage-users` would let a run from any branch take over any hub user, the owner's included, and with it Argo CD. Since 26.8, Keycloak lets whoever has `view`, `manage-members` and `manage-membership` on a group create users in it ([keycloak#53013](https://github.com/keycloak/keycloak/issues/53013)) | `manage-users` of realm `hub` |
 | Its permission names the client's service account user, through a user policy | Every check the runs make is direct, which a user policy and a client policy pass alike. Neither lets the runs search: a search of the realm's groups needs realm-management's `query-groups` whatever the policy (below) | A client policy: it passes the same checks, so replacing the working policy would gain nothing |
 | The runs find group `fin-e2e` by its path | Looking a group up by its path needs only the client's `view` of that group. A search of the realm's groups needs realm-management's `query-groups`, whatever the client may do with any one group, so a search by the runs got 403 | `query-groups` for the client: it would list every group of realm `hub` |
@@ -114,8 +115,8 @@ flowchart LR
 - **The limit binds only what passes through Traefik.** Namespaces `ci-fin` and `ci-infra` reach
   `keycloak-service:8080` directly, for the admin API, and a NetworkPolicy can't tell paths apart, so a pod there can
   post the login form with no limit and reach 1000 failures in seconds. `ci-fin/ci-fin-ci` runs any of Fin's branches,
-  so whoever can push a branch to `fin`, or have `infra`'s CI run theirs, can lock a person out at once
-  ([Open questions](#open-questions)).
+  so whoever can push a branch to `fin`, or have `infra`'s CI run theirs, can lock a person out at once. The owner
+  accepted it ([Decisions](#decisions)).
 - **Fin's runs share the limit of their address.** A run signs in once per test, from one pod. Should runs ever reach
   Keycloak from one shared address, such as Cloud NAT's, several at once could exceed it and fail their sign-ins with
   429.
@@ -137,6 +138,4 @@ flowchart LR
 
 ## Open questions
 
-- **Whether to close the login form to the CI namespaces.** They need only the admin API and the token endpoint, but
-  reach all of Keycloak. Closing it takes a proxy in front of Keycloak for them that passes only those paths, or their
-  calls routed through Traefik. Until then, the owner's acceptance of the lockout risk covers external addresses only.
+None.
