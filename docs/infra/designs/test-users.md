@@ -4,6 +4,8 @@
 `fin-e2e`, signs it in through the hub's real sign-in with a password, and deletes it when it ends. Keycloak shows its
 login page, a password form beside Google, to everyone. Fin's CI holds client `fin-e2e`, which may create, sign in and
 delete `fin-e2e`'s members, and nobody else. The hub's tools admit only group `admins`; test users reach only Fin.
+Passwords go only through the login page, whose forms Traefik limits per client address, and Keycloak locks a user out
+for a minute at a time once wrong passwords for them reach 1000.
 
 ## Why
 
@@ -49,6 +51,21 @@ sequenceDiagram
 | Admins only | Middleware `admins` in each tool's namespace, a ForwardAuth to oauth2-proxy's `/oauth2/auth?allowed_groups=admins`, on the routes of Argo CD, the Tekton Dashboard, Grafana, the Traefik dashboard, NUI, the docs site, Keycloak's console and realm `master`'s sign-in. The interceptor still signs people in first; a signed-in user outside `admins` then gets 403 | delivery (its `docs/delivery/designs/admins-only.md`) |
 | Client `fin-local` | Public, standard flow with PKCE (`S256`), redirect URI `http://localhost:5173/oauth2/callback` only, and the `groups` mapper. Fin's local development: its dev server signs a developer in through it, a person with Google or a test user with a password, and the local fin-api accepts its ID tokens, so Fin needs no dev user | infra, `terraform/keycloak`; fin |
 | Fin | Admits every signed-in hub user, test users included, as before | unchanged |
+| Sign-in attempts | Middleware `keycloak/sign-in-attempts`, a `RateLimit` per client address, on the POSTs of the login page's forms (`/realms/hub/login-actions`): 30 a minute, in bursts of up to 30, counted by each Traefik replica. Over it, Traefik answers 429 | delivery, `platform/keycloak` |
+| Brute-force detection | Realm `hub`: 1000 wrong passwords for a user lock them out for a minute, and each one after that again; Keycloak forgets them after 12 hours without one. Two quick failures lock no one out | infra, `terraform/keycloak` |
+| Password grants | Client policy `no-password-grants` makes the token endpoint refuse them for every client, built-in `admin-cli` included, before it checks a password | infra, `terraform/keycloak` |
+
+```mermaid
+flowchart LR
+  B[Browser] -->|POST /realms/hub/login-actions/...| T{Traefik: 30 a minute<br/>from this address?}
+  T -->|over| R429[429]
+  T -->|within| K{Keycloak: user locked out?}
+  K -->|yes| F[Refused]
+  K -->|no| P{Password right?}
+  P -->|no| C[Failure counted:<br/>at 1000, locked for a minute]
+  P -->|yes| S[Signed in; failures forgotten]
+  X[Any client] -->|grant_type=password| N[Refused by no-password-grants,<br/>before any password check]
+```
 
 ## Decisions
 
@@ -58,7 +75,9 @@ sequenceDiagram
 | Keycloak's login page for everyone, with a password form and a Google button | A test can't sign in with Google. The owner's choice: one more click, on Google, when the SSO session lapses (7 idle days) | The form only when a test asks for it, through an extra scope and a conditional flow: Google stays automatic, but the tests rewrite Keycloak's redirect |
 | Realm `master` keeps going straight to Google | Only admins sign in there, and no test user exists in it | One flow for both realms |
 | Keycloak's own browser flow for realm `hub`, set on the realm | It shows the same login page a flow of our own would, and an update of the realm writes its flows from state anyway | A flow of our own, `browser-form`, bound through `keycloak_authentication_bindings`: the apply deleted the old flow's executions before it rebound the realm, then failed to delete the still-bound flow, and left realm `hub` with an empty one |
-| No brute-force detection, for now | Keycloak counts a wrong password against the person the username names, even one with no password, and a locked-out person can't sign in with Google either: anyone who knows a person's email, the owner's included, could keep them out of the hub for 15 minutes at a time. Detection would guard nothing: only test users have passwords, random ones that last one run. The owner's call; a per-IP limit on sign-in attempts comes later ([Open questions](#open-questions)) | Detection on, which Keycloak can't exempt people from |
+| A per-address limit on the login page's forms, in Traefik | The owner's call: it bounds what each address can try, and what each costs Keycloak in password hashes. 30 a minute fits Fin's runs, which sign in once per test, about 60 times a run from one pod, several runs at once. Only the forms' POSTs count, so a login page's own resources never do | Keycloak, which limits no address. Every path of `id.kfirs.com`, whose login page alone loads several resources. 10 a minute, which Fin's runs would exceed |
+| Brute-force detection on, with a cap of 1000 failures | The owner's call: a cap on wrong passwords per user, high enough that locking someone out fast takes many addresses. Each lockout lasts a minute. Keycloak's quick-login lockout, a minute for two failures within a second, is off: two requests would do it | Detection off, which caps nothing. Keycloak's defaults: 30 failures, lockouts growing to 15 minutes, and the quick-login lockout |
+| Password grants refused, by a client policy | Built-in client `admin-cli` takes passwords at the token endpoint, which every sign-in's code exchange goes through too, so Traefik can't limit them there without limiting oauth2-proxy. Nothing uses them. The policy refuses them before Keycloak checks the password, so they count no failures either | A limit on the token endpoint per address: oauth2-proxy's exchanges come from its own pods. Turning off `admin-cli`'s password grant: a built-in client to adopt into Terraform, and a client made later could allow them again |
 | Fine-grained admin permissions on group `fin-e2e` only | `manage-users` would let a run from any branch take over any hub user, the owner's included, and with it Argo CD. Since 26.8, Keycloak lets whoever has `view`, `manage-members` and `manage-membership` on a group create users in it ([keycloak#53013](https://github.com/keycloak/keycloak/issues/53013)) | `manage-users` of realm `hub` |
 | Its permission names the client's service account user, through a user policy | Every check the runs make is direct, which a user policy and a client policy pass alike. Neither lets the runs search: a search of the realm's groups needs realm-management's `query-groups` whatever the policy (below) | A client policy: it passes the same checks, so replacing the working policy would gain nothing |
 | The runs find group `fin-e2e` by its path | Looking a group up by its path needs only the client's `view` of that group. A search of the realm's groups needs realm-management's `query-groups`, whatever the client may do with any one group, so a search by the runs got 403 | `query-groups` for the client: it would list every group of realm `hub` |
@@ -85,8 +104,21 @@ sequenceDiagram
   codes go only to `localhost:5173` on the machine whose browser signed in, and no deployed fin-api accepts its tokens,
   which name `fin-local`, not `hub`.
 - **Only test users have passwords.** People sign in with Google, and the password form fails for them however often
-  anyone tries it: with no brute-force detection, wrong passwords lock no one out. A test user's password is 32 random
-  characters and lasts one run, which no guessing reaches.
+  anyone tries it. A test user's password is 32 random characters and lasts one run, which no guessing reaches.
+- **Anyone who knows a person's email can lock them out, the owner's included.** Keycloak counts a wrong password
+  against whoever the username names, even someone with no password, can't exempt anyone, and refuses a locked-out
+  user's Google sign-in too. It forgets failures only after 12 hours without one, so a single address within its limit
+  reaches 1000 in about half an hour (less when its connections reach both Traefik replicas), and then one attempt a
+  minute keeps the person out. The owner accepted it for the cap. An admin unlocks a user on their page in the console,
+  or with `kcadm.sh delete attack-detection/brute-force/users/<id> -r hub` through `kubectl exec`.
+- **The limit binds only what passes through Traefik.** Namespaces `ci-fin` and `ci-infra` reach
+  `keycloak-service:8080` directly, for the admin API, and a NetworkPolicy can't tell paths apart, so a pod there can
+  post the login form with no limit and reach 1000 failures in seconds. `ci-fin/ci-fin-ci` runs any of Fin's branches,
+  so whoever can push a branch to `fin`, or have `infra`'s CI run theirs, can lock a person out at once
+  ([Open questions](#open-questions)).
+- **Fin's runs share the limit of their address.** A run signs in once per test, from one pod. Should runs ever reach
+  Keycloak from one shared address, such as Cloud NAT's, several at once could exceed it and fail their sign-ins with
+  429.
 
 ## Rollout
 
@@ -98,9 +130,13 @@ sequenceDiagram
 | 4 | Check | Sign in again: Keycloak's page shows the password form and Google; the ID token carries `groups: ["admins"]` |
 | 5 | `delivery` | Middleware `admins` on the hub's tools; Keycloak admits `ci-fin`. After step 4 |
 | 6 | `fin` | The suite creates its test users ([Fin's slice 12](../../fin/designs/architecture.md#rollout)) |
+| 7 | `docs` | The reference names the sign-in limits: Middleware `keycloak/sign-in-attempts`, brute-force detection and client policy `no-password-grants` |
+| 8 | `delivery` | Middleware `sign-in-attempts` on the login page's forms. Before step 9, so the cap never runs without the limit |
+| 9 | `infra` | Brute-force detection and client policy `no-password-grants` in realm `hub`. The merge applies it |
+| 10 | Check | A password grant answers `invalid_grant`; 31 form POSTs at once over one connection: the last gets 429; Fin's next run passes |
 
 ## Open questions
 
-- **Where to limit sign-in attempts per IP address.** Traefik's `RateLimit` middleware on Keycloak's routes, or
-  Keycloak itself. The owner wants one, in the plan. Until then, a wrong password costs Keycloak one password hash and
-  locks no one out.
+- **Whether to close the login form to the CI namespaces.** They need only the admin API and the token endpoint, but
+  reach all of Keycloak. Closing it takes a proxy in front of Keycloak for them that passes only those paths, or their
+  calls routed through Traefik. Until then, the owner's acceptance of the lockout risk covers external addresses only.
