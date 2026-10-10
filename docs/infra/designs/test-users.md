@@ -111,6 +111,11 @@ flowchart LR
   reaches 1000 in about half an hour (less when its connections reach both Traefik replicas), and then one attempt a
   minute keeps the person out. The owner accepted it for the cap. An admin unlocks a user on their page in the console,
   or with `kcadm.sh delete attack-detection/brute-force/users/<id> -r hub` through `kubectl exec`.
+- **The limit binds only what passes through Traefik.** Namespaces `ci-fin` and `ci-infra` reach
+  `keycloak-service:8080` directly, for the admin API, and a NetworkPolicy can't tell paths apart, so a pod there can
+  post the login form with no limit and reach 1000 failures in seconds. `ci-fin/ci-fin-ci` runs any of Fin's branches,
+  so whoever can push a branch to `fin`, or have `infra`'s CI run theirs, can lock a person out at once
+  ([Open questions](#open-questions)).
 - **Fin's runs share the limit of their address.** A run signs in once per test, from one pod. Should runs ever reach
   Keycloak from one shared address, such as Cloud NAT's, several at once could exceed it and fail their sign-ins with
   429.
@@ -132,4 +137,6 @@ flowchart LR
 
 ## Open questions
 
-None.
+- **Whether to close the login form to the CI namespaces.** They need only the admin API and the token endpoint, but
+  reach all of Keycloak. Closing it takes a proxy in front of Keycloak for them that passes only those paths, or their
+  calls routed through Traefik. Until then, the owner's acceptance of the lockout risk covers external addresses only.
