@@ -1,14 +1,19 @@
 # Node autoscaling
 
 **Decision**: The cluster autoscales with GKE's `optimize-utilization` profile instead of the default, `balanced`: each
-pod goes to the fullest node that fits it, and the cluster autoscaler removes empty nodes sooner. Facts:
-[reference](../../hub/reference.md#gke). Pull request: arikkfir-org/infra#60 (ENG-103).
+pod goes to the fullest node that fits it, and the cluster autoscaler removes empty nodes sooner. The CI pool runs up
+to five `e2-standard-8` nodes instead of up to ten `e2-standard-4`, the same 40 vCPUs, so a commit's 2-CPU tasks share
+a node. Facts: [reference](../../hub/reference.md#gke). Pull requests: arikkfir-org/infra#60 (the profile, ENG-103)
+and arikkfir-org/infra#61 (the machine type, ENG-104).
 
 ## Why
 
 - On 11 October, 49 CI nodes came and went. The autoscaler removed each one 11.6 to 16.2 minutes after its last pod
   ended (median 11.8), and the CI pool ran 96 vCPU-hours for 20.5 CPU-hours of its pods' requests: four in five of
   those vCPU-hours were no pod's request.
+- Fin's `api`, `web` and preview `images` tasks each request 2 CPUs, and an `e2-standard-4` node has about 3.5 free, so
+  no two of them share a node. Each commit opened three CI nodes, and 69 of the day's 210 CI pods waited about 50
+  seconds for a new one.
 - Two commits' runs at 16:41 took six nodes, which ran only two end-to-end tests and a review from 16:49, and stayed
   until 17:06:
 
@@ -42,9 +47,30 @@ gantt
 | Setting | Before | After | Where |
 | --- | --- | --- | --- |
 | Autoscaling profile, the cluster's | `balanced`, GKE's default | `optimize-utilization` | `terraform/gcp/gke.tf` |
+| CI pool's machine type | `e2-standard-4`, about 3.5 CPUs free for pods | `e2-standard-8`, about 7.5 free | `terraform/gcp/variables.tf` |
+| CI pool's maximum | 10 nodes, 40 vCPUs | 5 nodes, 40 vCPUs | `terraform/gcp/variables.tf` |
 
 Node auto-provisioning, GKE creating node pools of its own, stays off: the profile shares its `cluster_autoscaling`
 block, and the pools keep their own bounds.
+
+One commit's CI requests about 9 CPUs at once. On `e2-standard-8` nodes its 2-CPU tasks share one node, and the second
+keeps room for the next commit's tasks:
+
+```mermaid
+flowchart LR
+  subgraph before["e2-standard-4: three nodes"]
+    direction TB
+    a1["api 2.1 + scraper 1.05"]
+    a2["web 2 + e2e 1 + docs check 0.25"]
+    a3["images 2 + review 0.6"]
+  end
+  subgraph after["e2-standard-8: two nodes"]
+    direction TB
+    b1["api 2.1 + web 2 + images 2 + scraper 1.05"]
+    b2["e2e 1 + docs check 0.25 + review 0.6<br/>5.6 free for the next commit"]
+  end
+  before --> after
+```
 
 ### The replay
 
@@ -74,6 +100,9 @@ neighbour uses more than it requests.
 | --- | --- | --- |
 | `optimize-utilization` | Most of the CI pool's cost is nodes kept empty, and the profile is GKE's only control over how soon they go. It also fills a node before the autoscaler opens another | `balanced`; lower requests for Fin's 2-CPU tasks, which save 11% in the replay but slow those tasks when they share a node |
 | One profile for both pools | GKE sets the profile per cluster | A profile per pool |
+| `e2-standard-8` for the CI pool | A commit's 2-CPU tasks share a node, so about a third fewer pods wait for a new one, and a task that bursts past its request has spare cores beside it. With pods packed it costs what the pool costs today, and a tenth to a quarter more than `e2-standard-4` would under the same profile | `e2-standard-4`; `e2-standard-16`, where one commit fits one node but an empty node costs four times as much: 124 vCPU-hours in the replay |
+| Five nodes at most | The pool's ceiling stays at 40 vCPUs, and the replay never needs more | Ten nodes, 80 vCPUs |
+| The owner applies the machine type by hand | Changing it recreates every CI node, the one that runs pipeline `apply` included, and Terraform killed mid-update leaves the state lock behind | Pipeline `apply` |
 
 ## Risks
 
@@ -84,10 +113,17 @@ neighbour uses more than it requests.
 - A packed node holds more pods, so a pod that uses more than it requests slows its neighbours more often. Requests
   follow measured use ([resource requests](../../hub/designs/resource-requests.md)).
 - With empty nodes gone sooner, more pods wait for a new one: about 50 seconds each, plus pulling their images.
+- An `e2-standard-8` node runs about twice the pods on the same 50 GB boot disk, which their workspaces, caches and
+  images share. Pods evicted for ephemeral storage would mean it's too small. An empty one costs twice what an empty
+  `e2-standard-4` did.
 
 ## Rollout
 
 - arikkfir-org/infra#60: pipeline `apply` updates the cluster in place on merge. No node is recreated. Rollback: revert.
+- arikkfir-org/infra#61, after it: while no CI runs are in flight, the owner merges `main` into its branch, applies
+  `gcp` from it (`make terraform gcp`), and merges it straight away, so that the merge's `apply` has nothing to change
+  and no other merge's `apply` puts the old machine type back. A run in flight during the apply loses its pod and
+  fails. Rollback: revert, applied the same way.
 
 ## Open questions
 
