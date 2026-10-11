@@ -76,7 +76,7 @@ resource "google_container_cluster" "hub" {
   enable_shielded_nodes = true
 
   # Pack pods onto the fullest nodes that fit them, and remove empty nodes sooner than the default, BALANCED, which kept
-  # every CI node about 12 minutes after its last pod (hub/designs/node-autoscaling.md in arikkfir-org/docs).
+  # every CI node about 12 minutes after its last pod (docs/infra/designs/node-autoscaling.md).
   cluster_autoscaling {
     enabled             = false
     autoscaling_profile = "OPTIMIZE_UTILIZATION"
