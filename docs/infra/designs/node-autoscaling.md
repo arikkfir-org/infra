@@ -100,7 +100,8 @@ neighbour uses more than it requests.
 | --- | --- | --- |
 | `optimize-utilization` | Most of the CI pool's cost is nodes kept empty, and the profile is GKE's only control over how soon they go. It also fills a node before the autoscaler opens another | `balanced`; lower requests for Fin's 2-CPU tasks, which save 11% in the replay but slow those tasks when they share a node |
 | One profile for both pools | GKE sets the profile per cluster | A profile per pool |
-| `e2-standard-8` for the CI pool | A commit's 2-CPU tasks share a node, so about a third fewer pods wait for a new one, and a task that bursts past its request has spare cores beside it. With pods packed it costs what the pool costs today, and a tenth to a quarter more than `e2-standard-4` would under the same profile | `e2-standard-4`; `e2-standard-16`, where one commit fits one node but an empty node costs four times as much: 124 vCPU-hours in the replay |
+| `e2-standard-8` for the CI pool | A commit's 2-CPU tasks share a node, so about a third fewer pods wait for a new one. With pods packed it costs what the pool costs today, and a tenth to a quarter more than `e2-standard-4` would under the same profile | `e2-standard-4`; `e2-standard-16`, where one commit fits one node but an empty node costs four times as much: 124 vCPU-hours in the replay |
+| Fin's tasks run as many workers as they request CPUs (arikkfir-org/fin#118) | Go and Vitest size their workers to the node, so an unbounded `web` would run seven on its two CPUs, beside two other two-CPU tasks: two `web` tasks on one node slowed the app's tests threefold on 8 October | Workers sized to the node; as many as an `e2-standard-4` gave, which a full node still oversubscribes |
 | Five nodes at most | The pool's ceiling stays at 40 vCPUs, and the replay never needs more | Ten nodes, 80 vCPUs |
 | The owner applies the machine type by hand | Changing it recreates every CI node, the one that runs pipeline `apply` included, and Terraform killed mid-update leaves the state lock behind | Pipeline `apply` |
 
@@ -120,10 +121,10 @@ neighbour uses more than it requests.
 ## Rollout
 
 - arikkfir-org/infra#60: pipeline `apply` updates the cluster in place on merge. No node is recreated. Rollback: revert.
-- arikkfir-org/infra#61, after it: while no CI runs are in flight, the owner merges `main` into its branch, applies
-  `gcp` from it (`make terraform gcp`), and merges it straight away, so that the merge's `apply` has nothing to change
-  and no other merge's `apply` puts the old machine type back. A run in flight during the apply loses its pod and
-  fails. Rollback: revert, applied the same way.
+- arikkfir-org/infra#61, after it and arikkfir-org/fin#118: while no CI runs are in flight, the owner merges `main`
+  into its branch, applies `gcp` from it (`make terraform gcp`), and merges it straight away, so that the merge's
+  `apply` has nothing to change and no other merge's `apply` puts the old machine type back. A run in flight during
+  the apply loses its pod and fails. Rollback: revert, applied the same way.
 
 ## Open questions
 
