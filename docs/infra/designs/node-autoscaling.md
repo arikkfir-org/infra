@@ -1,10 +1,10 @@
 # Node autoscaling
 
 **Decision**: The cluster autoscales with GKE's `optimize-utilization` profile instead of the default, `balanced`: each
-pod goes to the fullest node that fits it, and the cluster autoscaler removes empty nodes sooner. The CI pool runs up
-to five `e2-standard-8` nodes instead of up to ten `e2-standard-4`, the same 40 vCPUs, so a commit's 2-CPU tasks share
-a node. The pools: [node pools](node-pools.md). Pull requests: arikkfir-org/infra#60 (the profile, ENG-103)
-and arikkfir-org/infra#61 (the machine type, ENG-104).
+pod goes to the fullest node that fits it, and the cluster autoscaler removes empty nodes sooner. The CI pool runs
+`e2-standard-8` nodes instead of `e2-standard-4`, so a commit's 2-CPU tasks share a node: up to five, the same 40 vCPUs
+as before, until it went Spot with up to ten ([node pools](node-pools.md), which holds the pools' current facts). Pull
+requests: arikkfir-org/infra#60 (the profile, ENG-103) and arikkfir-org/infra#61 (the machine type, ENG-104).
 
 ## Why
 
@@ -48,7 +48,7 @@ gantt
 | --- | --- | --- | --- |
 | Autoscaling profile, the cluster's | `balanced`, GKE's default | `optimize-utilization` | `terraform/gcp/gke.tf` |
 | CI pool's machine type | `e2-standard-4`, about 3.5 CPUs free for pods | `e2-standard-8`, about 7.5 free | `terraform/gcp/variables.tf` |
-| CI pool's maximum | 10 nodes, 40 vCPUs | 5 nodes, 40 vCPUs | `terraform/gcp/variables.tf` |
+| CI pool's maximum | 10 nodes, 40 vCPUs | 5 nodes, 40 vCPUs; 10 Spot nodes, 80 vCPUs, since the pools got their own design ([node pools](node-pools.md)) | `terraform/gcp/variables.tf` |
 
 Node auto-provisioning, GKE creating node pools of its own, stays off: the profile shares its `cluster_autoscaling`
 block, and the pools keep their own bounds.
@@ -102,7 +102,7 @@ neighbour uses more than it requests.
 | One profile for both pools | GKE sets the profile per cluster | A profile per pool |
 | `e2-standard-8` for the CI pool | A commit's 2-CPU tasks share a node, so about a third fewer pods wait for a new one. With pods packed it costs what the pool costs today, and a tenth to a quarter more than `e2-standard-4` would under the same profile | `e2-standard-4`; `e2-standard-16`, where one commit fits one node but an empty node costs four times as much: 124 vCPU-hours in the replay |
 | Fin's tasks run as many workers as they request CPUs (arikkfir-org/fin#118) | Go and Vitest size their workers to the node, so an unbounded `web` would run seven on its two CPUs, beside two other two-CPU tasks: two `web` tasks on one node slowed the app's tests threefold on 8 October | Workers sized to the node; as many as an `e2-standard-4` gave, which a full node still oversubscribes |
-| Five nodes at most, until the pool went Spot with ten ([node pools](node-pools.md)) | The pool's ceiling stays at 40 vCPUs, and the replay never needs more | Ten nodes, 80 vCPUs |
+| Five nodes at most, until the pool went Spot with ten ([node pools](node-pools.md)) | The pool's ceiling stays at 40 vCPUs, and the replay never needs more | Ten nodes, 80 vCPUs, on-demand (ten came later, on Spot) |
 | The owner applies the machine type by hand | Changing it recreates every CI node, the one that runs pipeline `apply` included, and Terraform killed mid-update leaves the state lock behind | Pipeline `apply` |
 
 ## Risks
