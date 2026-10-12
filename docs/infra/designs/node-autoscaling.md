@@ -3,7 +3,7 @@
 **Decision**: The cluster autoscales with GKE's `optimize-utilization` profile instead of the default, `balanced`: each
 pod goes to the fullest node that fits it, and the cluster autoscaler removes empty nodes sooner. The CI pool runs up
 to five `e2-standard-8` nodes instead of up to ten `e2-standard-4`, the same 40 vCPUs, so a commit's 2-CPU tasks share
-a node. Facts: [reference](../../hub/reference.md#gke). Pull requests: arikkfir-org/infra#60 (the profile, ENG-103)
+a node. The pools: [node pools](node-pools.md). Pull requests: arikkfir-org/infra#60 (the profile, ENG-103)
 and arikkfir-org/infra#61 (the machine type, ENG-104).
 
 ## Why
