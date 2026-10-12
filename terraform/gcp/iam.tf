@@ -9,6 +9,7 @@ locals {
     grafana              = "${local.k8s_principal_prefix}/ns/grafana/sa/grafana"
     docs                 = "${local.k8s_principal_prefix}/ns/docs/sa/docs"
     octomaton            = "${local.k8s_principal_prefix}/ns/octomaton/sa/octomaton"
+    octomaton_logs       = "${local.k8s_principal_prefix}/ns/octomaton/sa/octomaton-logs"
     ci_tooling_publish   = "${local.k8s_principal_prefix}/ns/ci-tooling/sa/ci-tooling-publish"
     ci_octomaton_release = "${local.k8s_principal_prefix}/ns/ci-octomaton/sa/ci-octomaton-release"
     ci_fin_preview       = "${local.k8s_principal_prefix}/ns/ci-fin/sa/ci-fin-preview"
@@ -26,11 +27,14 @@ locals {
   }
 
   project_iam = {
-    "grafana/monitoring.viewer"                     = { role = "roles/monitoring.viewer", member = local.principals.grafana }
-    "octomaton/telemetry.metricsWriter"             = { role = "roles/telemetry.metricsWriter", member = local.principals.octomaton }
-    "octomaton/telemetry.tracesWriter"              = { role = "roles/telemetry.tracesWriter", member = local.principals.octomaton }
-    "octomaton/serviceusage.serviceUsageConsumer"   = { role = "roles/serviceusage.serviceUsageConsumer", member = local.principals.octomaton }
-    "gke-nodes/container.defaultNodeServiceAccount" = { role = "roles/container.defaultNodeServiceAccount", member = local.principals.gke_nodes }
+    "grafana/monitoring.viewer"                        = { role = "roles/monitoring.viewer", member = local.principals.grafana }
+    "octomaton/telemetry.metricsWriter"                = { role = "roles/telemetry.metricsWriter", member = local.principals.octomaton }
+    "octomaton/telemetry.tracesWriter"                 = { role = "roles/telemetry.tracesWriter", member = local.principals.octomaton }
+    "octomaton/serviceusage.serviceUsageConsumer"      = { role = "roles/serviceusage.serviceUsageConsumer", member = local.principals.octomaton }
+    "octomaton-logs/telemetry.metricsWriter"           = { role = "roles/telemetry.metricsWriter", member = local.principals.octomaton_logs }
+    "octomaton-logs/telemetry.tracesWriter"            = { role = "roles/telemetry.tracesWriter", member = local.principals.octomaton_logs }
+    "octomaton-logs/serviceusage.serviceUsageConsumer" = { role = "roles/serviceusage.serviceUsageConsumer", member = local.principals.octomaton_logs }
+    "gke-nodes/container.defaultNodeServiceAccount"    = { role = "roles/container.defaultNodeServiceAccount", member = local.principals.gke_nodes }
 
     # Fin: production's workloads, and every pull request's environment through pool fin-pull-requests. Traces and
     # metrics from all of them; model calls (Gemini on Vertex AI) from fin-worker only.
@@ -134,6 +138,20 @@ resource "google_project_iam_member" "this" {
   project = var.project_id
   role    = each.value.role
   member  = each.value.member
+}
+
+# octomaton-logs serves the Tekton Dashboard the logs of steps whose pods are gone, read through the _Default bucket's
+# _Default view: every log the bucket holds but Data Access audit logs. It answers for CI tenants' namespaces only
+# (docs/octomaton/designs/archived-step-logs.md in arikkfir-org/octomaton).
+resource "google_project_iam_member" "octomaton_logs" {
+  project = var.project_id
+  role    = "roles/logging.viewAccessor"
+  member  = local.principals.octomaton_logs
+
+  condition {
+    title      = "default-view"
+    expression = "resource.name == \"projects/${var.project_id}/locations/global/buckets/_Default/views/_Default\""
+  }
 }
 
 # Claude Code's cloud sessions' identity; their environment holds its key, made by hand. The account and its viewer role

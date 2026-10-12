@@ -129,8 +129,17 @@ bootstrap resources. Argo CD applies manifests directly and never updates the He
 installs Argo CD only when the release is missing and never reverts Argo CD's upgrades. Bootstrap resources that the
 self-managed values no longer render are not pruned; delete them once by hand.
 
+**Node pools.** Each pool's taint keeps every workload but its own off it. The pools as they are; the
+[design](docs/infra/designs/node-pools.md) gives them as its three pull requests leave them:
+
+| Pool | Machine | VMs | Nodes | Label | Taint (`NoSchedule`) | Runs |
+| --- | --- | --- | --- | --- | --- | --- |
+| `system` | `e2-standard-4` | on-demand | 1-3 | `kfirs.com/pool=system` | none yet | the hub's services and GKE's components |
+| `ci` | `e2-standard-8` | on-demand | 0-5 | `kfirs.com/pool=ci` | `kfirs.com/pool=ci` | CI runs |
+| `fin` | `e2-standard-4` | on-demand | 0-10 | `kfirs.com/pool=fin` | `kfirs.com/pool=fin` | Fin's environments |
+
 **Cost.** The cluster is zonal. The GKE free tier covers the management fee of one zonal cluster per billing account,
 but its single control plane is unavailable during control plane upgrades. Maintenance runs on Fridays and Saturdays, 00:00-08:00 UTC. The
-`ci` pool scales to zero. It runs on-demand VMs: Spot capacity in the region ran out often enough to preempt most CI
-runs. Monitoring collects free system metrics only. Managed Prometheus is on for
-`PodMonitoring` resources.
+`ci` and `fin` pools scale to zero, though `fin` always holds production's node. `ci` runs on-demand VMs: Spot capacity
+in the region ran out often enough to preempt most CI runs. Monitoring collects free system metrics only. Managed
+Prometheus is on for `PodMonitoring` resources.
