@@ -179,6 +179,10 @@ resource "google_container_node_pool" "ci" {
     service_account = google_service_account.gke_nodes.email
     oauth_scopes    = ["https://www.googleapis.com/auth/cloud-platform"]
 
+    # Changing it replaces the pool, the node that runs pipeline apply included: the owner applies it by hand
+    # (docs/infra/designs/node-pools.md).
+    spot = true
+
     labels = {
       "kfirs.com/pool" = "ci"
     }
