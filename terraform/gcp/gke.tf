@@ -207,3 +207,55 @@ resource "google_container_node_pool" "ci" {
 
   depends_on = [google_project_iam_member.this]
 }
+
+resource "google_container_node_pool" "fin" {
+  name           = "fin"
+  cluster        = google_container_cluster.hub.name
+  location       = google_container_cluster.hub.location
+  node_locations = [var.zone]
+
+  autoscaling {
+    total_min_node_count = var.fin_pool.min_nodes
+    total_max_node_count = var.fin_pool.max_nodes
+  }
+
+  management {
+    auto_repair  = true
+    auto_upgrade = true
+  }
+
+  node_config {
+    machine_type    = var.fin_pool.machine_type
+    image_type      = "COS_CONTAINERD"
+    service_account = google_service_account.gke_nodes.email
+    oauth_scopes    = ["https://www.googleapis.com/auth/cloud-platform"]
+
+    labels = {
+      "kfirs.com/pool" = "fin"
+    }
+
+    # Only Fin's environments tolerate this (deploy/ in arikkfir-org/fin), and delivery's policy fin-node-pool lets
+    # their pods tolerate nothing else.
+    taint {
+      key    = "kfirs.com/pool"
+      value  = "fin"
+      effect = "NO_SCHEDULE"
+    }
+
+    boot_disk {
+      disk_type = "pd-balanced"
+      size_gb   = 50
+    }
+
+    workload_metadata_config {
+      mode = "GKE_METADATA"
+    }
+
+    shielded_instance_config {
+      enable_secure_boot          = true
+      enable_integrity_monitoring = true
+    }
+  }
+
+  depends_on = [google_project_iam_member.this]
+}

@@ -17,7 +17,7 @@ variable "region" {
 }
 
 variable "zone" {
-  description = "Zone of the (zonal) GKE cluster control plane and of both node pools."
+  description = "Zone of the (zonal) GKE cluster control plane and of its node pools."
   type        = string
   default     = "me-west1-a"
 }
@@ -67,5 +67,19 @@ variable "ci_pool" {
     machine_type = "e2-standard-8"
     min_nodes    = 0
     max_nodes    = 5
+  }
+}
+
+variable "fin_pool" {
+  description = "Machine type and autoscaling bounds (total nodes) of the on-demand node pool of Fin's environments."
+  type = object({
+    machine_type = string
+    min_nodes    = number
+    max_nodes    = number
+  })
+  default = {
+    machine_type = "e2-standard-4"
+    min_nodes    = 0
+    max_nodes    = 10
   }
 }
