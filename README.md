@@ -129,7 +129,8 @@ bootstrap resources. Argo CD applies manifests directly and never updates the He
 installs Argo CD only when the release is missing and never reverts Argo CD's upgrades. Bootstrap resources that the
 self-managed values no longer render are not pruned; delete them once by hand.
 
-**Node pools.** Each pool's taint keeps every workload but its own off it ([design](docs/infra/designs/node-pools.md)):
+**Node pools.** Each pool's taint keeps every workload but its own off it. The pools as they are; the
+[design](docs/infra/designs/node-pools.md) gives them as its three pull requests leave them:
 
 | Pool | Machine | VMs | Nodes | Label | Taint (`NoSchedule`) | Runs |
 | --- | --- | --- | --- | --- | --- | --- |

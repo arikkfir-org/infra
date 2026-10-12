@@ -32,6 +32,9 @@ flowchart LR
   end
 ```
 
+The pools once the three pull requests have landed. The README lists them as they are at each commit: until the second
+lands, `ci` stays on-demand with up to five nodes, and until the third, `system` has no taint.
+
 | Pool | Machine | VMs | Nodes | Label | Taint (`NoSchedule`) | Who tolerates it |
 | --- | --- | --- | --- | --- | --- | --- |
 | `system` | `e2-standard-4` | on-demand | 1-3 | `kfirs.com/pool=system` | `components.gke.io/gke-managed-components=true` | GKE's managed components; the hub's services (delivery) |
