@@ -71,6 +71,12 @@ resource "google_container_cluster" "hub" {
     gcs_fuse_csi_driver_config {
       enabled = true
     }
+
+    # GKE turns Filestore's CSI driver on by default. Nothing mounts a shared volume, and a claim on one of its *-rwx
+    # storage classes would create a Filestore instance, a terabyte at least.
+    gcp_filestore_csi_driver_config {
+      enabled = false
+    }
   }
 
   enable_shielded_nodes = true
