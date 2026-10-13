@@ -57,7 +57,7 @@ variable "system_pool" {
 }
 
 variable "ci_pool" {
-  description = "Machine type and autoscaling bounds of the on-demand CI node pool."
+  description = "Machine type and autoscaling bounds of the Spot CI node pool."
   type = object({
     machine_type = string
     min_nodes    = number
@@ -66,7 +66,7 @@ variable "ci_pool" {
   default = {
     machine_type = "e2-standard-8"
     min_nodes    = 0
-    max_nodes    = 5
+    max_nodes    = 10
   }
 }
 
