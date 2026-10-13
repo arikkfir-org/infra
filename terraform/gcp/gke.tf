@@ -134,6 +134,15 @@ resource "google_container_node_pool" "system" {
       "kfirs.com/pool" = "system"
     }
 
+    # GKE's own taint for its managed components, which kube-dns, metrics-server, konnectivity and the rest tolerate,
+    # and of the hub's workloads only its services (delivery): CI and Fin keep to their pools. A taint of our own would
+    # leave GKE's components no node. An update, not a replacement: running pods stay.
+    taint {
+      key    = "components.gke.io/gke-managed-components"
+      value  = "true"
+      effect = "NO_SCHEDULE"
+    }
+
     boot_disk {
       disk_type = "pd-balanced"
       size_gb   = 50

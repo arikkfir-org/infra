@@ -16,8 +16,21 @@ resource "helm_release" "argocd" {
   timeout          = 600
 
   # Mirrors the self-managed values where it matters at bootstrap; in particular Dex stays off, so no bootstrap-only
-  # Dex resources are left behind when Argo CD takes over (it does not prune what the self-managed values omit).
+  # Dex resources are left behind when Argo CD takes over (it does not prune what the self-managed values omit), and
+  # every pod goes to the system pool, the only one with a node, past the taint it carries
+  # (docs/infra/designs/node-pools.md).
   values = [yamlencode({
+    global = {
+      nodeSelector = {
+        "kfirs.com/pool" = "system"
+      }
+      tolerations = [{
+        key      = "components.gke.io/gke-managed-components"
+        operator = "Equal"
+        value    = "true"
+        effect   = "NoSchedule"
+      }]
+    }
     configs = {
       params = {
         "server.insecure" = true

@@ -134,7 +134,7 @@ self-managed values no longer render are not pruned; delete them once by hand.
 
 | Pool | Machine | VMs | Nodes | Label | Taint (`NoSchedule`) | Runs |
 | --- | --- | --- | --- | --- | --- | --- |
-| `system` | `e2-standard-4` | on-demand | 1-3 | `kfirs.com/pool=system` | none yet | the hub's services and GKE's components |
+| `system` | `e2-standard-4` | on-demand | 1-3 | `kfirs.com/pool=system` | `components.gke.io/gke-managed-components=true` | the hub's services and GKE's components |
 | `ci` | `e2-standard-8` | Spot | 0-10 | `kfirs.com/pool=ci` | `kfirs.com/pool=ci` | CI runs |
 | `fin` | `e2-standard-4` | on-demand | 0-10 | `kfirs.com/pool=fin` | `kfirs.com/pool=fin` | Fin's environments |
 
