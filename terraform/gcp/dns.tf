@@ -18,6 +18,7 @@ locals {
     "traefik.dev" = "protected"
     "nui.dev"     = "protected"
     "docs.dev"    = "protected"
+    "tests.dev"   = "protected"
     auth          = "public"
     # Keycloak: realm hub, and its admin console behind the hub's sign-in.
     id         = "public"
