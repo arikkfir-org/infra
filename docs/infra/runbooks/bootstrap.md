@@ -1,6 +1,6 @@
 # Bootstrap runbook
 
-Bringing the hub up from nothing, in order. Every step can run again. What each Terraform root makes: [gcp](../terraform/gcp.md), [argocd](../terraform/argocd.md), [github](../terraform/github.md), [keycloak](../terraform/keycloak.md). Names and values: the [hub reference](../../hub/reference.md). Designs: [Octomaton](../../octomaton/designs/phase-2-octomaton.md), [ingress and authentication](../../delivery/designs/phase-3-ingress-and-auth.md), Fin's [environments](../../fin/designs/environments.md).
+Bringing the hub up from nothing, in order. Every step can run again. What each Terraform root makes: [gcp](../terraform/gcp.md), [argocd](../terraform/argocd.md), [github](../terraform/github.md), [keycloak](../terraform/keycloak.md). Designs: [Octomaton](../../octomaton/designs/phase-2-octomaton.md), [ingress and authentication](../../delivery/designs/phase-3-ingress-and-auth.md), Fin's [environments](../../fin/designs/environments.md).
 
 ```mermaid
 flowchart TD
@@ -49,11 +49,18 @@ gcloud storage buckets update gs://arikkfir-devops --versioning
 | Events | Push, Pull request, Issue comment, Check suite, Check run, Merge group, Pull request review, Pull request review comment, Pull request review thread |
 | Where can it be installed | Only on this account |
 
-Generate a private key (download the `.pem`), note the App ID, and install the App on all of `arikkfir-org`'s repositories. A new App gets a new ID: if it isn't the one the reference records ([Octomaton](../../hub/reference.md#octomaton), GitHub App), change it there and in `terraform/github/rulesets.tf` (`local.octomaton_app_id`), whose rulesets accept `Continuous Integration` and `Docs` only from that App, before step 11.
+Generate a private key (download the `.pem`), note the App ID, and install the App on all of `arikkfir-org`'s repositories. A new App gets a new ID: if it isn't the one in the table below, change it there, in Octomaton's [octomaton.dev](../../octomaton/designs/octomaton-dev.md) and, before step 11, in `terraform/github/rulesets.tf` (`local.octomaton_app_id`), whose rulesets accept `Continuous Integration` and `Docs` only from that App.
 
 **Argo CD's**, which reads `fin`, an internal repository, and lists its pull requests: a GitHub App in `arikkfir-org` with no webhook, repository permissions Contents, Pull requests and Metadata read, installed on `fin` only. Note its ID and generate a private key.
 
-**The reviewer's token.** Signed in as GitHub user `arikkfir-reviewer`, create a fine-grained token with resource owner `arikkfir-org`, all repositories, Contents and Pull requests read and write, expiring in a year; approve it under the organization's Settings, Personal access tokens, Pending requests ([pull request reviewer](../../hub/reference.md#pull-request-reviewer)).
+The hub's Apps, both made by hand:
+
+| App | App ID | Permissions | Installed on |
+| --- | --- | --- | --- |
+| `octomaton-dev` (Octomaton) | `5114814` | As above | All of `arikkfir-org`'s repositories |
+| `arikkfir-argocd` (Argo CD) | `5179565` | Contents, Pull requests and Metadata: read | `fin` only |
+
+**The reviewer's token.** Signed in as GitHub user `arikkfir-reviewer`, create a fine-grained token with resource owner `arikkfir-org`, all repositories, Contents and Pull requests read and write, expiring in a year; approve it under the organization's Settings, Personal access tokens, Pending requests ([pull request reviewer](../../tooling/designs/pr-reviewer.md)).
 
 **infra's pipelines' tokens**: two fine-grained tokens with resource owner `arikkfir-org` and all repositories, with the permissions of [GitHub tokens](../designs/terraform-plan-apply.md#github-tokens), one for plans and one for applies.
 
@@ -67,7 +74,7 @@ Keycloak signs people in with Google. In the GCP console for project `arikkfir`,
 | Audience | External, published to production |
 | Client | Web application, authorized redirect URIs `https://id.kfirs.com/realms/hub/broker/google/endpoint` and `https://id.kfirs.com/realms/master/broker/google/endpoint`, no JavaScript origins |
 
-Copy the client's secret at once and keep it for step 5. A new client gets a new client ID: if it isn't the one the reference records ([Authentication](../../hub/reference.md#authentication), identity provider `google`), change it there and in `terraform/keycloak/realm.tf`.
+Copy the client's secret at once and keep it for step 5. A new client gets a new client ID: if it isn't the one [root keycloak](../terraform/keycloak.md#realm-hub) records (identity provider `google`), change it there and in `terraform/keycloak/realm.tf`.
 
 ## 4. GCP resources
 

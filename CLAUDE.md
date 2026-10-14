@@ -2,8 +2,12 @@
 
 ## Rules
 
-- Treat the hub reference (https://docs.dev.kfirs.com/hub/reference.md) as the contract for every name, ID, CIDR, role
-  and host. If a change needs a new or different value, say so; do not diverge silently.
+- A name, address, identity or permission is documented by the repository that creates it, in its pages under
+  `docs/<repository>/`; a repository that uses one links that page rather than repeat it. This repository creates most
+  of the hub's names, IDs, CIDRs, roles and hosts: they are documented in `docs/infra/terraform/<root>.md`. Names it
+  takes from another repository (namespaces, ServiceAccounts, hosts' backends) come from that repository's pages. A
+  change to one starts in the repository that creates it, and those that use it follow in the same unit of work. If a
+  change needs a new or different value from another repository, say so; do not diverge silently.
 - Never run `terraform apply`, `make terraform`, `destroy`, `import`, `state …`, `taint`, `force-unlock` or anything
   else that changes real infrastructure or state. Never call GCP or GitHub APIs to inspect live resources. Pipeline
   `apply` applies `gcp`, `github` and `keycloak` on each merge to `main`; the owner applies the rest by hand (see
@@ -16,13 +20,14 @@
   arguments.
 - Before adding a resource type, or an argument that calls an API this configuration hasn't called before, check that
   the pipelines can handle it: `ci-infra-plan` must read it and `ci-infra-apply` must change it (their roles are in
-  `local.project_iam` in `terraform/gcp/iam.tf` and in the hub reference; `terraform/github` runs on the tokens
-  `infra-plan-github-pat` and `infra-apply-github-pat`; `terraform/keycloak` on the clients `terraform-plan` and
-  `terraform-apply` in `terraform/keycloak/pipelines.tf`, and since its pull request plans don't refresh,
-  `terraform-plan` reads only its data sources). Read a role's permissions, not its name. A plan only reads, so a
-  missing write permission plans green and fails partway through the apply, with the state half-written. A missing role
-  goes in a pull request of its own first, which the owner applies by hand, since the pipelines can't apply changes to
-  their own roles (README.md, "Apply order"). A missing token permission is the owner's to add before the merge.
+  `local.project_iam` in `terraform/gcp/iam.tf` and in the IAM table of `docs/infra/terraform/gcp.md`;
+  `terraform/github` runs on the tokens `infra-plan-github-pat` and `infra-apply-github-pat`; `terraform/keycloak` on
+  the clients `terraform-plan` and `terraform-apply` in `terraform/keycloak/pipelines.tf`, and since its pull request
+  plans don't refresh, `terraform-plan` reads only its data sources). Read a role's permissions, not its name. A plan
+  only reads, so a missing write permission plans green and fails partway through the apply, with the state
+  half-written. A missing role goes in a pull request of its own first, which the owner applies by hand, since the
+  pipelines can't apply changes to their own roles (README.md, "Apply order"). A missing token permission is the owner's
+  to add before the merge.
 - Terraform deletes a resource before it updates the resources that named it, and Keycloak refuses to delete the flow a
   realm is bound to. So never rebind a realm and delete its old flow through `keycloak_authentication_bindings` in one
   change; set realm `hub`'s flows on `keycloak_realm`, whose updates write them from state anyway.
@@ -35,7 +40,7 @@
 - Pages at `https://docs.dev.kfirs.com/<path>` (every repository's `docs/`) are behind the hub's sign-in. Read one with
   `curl -fsS https://storage.googleapis.com/arikkfir-docs/.layers/<repository>/<path>`, where `<repository>` is the
   path's first segment when it names a repository (`delivery/designs/node-pools.md` is `delivery`'s) and `docs`
-  otherwise (`hub/reference.md`). Don't clone a repository to read its docs.
+  otherwise (`CONTRIBUTING.md`). Don't clone a repository to read its docs.
 
 ## Conventions
 
@@ -46,9 +51,9 @@
 - Name a resource after its object (`hub`, `images`, `gke_nodes`). Name a for_each group after what its members
   share (`ingress`, `public`, `protected`), or `this` when it is the only group of that type. Key for_each
   collections by the real object name.
-- Add variables only for values that genuinely vary. Defaults must equal the reference.
+- Add variables only for values that genuinely vary. Defaults must equal the values the root's page documents.
 - Grant IAM to Kubernetes workloads as `principal://` Workload Identity Federation principals (no Google service
-  accounts), at the narrowest scope the reference names (bucket, repository, secret, zone before project).
+  accounts), at the narrowest scope that serves it (bucket, repository, secret, zone before project).
 - Adopt pre-existing objects with `import {}` blocks in `imports.tf` plus `lifecycle { prevent_destroy = true }`.
   Import lists name only objects that already exist.
 - Write comments only for intent that the code cannot show.

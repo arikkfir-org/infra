@@ -1,6 +1,6 @@
 # Terraform plan on pull requests, apply on merge
 
-**Decision**: `infra` plans `gcp`, `github` and `keycloak` on every pull request and in the merge queue, and applies whatever the plans say when a change merges to `main`, through Octomaton. Two Kubernetes ServiceAccounts in tenant `ci-infra` hold the roles: `ci-infra-plan`, which only reads, and `ci-infra-apply`, which Octomaton lets only runs from `main` use (annotation `octomaton.dev/branches: main`). The merge queue takes one pull request at a time, so the plan a merge was reviewed with is the plan that is applied. `argocd` stays by hand. What each root provisions: [gcp](../terraform/gcp.md), [github](../terraform/github.md), [keycloak](../terraform/keycloak.md), [argocd](../terraform/argocd.md); names and wiring: the reference's [Terraform applies](../../hub/reference.md#terraform-applies).
+**Decision**: `infra` plans `gcp`, `github` and `keycloak` on every pull request and in the merge queue, and applies whatever the plans say when a change merges to `main`, through Octomaton. Two Kubernetes ServiceAccounts in tenant `ci-infra` hold the roles: `ci-infra-plan`, which only reads, and `ci-infra-apply`, which Octomaton lets only runs from `main` use (annotation `octomaton.dev/branches: main`). The merge queue takes one pull request at a time, so the plan a merge was reviewed with is the plan that is applied. `argocd` stays by hand. What each root provisions: [gcp](../terraform/gcp.md), [github](../terraform/github.md), [keycloak](../terraform/keycloak.md), [argocd](../terraform/argocd.md).
 
 ## Why
 
@@ -41,10 +41,10 @@ flowchart LR
 
 Both are ServiceAccounts in `ci-infra`, made by `delivery`, granted through Workload Identity Federation principals, with no Google service accounts.
 
-| ServiceAccount | Annotation | GCP roles (scope) | Keycloak client |
+| ServiceAccount | Annotation | GCP roles (each one: [IAM](../terraform/gcp.md#iam)) | Keycloak client (realm `master`) |
 | --- | --- | --- | --- |
-| `ci-infra-plan` | none | `roles/iam.securityReviewer`, `roles/serviceusage.serviceUsageViewer`, `roles/compute.networkViewer`, `roles/container.clusterViewer`, `roles/artifactregistry.reader`, `roles/secretmanager.viewer`, `roles/dns.reader`, `roles/iam.serviceAccountViewer`, `roles/iam.workloadIdentityPoolViewer` (project); `roles/storage.legacyBucketReader` (each bucket `terraform/gcp` manages); `roles/storage.objectViewer` (bucket `arikkfir-devops`); `roles/secretmanager.secretAccessor` (secrets `infra-plan-github-pat` and `infra-plan-keycloak-secret`) | `terraform-plan`: view roles only |
-| `ci-infra-apply` | `octomaton.dev/branches: main` | `roles/serviceusage.serviceUsageAdmin`, `roles/compute.networkAdmin`, `roles/container.admin`, `roles/artifactregistry.admin`, `roles/storage.admin`, `roles/secretmanager.admin`, `roles/dns.admin`, `roles/iam.serviceAccountAdmin`, `roles/iam.securityAdmin`, `roles/iam.workloadIdentityPoolAdmin` (project); `roles/iam.serviceAccountUser` (service account `gke-hub-nodes@`) | `terraform-apply`: realm role `admin` |
+| `ci-infra-plan` | none | Viewer and reader roles on the project, `roles/iam.securityReviewer` included; each bucket's settings; the state in `arikkfir-devops`; secrets `infra-plan-github-pat` and `infra-plan-keycloak-secret` | `terraform-plan`, secret `infra-plan-keycloak-secret`: view roles only |
+| `ci-infra-apply` | `octomaton.dev/branches: main` | An admin role per resource type on the project, `roles/iam.securityAdmin` included; `roles/iam.serviceAccountUser` on `gke-hub-nodes@` | `terraform-apply`, secret `infra-apply-keycloak-secret`: realm role `admin` |
 
 The roles cover each resource type in `terraform/gcp`. Each admin role also sets the IAM policies of its own resources: `roles/storage.admin` the buckets', `roles/secretmanager.admin` the secrets' and `roles/artifactregistry.admin` the repositories'. `roles/iam.securityAdmin` sets the project's and the DNS zones', which `roles/dns.admin` can't. GCP grants `roles/owner` only to Google accounts, groups and service accounts, never to a federated principal. The Keycloak clients and why plans of `keycloak` don't refresh: [root keycloak](../terraform/keycloak.md#pull-request-plans-dont-refresh).
 
@@ -57,7 +57,7 @@ The roles cover each resource type in `terraform/gcp`. Each admin role also sets
 
 Both have Contents read and write because GitHub shows a repository's merge settings (merge methods, auto-merge, branch updates and deletion, commit titles and messages) only to tokens that have it. Without it, the provider reads them as unset, so every plan shows every repository changed, and an apply stores the wrong values.
 
-A task's `token` step reads its GitHub token and Keycloak secret with `gcloud secrets versions access` into a memory volume only that task's steps share. No Kubernetes Secret holds them: Octomaton never lets a `push` pipeline mount one. The owner creates both GitHub tokens, adds them with `gcloud secrets versions add`, and renews them within a year; [root keycloak](../terraform/keycloak.md) generates the Keycloak secrets.
+A task's `token` step reads its GitHub token and Keycloak secret with `gcloud secrets versions access` into a memory volume only that task's steps share, and the providers take them from `GITHUB_TOKEN` and `KEYCLOAK_CLIENT_SECRET`, beside `KEYCLOAK_CLIENT_ID`. No Kubernetes Secret holds them: Octomaton never lets a `push` pipeline mount one. The owner creates both GitHub tokens, adds them with `gcloud secrets versions add`, and renews them within a year; [root keycloak](../terraform/keycloak.md) generates the Keycloak secrets.
 
 ### By hand
 

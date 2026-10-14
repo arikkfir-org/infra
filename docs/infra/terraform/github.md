@@ -1,6 +1,6 @@
 # Root github: the GitHub organization
 
-**Decision**: `terraform/github` manages the `arikkfir-org` organization's settings and every repository in it: their settings, their `Default branch` ruleset, their `ENG-` autolink to Linear, Dependabot's alerts and security updates, and team `reviewers`, through which the pull request reviewer may approve. Every repository gets the same settings and the same ruleset; only its description, its visibility and its extra required checks differ. Pipeline `apply` applies it on every merge to `main` ([Terraform plan and apply](../designs/terraform-plan-apply.md)). The values: the reference's [Repositories](../../hub/reference.md#repositories) and [Organization](../../hub/reference.md#organization).
+**Decision**: `terraform/github` manages the `arikkfir-org` organization's settings and every repository in it: their settings, their `Default branch` ruleset, their `ENG-` autolink to Linear, Dependabot's alerts and security updates, and team `reviewers`, through which the pull request reviewer may approve. Every repository gets the same settings and the same ruleset; only its description, its visibility and its extra required checks differ. Pipeline `apply` applies it on every merge to `main` ([Terraform plan and apply](../designs/terraform-plan-apply.md)). This page documents every repository, setting and rule it creates; other repositories link it rather than repeat them.
 
 ```mermaid
 flowchart LR
@@ -18,24 +18,35 @@ flowchart LR
 | `organization.tf` | `github_organization_settings.arikkfir_org` |
 | `repositories.tf` | `local.repositories`; per repository: `github_repository`, `github_repository_vulnerability_alerts`, `github_repository_dependabot_security_updates`, `github_repository_autolink_reference` |
 | `rulesets.tf` | `github_repository_ruleset` `Default branch` per repository |
-| `teams.tf` | team `reviewers`, its member `arikkfir-reviewer`, and `push` on every repository |
+| `teams.tf` | team `reviewers` (closed), its member `arikkfir-reviewer`, and `push` on every repository |
 | `imports.tf` | the seven repositories and the organization, which existed before |
 
 State: prefix `github` in `arikkfir-devops`. The provider authenticates with `GITHUB_TOKEN`: the pipelines' fine-grained tokens ([GitHub tokens](../designs/terraform-plan-apply.md#github-tokens)), or, by hand, a token with the permissions the README lists.
 
 ## Repositories
 
-| Repository | Visibility | What |
-| --- | --- | --- |
-| `.github` | public | The organization's welcome page; no CI |
-| `docs` | public | The hub-wide knowledge base |
-| `infra` | public | This repository |
-| `delivery` | public | Argo CD's applications |
-| `octomaton` | public | The CI orchestrator |
-| `tooling` | public | The Claude Code bundle, the pull request reviewer, the organization pipelines |
-| `fin` | internal | Fin; visible to the organization's enterprise only |
+| Repository | Visibility | Purpose | Default-branch rules | Required checks |
+| --- | --- | --- | --- | --- |
+| `.github` | public | The organization's welcome page on GitHub, `profile/README.md`, and nothing else | Pull request, one approval, merge queue | `Continuous Integration`, `Docs`, which nothing reports: without a CI tenant, its pull requests merge with the bypass |
+| `docs` | public | The hub-wide knowledge base; with every repository's `docs/`, the docs site | Pull request, one approval, merge queue | `Continuous Integration`, `Docs` |
+| `infra` | public | Terraform for GCP, GitHub, the Argo CD bootstrap and Keycloak's configuration; plans and applies `gcp`, `github` and `keycloak` | Pull request, one approval, a merge queue of one | `Continuous Integration` (tests, `fmt`, `validate`, plans), `Docs` |
+| `delivery` | public | Argo CD's applications (GitOps) for the hub cluster | Pull request, one approval, merge queue | `Continuous Integration`, `Docs` |
+| `octomaton` | public | The CI orchestrator: a GitHub App that runs Tekton pipelines | Pull request, one approval, merge queue | `Continuous Integration`, `Docs` |
+| `tooling` | public | The Claude Code bundle, the pull request reviewer and the organization pipelines every repository runs | Pull request, one approval, merge queue | `Continuous Integration`, `Docs` |
+| `fin` | internal: members of the organization's enterprise only | Fin, a personal finance manager and assistant | Pull request, one approval, merge queue | `Continuous Integration`, `Docs` |
 
-Each has discussions on and issues, wiki and projects off; merge commits, squash and rebase allowed, the ruleset narrowing pull requests to merge commits; the pull request's title and description as the merge commit's message; auto-merge, branch updates and head-branch deletion on; forking only if public. `archive_on_destroy` and `prevent_destroy` keep Terraform from deleting one. Adding a repository: an entry in `local.repositories`, and, if it already exists, in `imports.tf` (`CLAUDE.md`, "How to").
+No repository adds checks of its own today (`checks` in `local.repositories`). Every repository gets the same settings:
+
+| Setting | Value |
+| --- | --- |
+| Features | Discussions on; issues, wiki and projects off |
+| Merging | Merge commits, squash and rebase allowed, the ruleset narrowing pull requests to merge commits; the pull request's title and description as the merge commit's message; auto-merge, branch updates and head-branch deletion on |
+| Forking | Public repositories only |
+| Autolink | `ENG-<num>`, alphanumeric, to `https://linear.app/arikkfir/issue/ENG-<num>` |
+| Dependabot | Alerts and security updates on; version updates need a `.github/dependabot.yml` in the repository |
+| Deletion | `archive_on_destroy` and `prevent_destroy` keep Terraform from deleting one |
+
+Adding a repository: an entry in `local.repositories`, and, if it already exists, in `imports.tf` (`CLAUDE.md`, "How to").
 
 ## The `Default branch` ruleset
 
@@ -44,15 +55,28 @@ Each has discussions on and issues, wiki and projects off; merge commits, squash
 | Target | The default branch |
 | Branch protection | No deletion, no force-push |
 | Pull request | One approval, stale approvals dismissed, the last push approved by someone else, conversations resolved, merge commits only |
-| Required checks | `Continuous Integration` and `Docs`, from the Octomaton App only (`integration_id` 5114814, `local.octomaton_app_id`), plus a repository's own `checks`, from any source |
+| Required checks | `Continuous Integration` and `Docs`, from Octomaton's App `octomaton-dev` only (`integration_id` 5114814, `local.octomaton_app_id`; [octomaton.dev](../../octomaton/designs/octomaton-dev.md)), plus a repository's own `checks`, from any source |
 | Merge queue | Merge commits, every entry passing (`ALLGREEN`), up to 5 entries building and 1 to 5 pull requests a group, a 3-minute wait for the minimum, 60-minute check timeout. `infra`'s builds one entry at a time, in groups of exactly one (`local.serial_merge_queues`), so each merge is planned after the previous one was applied |
 | Bypass | Organization admins and repository admins, always |
+| Off | Restricted creations and updates, linear history, required deployments, signed commits, code owner and team reviews, up-to-date branches, skipping checks on creation |
 
-`arikkfir-reviewer`'s approval counts toward the one required: team `reviewers` gives it `push` on every repository, which resolving review threads needs too ([pull request reviewer](../../hub/reference.md#pull-request-reviewer)).
+`arikkfir-reviewer`'s approval counts toward the one required: team `reviewers` gives it `push` on every repository, which resolving review threads needs too ([pull request reviewer](../../tooling/designs/pr-reviewer.md)).
 
 ## The organization
 
-Its name, description and billing email; projects off; base permission read; repository creation and Pages sites by members off, since repositories come from here; forking private and internal repositories off; web commit sign-off not required. `prevent_destroy` keeps a destroy from resetting the billing email.
+| Setting | Value |
+| --- | --- |
+| Name | `arikkfir-org` |
+| Description | A personal development hub: the home of personal projects, and of the platform they are built and run on. |
+| Billing email | The owner's |
+| Projects | Off, for the organization and its repositories |
+| Base permission | Read |
+| Repository creation by members | Off (public, private and internal), since repositories come from here; organization owners can still create them by hand |
+| Pages sites by members | Off |
+| Forking private and internal repositories | Off, which GitHub applies to internal repositories too, so `fin` can't be forked |
+| Web commit sign-off | Not required |
+
+`prevent_destroy` keeps a destroy from resetting the billing email.
 
 ## Set outside Terraform
 

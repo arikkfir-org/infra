@@ -1,6 +1,6 @@
 # Root gcp: the GCP project
 
-**Decision**: `terraform/gcp` builds everything the hub runs on in GCP project `arikkfir` (`me-west1`): the APIs, a private network with Cloud NAT and two ingress IPs, one zonal GKE cluster with three tainted node pools, two Docker repositories, the buckets, the Secret Manager containers, every IAM grant and the DNS zones and records. Workloads authenticate as their Kubernetes ServiceAccounts through Workload Identity, never with keys. Pipeline `apply` applies it on every merge to `main` ([Terraform plan and apply](../designs/terraform-plan-apply.md)). Every name, range and grant is in the hub reference, which this root implements: [network](../../hub/reference.md#network), [GKE](../../hub/reference.md#gke), [Artifact Registry and buckets](../../hub/reference.md#artifact-registry-and-buckets), [Secret Manager](../../hub/reference.md#secret-manager), [GCP identities and permissions](../../hub/reference.md#gcp-identities-and-permissions).
+**Decision**: `terraform/gcp` builds everything the hub runs on in GCP project `arikkfir` (`me-west1`): the APIs, a private network with Cloud NAT and two ingress IPs, one zonal GKE cluster with three tainted node pools, two Docker repositories, the buckets, the Secret Manager containers, every IAM grant and the DNS zones and records. Workloads authenticate as their Kubernetes ServiceAccounts through Workload Identity, never with keys. Pipeline `apply` applies it on every merge to `main` ([Terraform plan and apply](../designs/terraform-plan-apply.md)). This page documents every name, range and grant it creates; other repositories link it rather than repeat them.
 
 ## Topology
 
@@ -44,7 +44,7 @@ flowchart TB
 | DNS | `dns.tf` | zones `kfirs-com`, `kfirfamily-com` and `octomaton-dev`, the hub's hosts and `octomaton.dev` |
 | Adopted | `imports.tf` | zones `kfirs-com` and `kfirfamily-com`, service account `claude-code@` and its viewer role, all made by hand first |
 
-State: prefix `gcp` in bucket `arikkfir-devops`, which the owner made by hand and which no root manages.
+Project `arikkfir` is number `8909046976`, in GCP organization `468825984716`. State: prefix `gcp` in bucket `arikkfir-devops`, which the owner made by hand and which no root manages ([buckets](#buckets)).
 
 ## APIs
 
@@ -107,24 +107,39 @@ All in `ME-WEST1`, with uniform bucket-level access.
 | --- | --- | --- | --- | --- | --- |
 | `arikkfir-docs` | prevented | never | Every repository's docs, a layer each under `.layers/<repository>/` | the docs site (`docs/docs`), `claude-code@`, each tenant's `docs-reader` (names only) | each tenant's `docs-publisher`, its own layer only, from `main` |
 | `arikkfir-tests` | prevented | 30 days | What CI's tests keep: Fin's end-to-end reports under `reports/fin/<run>/` | the tests site (`tests/tests`) | `ci-fin-ci`, creating only, under `reports/fin/` |
-| `arikkfir-claude` | open | never | The Claude Code web bundle and its installer, `setup.sh` | anyone, by URL (no listing) | `ci-tooling-publish`, from `main` |
+| `arikkfir-claude` | open | never | The Claude Code web bundle and its installer, `setup.sh` | anyone, by URL, `https://storage.googleapis.com/arikkfir-claude/<path>` (no listing) | `ci-tooling-publish`, from `main` |
 | `arikkfir-fin` | prevented | 30 days | Fin production's scrape videos, traces and raw statements | `fin/api`, `fin/worker` | `fin/scraper`, creating only |
 | `arikkfir-fin-pull-requests` | prevented | 7 days | The same for every Fin pull request's environment, under its name | pool `fin-pull-requests` | pool `fin-pull-requests` |
 | `arikkfir-fin-ci-cache` | prevented | 14 days | Fin's CI caches | `ci-fin-ci`, `ci-fin-preview` | `ci-fin-release`, from `main` |
-| `arikkfir-devops` | prevented | never (versioned) | Terraform's state, a prefix per root | `ci-infra-plan` | `ci-infra-apply`; made by hand, outside every root |
+| `arikkfir-devops` | prevented | never (versioned) | Terraform's state, a prefix per root: `gcp`, `github`, `argocd`, `keycloak` | `ci-infra-plan` | `ci-infra-apply`; made by hand, outside every root ([bootstrap runbook](../runbooks/bootstrap.md#1-terraform-state-bucket)) |
 
 A bucket made with uniform access also gets Cloud Storage's convenience bindings, which let the project's Viewers read its objects; `claude-code@` is one ([Claude Code cluster and docs access](../../tooling/designs/claude-code-cluster-access.md)). The docs and tests sites: delivery's [docs and tests servers](../../delivery/designs/docs-and-tests-servers.md). Fin's buckets: Fin's [environments](../../fin/designs/environments.md).
 
 ## Secret Manager
 
-`terraform/gcp` creates the containers only. The owner adds values with `gcloud secrets versions add <name> --data-file=-`, except the four Keycloak client secrets that [root keycloak](keycloak.md) generates and writes. Each secret's content and consumer: the reference's [Secret Manager](../../hub/reference.md#secret-manager).
+`terraform/gcp` creates the containers only. The owner adds values with `gcloud secrets versions add <name> --data-file=-` ([bootstrap runbook](../runbooks/bootstrap.md#5-secret-values)), except the four Keycloak client secrets that [root keycloak](keycloak.md#generated-secrets) generates and writes. External Secrets Operator (`external-secrets/external-secrets`) syncs every secret but the five pipeline secrets into the Kubernetes Secret named below, which the repository named with it declares.
 
-| Secrets | Read by |
-| --- | --- |
-| `octomaton-github-app-id`, `octomaton-github-private-key`, `octomaton-github-webhook-secret`; `oauth2-proxy-cookie-secret`; `keycloak-bootstrap-admin`, `keycloak-google-client-secret`, `keycloak-hub-client-secret`; `grafana-postgres-admin-password`; `argocd-github-app-id`, `argocd-github-app-private-key`; `fin-postgres-arik-password`, `fin-scraper-sealing-key`; `reviewer-deepseek-api-key`, `reviewer-github-pat` | External Secrets Operator (`external-secrets/external-secrets`), which syncs them into the namespaces that use them |
-| `infra-plan-github-pat`, `infra-plan-keycloak-secret` | `ci-infra-plan`, at run time |
-| `infra-apply-github-pat`, `infra-apply-keycloak-secret` | `ci-infra-apply`, at run time, through `roles/secretmanager.admin` |
-| `ci-fin-e2e-keycloak-secret` | `ci-fin-ci`, at run time ([test users](../designs/test-users.md)) |
+| Secret | Content | Value set by | Read by |
+| --- | --- | --- | --- |
+| `octomaton-github-app-id` | Octomaton's GitHub App's ID ([bootstrap runbook](../runbooks/bootstrap.md#2-github-apps)) | the owner | octomaton's `octomaton/octomaton-github`, key `app-id` |
+| `octomaton-github-private-key` | Its private key (PEM) | the owner | the same, key `private-key` |
+| `octomaton-github-webhook-secret` | Its webhook secret | the owner | the same, key `webhook-secret` |
+| `argocd-github-app-id` | Argo CD's GitHub App's ID ([bootstrap runbook](../runbooks/bootstrap.md#2-github-apps)) | the owner | delivery's `argocd/github-app` (Argo CD's credentials for `fin`), key `githubAppID` |
+| `argocd-github-app-private-key` | Its private key (PEM) | the owner | the same, key `githubAppPrivateKey` |
+| `oauth2-proxy-cookie-secret` | 32 random bytes, base64 | the owner | delivery's `auth/oauth2-proxy`, key `cookie-secret` |
+| `keycloak-bootstrap-admin` | Secret of Keycloak's temporary bootstrap admin, service account `bootstrap-admin` in realm `master` | the owner | delivery's `keycloak/keycloak-bootstrap-admin`, key `client-secret` |
+| `keycloak-google-client-secret` | Secret of the Google OAuth client of identity provider `google` ([root keycloak](keycloak.md#realm-hub)) | the owner | delivery's `keycloak/keycloak-vault`, keys `hub_google-client-secret` and `master_google-client-secret` (Keycloak's file vault) |
+| `keycloak-hub-client-secret` | Secret of Keycloak client `hub` | root keycloak; the owner's placeholder before its first apply | delivery's `auth/oauth2-proxy`, key `client-secret`, and `argocd/argocd-oidc`, key `clientSecret` |
+| `grafana-postgres-admin-password` | Password of superuser `postgres` on Grafana's PostgreSQL | the owner | delivery's `grafana/postgres-admin`, key `password` |
+| `fin-postgres-arik-password` | Password of role `arik`, the superuser people sign in as, on Fin production's PostgreSQL | the owner | fin's `fin/db-arik`, key `password` |
+| `fin-scraper-sealing-key` | 32 random bytes, base64: the seed of the key pair that seals Fin production's bank credentials and browser sessions | the owner | fin's `fin/scraper-sealing-key`, key `key` |
+| `reviewer-deepseek-api-key` | DeepSeek API key | the owner | delivery's `ci-<repository>/reviewer-deepseek-api-key`, key `api-key`, for tooling's pull request reviewer |
+| `reviewer-github-pat` | `arikkfir-reviewer`'s fine-grained token | the owner | delivery's `ci-<repository>/reviewer-github-pat`, key `token`, for the same |
+| `infra-plan-github-pat` | The plans' GitHub token ([GitHub tokens](../designs/terraform-plan-apply.md#github-tokens)) | the owner | `ci-infra-plan`, at run time |
+| `infra-apply-github-pat` | The applies' GitHub token | the owner | `ci-infra-apply`, at run time, through `roles/secretmanager.admin` |
+| `infra-plan-keycloak-secret` | Secret of Keycloak client `terraform-plan` | root keycloak | `ci-infra-plan`, at run time |
+| `infra-apply-keycloak-secret` | Secret of Keycloak client `terraform-apply` | root keycloak | `ci-infra-apply`, at run time, through `roles/secretmanager.admin` |
+| `ci-fin-e2e-keycloak-secret` | Secret of Keycloak client `fin-e2e` | root keycloak | `ci-fin/ci-fin-ci`, at run time ([test users](../designs/test-users.md)) |
 
 The five pipeline secrets never pass through External Secrets, so no Kubernetes Secret holds them: Octomaton lets no `push` pipeline mount one, and a pull request's pipeline can't name one at all.
 
@@ -144,27 +159,59 @@ flowchart LR
   PLAT & TEN & FINP & POOL & GSA --> R["roles on the project, a bucket,<br/>a repository, a secret or a zone"]
 ```
 
-| Who | What for |
-| --- | --- |
-| `external-secrets/external-secrets` | Reads every secret but the five pipeline secrets |
-| `cert-manager/cert-manager` | Administers zones `kfirs-com` and `octomaton-dev`, for Let's Encrypt's DNS-01 challenges. Zone-scoped, so its solvers must name their zone |
-| `grafana/grafana` | Reads Cloud Monitoring |
-| `docs/docs`, `tests/tests` | Read their bucket |
-| `octomaton/octomaton`, `octomaton/octomaton-logs` | Write metrics and traces; `octomaton-logs` also reads the `_Default` log view, for the logs of CI pods that are gone |
-| Each tenant's `docs-publisher` and `docs-reader` | `docs-publisher` writes its own layer of `arikkfir-docs` (an IAM condition on `.layers/<repository>/`); both list the bucket's names |
-| `ci-tooling-publish`, `ci-octomaton-release`, `ci-fin-release` | Publish from `main`: the Claude Code bundle, Octomaton's and the reviewer's images, Fin's images and CI cache |
-| `ci-fin-preview`, `ci-fin-ci` | From any branch: Fin's pull requests' images, its end-to-end reports, client `fin-e2e`'s secret, and reading the CI cache |
-| `fin/api`, `fin/worker`, `fin/scraper` | Write traces and metrics; the API and the worker read `arikkfir-fin`, which the scraper writes; the worker calls Vertex AI |
-| Pool `fin-pull-requests` | The same for every pull request's environment, on `arikkfir-fin-pull-requests` |
-| `ci-infra-plan`, `ci-infra-apply` | Plan and apply the roots ([Terraform plan and apply](../designs/terraform-plan-apply.md#identities)) |
-| `gke-hub-nodes@` | Runs the nodes; pulls images |
-| `claude-code@` | Claude Code's cloud sessions: the project's Viewer, Google's MCP servers' tools, and the docs bucket ([Claude Code cluster and docs access](../../tooling/designs/claude-code-cluster-access.md)). Made by hand, with its key, and adopted here |
+Every grant `iam.tf` makes:
 
-A CI tenant's own ServiceAccount, `pipeline`, holds no role: a pipeline that needs Google Cloud names one of its own, which `delivery` creates and, when it publishes, restricts to `main` ([Octomaton's tenancy and identity](../../octomaton/designs/phase-2-octomaton.md#tenancy-and-identity)). Every role and scope: the reference's [GCP identities and permissions](../../hub/reference.md#gcp-identities-and-permissions).
+| Principal | Roles | Scope | For |
+| --- | --- | --- | --- |
+| `external-secrets/external-secrets` | `roles/secretmanager.secretAccessor` | Each secret but the five pipeline secrets | Syncs them into Kubernetes Secrets ([Secret Manager](#secret-manager)) |
+| `cert-manager/cert-manager` | `roles/dns.admin` | Zones `kfirs-com` and `octomaton-dev` | Let's Encrypt's DNS-01 challenges. Zone-scoped, so its solvers must name their zone |
+| `grafana/grafana` | `roles/monitoring.viewer` | Project | Reads Cloud Monitoring |
+| `docs/docs` | `roles/storage.objectViewer` | Bucket `arikkfir-docs` | The docs site serves it |
+| `tests/tests` | `roles/storage.objectViewer` | Bucket `arikkfir-tests` | The tests site serves it |
+| `octomaton/octomaton`, `octomaton/octomaton-logs` | `roles/telemetry.metricsWriter`, `roles/telemetry.tracesWriter`, `roles/serviceusage.serviceUsageConsumer` | Project | Metrics and traces, through the Telemetry API |
+| `octomaton/octomaton-logs` | `roles/logging.viewAccessor`, on view `_Default` of log bucket `_Default` only (IAM condition) | Project | The logs of CI pods that are gone ([archived step logs](../../octomaton/designs/archived-step-logs.md)) |
+| `ci-<repository>/docs-publisher` | `roles/storage.objectUser`, on objects under `.layers/<repository>/` only (IAM condition); `roles/storage.legacyBucketReader` | Bucket `arikkfir-docs` | Publishes its repository's docs layer, from `main` |
+| `ci-<repository>/docs-reader` | `roles/storage.legacyBucketReader` | Bucket `arikkfir-docs` | Lists the bucket's names, for the `Docs` check on pull requests |
+| `ci-tooling/ci-tooling-publish` | `roles/storage.objectUser`, `roles/storage.legacyBucketReader` | Bucket `arikkfir-claude` | Publishes the Claude Code bundle, from `main` |
+| `ci-octomaton/ci-octomaton-release` | `roles/artifactregistry.writer` | Repository `images` | Octomaton's and the reviewer's images, from `main` |
+| `ci-fin/ci-fin-release` | `roles/artifactregistry.writer` | Repository `images` | Fin's images, from `main` |
+| `ci-fin/ci-fin-release` | `roles/storage.objectUser` | Bucket `arikkfir-fin-ci-cache` | Saves Fin's CI cache, from `main` |
+| `ci-fin/ci-fin-preview` | `roles/artifactregistry.writer` | Repository `previews` | Fin's pull requests' images, from any branch |
+| `ci-fin/ci-fin-preview`, `ci-fin/ci-fin-ci` | `roles/storage.objectViewer` | Bucket `arikkfir-fin-ci-cache` | Restore Fin's CI cache, from any branch. It holds nothing secret |
+| `ci-fin/ci-fin-ci` | `roles/storage.objectCreator`, on objects under `reports/fin/` only (IAM condition) | Bucket `arikkfir-tests` | Fin's end-to-end reports, from any branch; it can't change or delete them ([CI reports](../../fin/designs/ci-reports.md)) |
+| `ci-fin/ci-fin-ci` | `roles/secretmanager.secretAccessor` | Secret `ci-fin-e2e-keycloak-secret` | Client `fin-e2e`, which creates and deletes Fin's test users only ([test users](../designs/test-users.md)) |
+| `ci-infra/ci-infra-plan` | `roles/iam.securityReviewer`, `roles/serviceusage.serviceUsageViewer`, `roles/compute.networkViewer`, `roles/container.clusterViewer`, `roles/artifactregistry.reader`, `roles/secretmanager.viewer`, `roles/dns.reader`, `roles/iam.serviceAccountViewer`, `roles/iam.workloadIdentityPoolViewer` | Project | Plans: reads everything this root manages, every IAM policy included ([identities](../designs/terraform-plan-apply.md#identities)) |
+| `ci-infra/ci-infra-plan` | `roles/storage.legacyBucketReader` | Each bucket this root manages | Reads their settings |
+| `ci-infra/ci-infra-plan` | `roles/storage.objectViewer` | Bucket `arikkfir-devops` | Reads Terraform's state, without the lock |
+| `ci-infra/ci-infra-plan` | `roles/secretmanager.secretAccessor` | Secrets `infra-plan-github-pat` and `infra-plan-keycloak-secret` | Its GitHub token and Keycloak credential, at run time |
+| `ci-infra/ci-infra-apply` | `roles/serviceusage.serviceUsageAdmin`, `roles/compute.networkAdmin`, `roles/container.admin`, `roles/artifactregistry.admin`, `roles/storage.admin`, `roles/secretmanager.admin`, `roles/dns.admin`, `roles/iam.serviceAccountAdmin`, `roles/iam.securityAdmin`, `roles/iam.workloadIdentityPoolAdmin` | Project | Applies, from `main`: an admin role per resource type, and the project's and DNS zones' IAM policies ([identities](../designs/terraform-plan-apply.md#identities)) |
+| `ci-infra/ci-infra-apply` | `roles/iam.serviceAccountUser` | Service account `gke-hub-nodes@` | Creates node pools that run as it |
+| `fin/api`, `fin/worker`, `fin/scraper` | `roles/telemetry.tracesWriter`, `roles/telemetry.metricsWriter`, `roles/serviceusage.serviceUsageConsumer` | Project | Traces and metrics |
+| `fin/worker` | `roles/aiplatform.user` | Project | Calls Gemini on Vertex AI |
+| `fin/api`, `fin/worker` | `roles/storage.objectViewer` | Bucket `arikkfir-fin` | Read the scraper's artifacts |
+| `fin/scraper` | `roles/storage.objectCreator` | Bucket `arikkfir-fin` | Writes its scrape videos, traces and raw statements, and can't read them back |
+| Pool `fin-pull-requests`, every identity in it | `roles/telemetry.tracesWriter`, `roles/telemetry.metricsWriter`, `roles/serviceusage.serviceUsageConsumer`, `roles/aiplatform.user` | Project | The same as production's, for every pull request's environment ([below](#pool-fin-pull-requests)) |
+| Pool `fin-pull-requests`, every identity in it | `roles/storage.objectUser` | Bucket `arikkfir-fin-pull-requests` | The environments' scrape artifacts, under each one's name |
+| `gke-hub-nodes@` | `roles/container.defaultNodeServiceAccount` | Project | Runs the nodes |
+| `gke-hub-nodes@` | `roles/artifactregistry.reader` | Repositories `images` and `previews` | Pulls images |
+| `claude-code@` | `roles/viewer`, `roles/mcp.toolUser` | Project | Claude Code's cloud sessions look around the project and read the cluster through GKE's MCP server ([Claude Code cluster and docs access](../../tooling/designs/claude-code-cluster-access.md)) |
+| `claude-code@` | `roles/storage.objectViewer` | Bucket `arikkfir-docs` | The sessions read the docs site's pages from its layers |
+| `allUsers` | `roles/storage.legacyObjectReader` | Bucket `arikkfir-claude` | Anyone reads its objects by URL, without listing them |
+
+`<repository>` is each repository with a CI tenant: `delivery`, `docs`, `fin`, `infra`, `octomaton` and `tooling` (`local.docs_layers`). `gke-hub-nodes@` and `claude-code@` are the project's two Google service accounts (`<name>@arikkfir.iam.gserviceaccount.com`); `claude-code@` was made by hand, with its key, and is adopted here. "From `main`" means the ServiceAccount is annotated `octomaton.dev/branches: main`. A CI tenant's own ServiceAccount, `pipeline`, holds no role: a pipeline that needs Google Cloud names one of its own, which `delivery` creates and, when it publishes, restricts to `main` ([Octomaton's tenancy and identity](../../octomaton/designs/phase-2-octomaton.md#tenancy-and-identity)).
 
 ### Pool fin-pull-requests
 
-Fin's pull requests' environments come and go with their namespaces, `fin-pr-<number>`, and GKE's own pool grants only to namespaces named in advance. Pool `fin-pull-requests` has one OIDC provider, `gke-hub`, which trusts the hub cluster's ServiceAccount tokens (its issuer, `https://container.googleapis.com/v1/projects/arikkfir/locations/me-west1-a/clusters/hub`, whose keys GKE publishes) from namespaces whose names start with `fin-pr-` only. A pod presents a projected token of the provider's audience through an `external_account` credential file, and its grants go to every identity in the pool. How Fin uses it: Fin's [environments](../../fin/designs/environments.md).
+Fin's pull requests' environments come and go with their namespaces, `fin-pr-<number>`, and GKE's own pool grants only to namespaces named in advance. Pool `fin-pull-requests` has one OIDC provider, `gke-hub`, which trusts the hub cluster's ServiceAccount tokens from namespaces whose names start with `fin-pr-` only. A pod presents a projected token of the provider's audience through an `external_account` credential file, and its grants go to every identity in the pool. How Fin uses it: Fin's [environments](../../fin/designs/environments.md).
+
+| Piece | Value |
+| --- | --- |
+| Issuer | `https://container.googleapis.com/v1/projects/arikkfir/locations/me-west1-a/clusters/hub`, the cluster's, whose keys GKE publishes. No allowed audiences: tokens name the provider itself |
+| Attribute mapping | `google.subject` from `assertion.sub`; `attribute.namespace` from `assertion['kubernetes.io']['namespace']` |
+| Attribute condition | `assertion['kubernetes.io']['namespace'].startsWith('fin-pr-')` |
+| Member of its grants | `principalSet://iam.googleapis.com/projects/8909046976/locations/global/workloadIdentityPools/fin-pull-requests/*` |
+
+This root manages no other pool: not GKE's own, `arikkfir.svc.id.goog`, nor `github-actions` and `greenstar`, which predate it.
 
 ## DNS
 
