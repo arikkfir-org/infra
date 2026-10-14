@@ -202,10 +202,10 @@ resource "google_storage_bucket_iam_member" "docs_publisher" {
   }
 }
 
-# Fin's CI uploads each run's end-to-end report under reports/fin/ of arikkfir-tests, from any branch, since pull
-# requests' runs need theirs too: ci-fin-ci may create objects there and nowhere else, and can't change or delete them
-# (see the reference, "Tests site").
-resource "google_storage_bucket_iam_member" "reports" {
+# What CI's tests keep goes to arikkfir-tests. Fin's CI uploads each run's end-to-end report under reports/fin/, from any
+# branch, since pull requests' runs need theirs too: ci-fin-ci may create objects there and nowhere else, and can't
+# change or delete them (see the reference, "Tests site").
+resource "google_storage_bucket_iam_member" "tests" {
   for_each = { fin = local.principals.ci_fin_ci }
 
   bucket = google_storage_bucket.this["arikkfir-tests"].name
@@ -213,7 +213,7 @@ resource "google_storage_bucket_iam_member" "reports" {
   member = each.value
 
   condition {
-    title      = "reports-${each.key}"
+    title      = "tests-${each.key}"
     expression = "resource.name.startsWith(\"projects/_/buckets/arikkfir-tests/objects/reports/${each.key}/\")"
   }
 }
