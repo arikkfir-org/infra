@@ -39,7 +39,7 @@ flowchart TB
 | GKE | `gke.tf` | cluster `hub`, node pools `system`, `ci` and `fin`, node service account `gke-hub-nodes@` |
 | Artifact Registry | `registry.tf` | Docker repositories `images` and `previews` |
 | Storage | `storage.tf` | six buckets |
-| Secret Manager | `secrets.tf` | nineteen secret containers |
+| Secret Manager | `secrets.tf` | twenty secret containers |
 | IAM | `iam.tf` | grants to Kubernetes principals and two Google service accounts, pool `fin-pull-requests` and its provider, service account `claude-code@` |
 | DNS | `dns.tf` | zones `kfirs-com`, `kfirfamily-com` and `octomaton-dev`, the hub's hosts and `octomaton.dev` |
 | Adopted | `imports.tf` | zones `kfirs-com` and `kfirfamily-com`, service account `claude-code@` and its viewer role, all made by hand first |
@@ -135,6 +135,7 @@ A bucket made with uniform access also gets Cloud Storage's convenience bindings
 | `fin-scraper-sealing-key` | 32 random bytes, base64: the seed of the key pair that seals Fin production's bank credentials and browser sessions | the owner | fin's `fin/scraper-sealing-key`, key `key` |
 | `reviewer-deepseek-api-key` | DeepSeek API key | the owner | delivery's `ci-<repository>/reviewer-deepseek-api-key`, key `api-key`, for tooling's pull request reviewer |
 | `reviewer-github-pat` | `arikkfir-reviewer`'s fine-grained token | the owner | delivery's `ci-<repository>/reviewer-github-pat`, key `token`, for the same |
+| `linear-api-key` | The owner's Linear API key, with permission Read on team ENG only | the owner | delivery's `ci-<repository>/linear-api-key`, key `api-key`, for tooling's check `Linear` |
 | `infra-plan-github-pat` | The plans' GitHub token ([GitHub tokens](../designs/terraform-plan-apply.md#github-tokens)) | the owner | `ci-infra-plan`, at run time |
 | `infra-apply-github-pat` | The applies' GitHub token | the owner | `ci-infra-apply`, at run time, through `roles/secretmanager.admin` |
 | `infra-plan-keycloak-secret` | Secret of Keycloak client `terraform-plan` | root keycloak | `ci-infra-plan`, at run time |

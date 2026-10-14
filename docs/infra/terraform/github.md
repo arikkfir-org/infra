@@ -1,12 +1,13 @@
 # Root github: the GitHub organization
 
-**Decision**: `terraform/github` manages the `arikkfir-org` organization's settings and every repository in it: their settings, their `Default branch` ruleset, their `ENG-` autolink to Linear, Dependabot's alerts and security updates, and team `reviewers`, through which the pull request reviewer may approve. Every repository gets the same settings and the same ruleset; only its description, its visibility and its extra required checks differ. Pipeline `apply` applies it on every merge to `main` ([Terraform plan and apply](../designs/terraform-plan-apply.md)). This page documents every repository, setting and rule it creates; other repositories link it rather than repeat them.
+**Decision**: `terraform/github` manages the `arikkfir-org` organization's settings and every repository in it: their settings, their `Default branch` ruleset, their `ENG-` autolink to Linear, their label `skip-linear`, Dependabot's alerts and security updates, and team `reviewers`, through which the pull request reviewer may approve. Every repository gets the same settings and the same ruleset; only its description, its visibility and its extra required checks differ. Pipeline `apply` applies it on every merge to `main` ([Terraform plan and apply](../designs/terraform-plan-apply.md)). This page documents every repository, setting and rule it creates; other repositories link it rather than repeat them.
 
 ```mermaid
 flowchart LR
   L["local.repositories<br/>description, visibility, checks"] --> R["github_repository<br/>settings, merge options"]
   R --> RS["ruleset Default branch<br/>pull request, checks from Octomaton,<br/>merge queue"]
   R --> AL["autolink ENG- to Linear"]
+  R --> LB["label skip-linear"]
   R --> DB["Dependabot alerts<br/>and security updates"]
   R --> TR["team reviewers: push"]
   T["team reviewers<br/>arikkfir-reviewer"] --> TR
@@ -18,6 +19,7 @@ flowchart LR
 | `organization.tf` | `github_organization_settings.arikkfir_org` |
 | `repositories.tf` | `local.repositories`; per repository: `github_repository`, `github_repository_vulnerability_alerts`, `github_repository_dependabot_security_updates`, `github_repository_autolink_reference` |
 | `rulesets.tf` | `github_repository_ruleset` `Default branch` per repository |
+| `labels.tf` | `github_issue_label` `skip-linear` per repository |
 | `teams.tf` | team `reviewers` (closed), its member `arikkfir-reviewer`, and `push` on every repository |
 | `imports.tf` | the seven repositories and the organization, which existed before |
 
@@ -43,6 +45,7 @@ No repository adds checks of its own today (`checks` in `local.repositories`). E
 | Merging | Merge commits, squash and rebase allowed, the ruleset narrowing pull requests to merge commits; the pull request's title and description as the merge commit's message; auto-merge, branch updates and head-branch deletion on |
 | Forking | Public repositories only |
 | Autolink | `ENG-<num>`, alphanumeric, to `https://linear.app/arikkfir/issue/ENG-<num>` |
+| Label | `skip-linear` (grey, `8a93a3`): a pull request with no Linear issue carries it, and check `Linear` passes it ([Linear](../../CONTRIBUTING.md#linear)) |
 | Dependabot | Alerts and security updates on; version updates need a `.github/dependabot.yml` in the repository |
 | Deletion | `archive_on_destroy` and `prevent_destroy` keep Terraform from deleting one |
 
@@ -100,6 +103,7 @@ The provider has no argument for these:
 | Imported repositories and organization, `prevent_destroy` | Adopted with their history, never recreated | Recreating them |
 | Repository creation off for members | Every repository comes through review, with its ruleset from the start | Creation by hand |
 | A team for the reviewer, not a direct collaborator | One grant per repository, listed with the repositories | Inviting the user to each repository |
+| Label `skip-linear` here, on every repository | Every repository has the same waiver from its creation, which Dependabot's configuration can name | Making it by hand in each repository |
 
 ## Running it
 

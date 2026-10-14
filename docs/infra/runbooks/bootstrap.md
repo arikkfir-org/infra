@@ -104,6 +104,7 @@ openssl rand -base64 24 | tr -d '\n'             | add fin-postgres-arik-passwor
 openssl rand -base64 32 | tr -d '\n'             | add fin-scraper-sealing-key
 printf '%s' "<deepseek api key>"                 | add reviewer-deepseek-api-key
 printf '%s' "<arikkfir-reviewer token>"          | add reviewer-github-pat
+printf '%s' "<linear api key, read, team ENG>"   | add linear-api-key
 printf '%s' "<plan token>"                       | add infra-plan-github-pat
 printf '%s' "<apply token>"                      | add infra-apply-github-pat
 ```

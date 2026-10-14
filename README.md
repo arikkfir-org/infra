@@ -46,7 +46,8 @@ State lives in the GCS bucket `arikkfir-devops`, one prefix per root.
 - For `terraform/github`, a token in `GITHUB_TOKEN`: a fine-grained personal access token with resource owner
   `arikkfir-org`, access to all repositories, the repository permissions **Administration: read and write**,
   **Contents: read and write** (GitHub shows merge settings only to tokens with it; without it every plan shows them
-  changed) and **Metadata: read**, and the organization permissions **Administration: read and write** (the
+  changed), **Pull requests: read and write** (the repositories' labels) and **Metadata: read**, and the organization
+  permissions **Administration: read and write** (the
   organization's settings) and **Members: read and write** (team `reviewers`). The organization must allow
   fine-grained tokens. A classic token with the `repo` and `admin:org` scopes also works.
 - For `terraform/keycloak`, a service account in Keycloak's realm `master` in `KEYCLOAK_CLIENT_ID` and
