@@ -4,8 +4,10 @@ Terraform for the `arikkfir-org` development hub: the GCP project (network, GKE,
 Manager, IAM, DNS), the Argo CD bootstrap, the organization's GitHub repositories and rulesets, and Keycloak's
 configuration.
 
-Every name, ID, CIDR, role and host comes from the [hub reference](https://docs.dev.kfirs.com/hub/reference.md). It is
-the contract: change it first, then this code.
+Every name, ID, CIDR, role and host this code creates is documented in its root's page,
+`https://docs.dev.kfirs.com/infra/terraform/<root>.md`, which other repositories link: a change to one starts here, and
+updates that page in the same pull request. Names it takes from another repository, such as namespaces,
+ServiceAccounts and hosts' backends, come from that repository's pages.
 
 What each root provisions, and why: [gcp](docs/infra/terraform/gcp.md), [argocd](docs/infra/terraform/argocd.md),
 [github](docs/infra/terraform/github.md) and [keycloak](docs/infra/terraform/keycloak.md). How pull requests plan and

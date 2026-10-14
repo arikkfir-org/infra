@@ -48,7 +48,7 @@ sequenceDiagram
 | Client `fin-e2e` | Confidential, service account only, no flows. Realm `hub`'s admin permissions (Keycloak's fine-grained admin permissions, v2) give it `view`, `view-members`, `manage-members` and `manage-membership` on group `fin-e2e`, through a user policy that names its service account user: it lists, creates, sets passwords for and deletes `fin-e2e`'s members, and gets 403 for anyone else. It finds the group by its path, `/group-by-path/fin-e2e` | infra, `terraform/keycloak` |
 | Its secret | Terraform generates it and writes it write-only to Keycloak and to `ci-fin-e2e-keycloak-secret`, a pipeline secret: `ci-fin/ci-fin-ci` reads it at run time through Workload Identity; no Kubernetes Secret holds it | infra, `terraform/keycloak` and `terraform/gcp` |
 | Admin API | The operator's NetworkPolicy admits `ci-fin` too, so Fin's CI reaches the admin API at `http://keycloak-service.keycloak.svc.cluster.local:8080`, as `ci-infra` does. Keycloak's public hosts don't route `/admin` | delivery, `platform/keycloak` |
-| Admins only | Middleware `admins` in each tool's namespace, a ForwardAuth to oauth2-proxy's `/oauth2/auth?allowed_groups=admins`, on the routes of Argo CD, the Tekton Dashboard, Grafana, the Traefik dashboard, NUI, the docs site, Keycloak's console and realm `master`'s sign-in. The interceptor still signs people in first; a signed-in user outside `admins` then gets 403 | delivery ([admins only](../../delivery/designs/admins-only.md)) |
+| Admins only | Middleware `admins` in each tool's namespace, a ForwardAuth to oauth2-proxy's `/oauth2/auth?allowed_groups=admins`, on the routes of Argo CD, the Tekton Dashboard, Grafana, the Traefik dashboard, NUI, the docs and tests sites, Keycloak's console and realm `master`'s sign-in. The interceptor still signs people in first; a signed-in user outside `admins` then gets 403 | delivery ([admins only](../../delivery/designs/admins-only.md)) |
 | Client `fin-local` | Public, standard flow with PKCE (`S256`), redirect URI `http://localhost:5173/oauth2/callback` only, and the `groups` mapper. Fin's local development: its dev server signs a developer in through it, a person with Google or a test user with a password, and the local fin-api accepts its ID tokens, so Fin needs no dev user | infra, `terraform/keycloak`; fin |
 | Fin | Admits every signed-in hub user, test users included, as before | unchanged |
 | Sign-in attempts | Middleware `keycloak/sign-in-attempts`, a `RateLimit` per client address, on the POSTs of the login page's forms (`/realms/hub/login-actions`): 30 a minute, in bursts of up to 30, counted by each Traefik replica. Over it, Traefik answers 429 | delivery, `platform/keycloak` |
@@ -95,9 +95,10 @@ flowchart LR
 - **A run that dies before its teardown leaves its users.** Each run tears down its own environment's `fin-e2e` members
   created over an hour before, with what they kept in Fin, and deletes other pull requests' created over a day before;
   only production's runs touch production's.
-- **Reports show what the tests typed.** Playwright's traces, on the docs site's reports, hold the test users'
-  passwords. The users are deleted before the report goes up, but a dead run's users live until the next sweep; the
-  docs site now admits only `admins`.
+- **Reports show what the tests typed.** Playwright's traces hold the test users' passwords. Their reports go to bucket
+  `arikkfir-tests`, which the tests site serves at `https://tests.dev.kfirs.com/reports/fin/<run>/`
+  ([CI reports](../../fin/designs/ci-reports.md)). The users are deleted before the report goes up, but a dead run's
+  users live until the next sweep; the tests site admits only `admins`.
 - **The groups claim comes first.** The `admins` middleware reads `groups` from the session: deployed before Keycloak
   sends the claim, it would lock everyone, the owner included, out of the hub's tools. A session that predates the claim
   gets it at its next refresh, within 5 minutes.
@@ -125,7 +126,7 @@ flowchart LR
 
 | Step | Where | What |
 | --- | --- | --- |
-| 1 | `docs` | The [reference](../../hub/reference.md#authentication) names everything the next steps make |
+| 1 | `docs` | The reference names everything the next steps make |
 | 2 | `infra` | This design; `terraform-plan` may view realm `hub`'s clients, for step 3's data source. A pull request of its own: its plan needs nothing new, and `apply` grants it as `terraform-apply` |
 | 3 | `infra` | Realm `hub`'s login page; groups `admins` and `fin-e2e`; the groups claim; admin permissions; client `fin-e2e` and its secret. In `terraform/gcp`: the secret's container and `ci-fin-ci`'s access. The merge applies it |
 | 4 | Check | Sign in again: Keycloak's page shows the password form and Google; the ID token carries `groups: ["admins"]` |

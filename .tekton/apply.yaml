@@ -1,7 +1,7 @@
 # Merges to main: plans gcp, github and keycloak as ci-infra-apply and Keycloak's client terraform-apply, and applies
 # each saved plan, in a task per root: gcp and github at once, keycloak after gcp, which creates the secrets keycloak
-# writes (see the hub reference, "Terraform applies"). ci-infra-apply carries octomaton.dev/branches: main, so Octomaton
-# refuses to run this anywhere else.
+# writes (docs/infra/designs/terraform-plan-apply.md). ci-infra-apply carries octomaton.dev/branches: main, so
+# Octomaton refuses to run this anywhere else.
 # Octomaton sets spec.params (repo-url, revision) from .octomaton.yaml.
 apiVersion: tekton.dev/v1
 kind: PipelineRun
