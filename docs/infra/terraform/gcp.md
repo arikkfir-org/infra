@@ -113,7 +113,7 @@ All in `ME-WEST1`, with uniform bucket-level access.
 | `arikkfir-fin-ci-cache` | prevented | 14 days | Fin's CI caches | `ci-fin-ci`, `ci-fin-preview` | `ci-fin-release`, from `main` |
 | `arikkfir-devops` | prevented | never (versioned) | Terraform's state, a prefix per root | `ci-infra-plan` | `ci-infra-apply`; made by hand, outside every root |
 
-A bucket made with uniform access also gets Cloud Storage's convenience bindings, which let the project's Viewers read its objects; `claude-code@` is one ([Claude Code cluster and docs access](../../hub/designs/claude-code-cluster-access.md)). The docs and tests sites: delivery's [docs and tests servers](../../delivery/designs/docs-and-tests-servers.md). Fin's buckets: Fin's [environments](../../fin/designs/environments.md).
+A bucket made with uniform access also gets Cloud Storage's convenience bindings, which let the project's Viewers read its objects; `claude-code@` is one ([Claude Code cluster and docs access](../../tooling/designs/claude-code-cluster-access.md)). The docs and tests sites: delivery's [docs and tests servers](../../delivery/designs/docs-and-tests-servers.md). Fin's buckets: Fin's [environments](../../fin/designs/environments.md).
 
 ## Secret Manager
 
@@ -158,7 +158,7 @@ flowchart LR
 | Pool `fin-pull-requests` | The same for every pull request's environment, on `arikkfir-fin-pull-requests` |
 | `ci-infra-plan`, `ci-infra-apply` | Plan and apply the roots ([Terraform plan and apply](../designs/terraform-plan-apply.md#identities)) |
 | `gke-hub-nodes@` | Runs the nodes; pulls images |
-| `claude-code@` | Claude Code's cloud sessions: the project's Viewer, Google's MCP servers' tools, and the docs bucket ([Claude Code cluster and docs access](../../hub/designs/claude-code-cluster-access.md)). Made by hand, with its key, and adopted here |
+| `claude-code@` | Claude Code's cloud sessions: the project's Viewer, Google's MCP servers' tools, and the docs bucket ([Claude Code cluster and docs access](../../tooling/designs/claude-code-cluster-access.md)). Made by hand, with its key, and adopted here |
 
 A CI tenant's own ServiceAccount, `pipeline`, holds no role: a pipeline that needs Google Cloud names one of its own, which `delivery` creates and, when it publishes, restricts to `main` ([Octomaton's tenancy and identity](../../octomaton/designs/phase-2-octomaton.md#tenancy-and-identity)). Every role and scope: the reference's [GCP identities and permissions](../../hub/reference.md#gcp-identities-and-permissions).
 
