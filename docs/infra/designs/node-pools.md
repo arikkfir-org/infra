@@ -4,7 +4,7 @@
 on-demand `e2-standard-4`) runs the hub's services beside GKE's own components, under GKE's taint for those components.
 `ci` (0 to 10 Spot `e2-standard-8`) runs CI. `fin` (0 to 10 on-demand `e2-standard-4`) runs Fin's environments.
 Pull requests: arikkfir-org/infra (the `fin` pool and `octomaton-logs`' grants; Spot CI; the system pool's taint), and
-the workloads' side in `delivery` (`docs/delivery/designs/node-pools.md`) and `fin`.
+the workloads' side in `delivery` ([node pools](../../delivery/designs/node-pools.md)) and `fin`.
 
 ## Why
 
@@ -32,8 +32,7 @@ flowchart LR
   end
 ```
 
-The pools once the three pull requests have landed. The README lists them as they are at each commit: until the second
-lands, `ci` stays on-demand with up to five nodes, and until the third, `system` has no taint.
+The pools, as the three pull requests left them ([root gcp](../terraform/gcp.md#node-pools)):
 
 | Pool | Machine | VMs | Nodes | Label | Taint (`NoSchedule`) | Who tolerates it |
 | --- | --- | --- | --- | --- | --- | --- |

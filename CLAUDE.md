@@ -2,7 +2,7 @@
 
 ## Rules
 
-- Treat the hub reference (`hub/reference.md` in `arikkfir-org/docs`) as the contract for every name, ID, CIDR, role
+- Treat the hub reference (https://docs.dev.kfirs.com/hub/reference.md) as the contract for every name, ID, CIDR, role
   and host. If a change needs a new or different value, say so; do not diverge silently.
 - Never run `terraform apply`, `make terraform`, `destroy`, `import`, `state …`, `taint`, `force-unlock` or anything
   else that changes real infrastructure or state. Never call GCP or GitHub APIs to inspect live resources. Pipeline
@@ -29,6 +29,13 @@
 - After changing provider versions, run
   `terraform providers lock -platform=linux_amd64 -platform=linux_arm64 -platform=darwin_arm64` in that root and keep
   `.terraform.lock.hcl`.
+- What each root provisions is documented in `docs/infra/terraform/<root>.md`, and how the pipelines plan and apply in
+  `docs/infra/designs/terraform-plan-apply.md`: a change keeps them true in the same pull request. Other repositories
+  link these pages rather than repeat them.
+- Pages at `https://docs.dev.kfirs.com/<path>` (every repository's `docs/`) are behind the hub's sign-in. Read one with
+  `curl -fsS https://storage.googleapis.com/arikkfir-docs/.layers/<repository>/<path>`, where `<repository>` is the
+  path's first segment when it names a repository (`delivery/designs/node-pools.md` is `delivery`'s) and `docs`
+  otherwise (`hub/reference.md`). Don't clone a repository to read its docs.
 
 ## Conventions
 
@@ -55,7 +62,8 @@
   `Default branch` ruleset (pull request, merge queue, `Continuous Integration` and `Docs` from Octomaton plus its
   `checks` from any source), the `ENG-` autolink to Linear, Dependabot alerts and security updates, and team `reviewers`
   (`terraform/github/teams.tf`) gets `push` on it. Add it to `local.docs_layers` in `terraform/gcp/iam.tf` too, so its
-  CI tenant can publish its docs. Tell the owner to set what the provider can't (README.md, Notes).
+  CI tenant can publish its docs. Tell the owner to set what the provider can't
+  (`docs/infra/terraform/github.md`, "Set outside Terraform").
 - Bucket: add its name, public access prevention (`enforced` unless it must be public) and the age in days after which
   its objects are deleted (`null` keeps them) to the map in `terraform/gcp/storage.tf`, and its grants to
   `local.bucket_iam` in `terraform/gcp/iam.tf`.
