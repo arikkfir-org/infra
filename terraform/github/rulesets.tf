@@ -51,7 +51,7 @@ resource "github_repository_ruleset" "default-branch" {
     required_status_checks {
       strict_required_status_checks_policy = false
 
-      # Only Octomaton may report these two; a repository's own checks may come from any source.
+      # Only Octomaton may report these three; a repository's own checks may come from any source.
       required_check {
         context        = "Continuous Integration"
         integration_id = local.octomaton_app_id
@@ -59,6 +59,12 @@ resource "github_repository_ruleset" "default-branch" {
 
       required_check {
         context        = "Docs"
+        integration_id = local.octomaton_app_id
+      }
+
+      # tooling's organization pipeline linear: a Linear issue linked, or the label skip-linear (labels.tf).
+      required_check {
+        context        = "Linear"
         integration_id = local.octomaton_app_id
       }
 
