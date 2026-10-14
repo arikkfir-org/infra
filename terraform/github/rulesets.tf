@@ -1,5 +1,6 @@
 locals {
-  # The App ID of octomaton-dev, the Octomaton GitHub App (hub reference).
+  # The App ID of octomaton-dev, the Octomaton GitHub App
+  # (https://docs.dev.kfirs.com/octomaton/designs/octomaton-dev.md).
   octomaton_app_id = 5114814
 
   # Their merge queue takes one pull request at a time: infra plans each merge after the previous one was applied.

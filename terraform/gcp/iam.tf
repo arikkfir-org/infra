@@ -84,8 +84,8 @@ locals {
     "ci-infra-apply/iam.workloadIdentityPoolAdmin"  = { role = "roles/iam.workloadIdentityPoolAdmin", member = local.principals.ci_infra_apply }
   }
 
-  # Every repository with a CI tenant publishes its docs to its own layer of arikkfir-docs, .layers/<repository>/ (see
-  # the reference, "Docs site").
+  # Every repository with a CI tenant publishes its docs to its own layer of arikkfir-docs, .layers/<repository>/
+  # (https://docs.dev.kfirs.com/hub/designs/docs-site-composition.md).
   docs_layers = toset(["delivery", "docs", "fin", "infra", "octomaton", "tooling"])
 
   # The docs site's pipelines list the bucket's object names: docs-reader on pull requests, docs-publisher on main.
@@ -105,7 +105,7 @@ locals {
     "arikkfir-tests/tests/storage.objectViewer"           = { bucket = "arikkfir-tests", role = "roles/storage.objectViewer", member = local.principals.tests }
     "arikkfir-claude/allUsers/storage.legacyObjectReader" = { bucket = "arikkfir-claude", role = "roles/storage.legacyObjectReader", member = "allUsers" }
     # Claude Code's cloud sessions read the docs site's pages from their layers, since the site itself is behind the
-    # hub's sign-in (see the reference, "Docs site").
+    # hub's sign-in (https://docs.dev.kfirs.com/tooling/designs/claude-code-cluster-access.md).
     "arikkfir-docs/claude-code/storage.objectViewer" = { bucket = "arikkfir-docs", role = "roles/storage.objectViewer", member = local.principals.claude_code }
     # tooling's publish pipeline, on main only (the ServiceAccount's octomaton.dev/branches).
     "arikkfir-claude/ci-tooling-publish/storage.objectUser"         = { bucket = "arikkfir-claude", role = "roles/storage.objectUser", member = local.principals.ci_tooling_publish }
@@ -207,7 +207,7 @@ resource "google_storage_bucket_iam_member" "docs_publisher" {
 
 # What CI's tests keep goes to arikkfir-tests. Fin's CI uploads each run's end-to-end report under reports/fin/, from any
 # branch, since pull requests' runs need theirs too: ci-fin-ci may create objects there and nowhere else, and can't
-# change or delete them (see the reference, "Tests site").
+# change or delete them (https://docs.dev.kfirs.com/fin/designs/ci-reports.md).
 resource "google_storage_bucket_iam_member" "tests" {
   for_each = { fin = local.principals.ci_fin_ci }
 

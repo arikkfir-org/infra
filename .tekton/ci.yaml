@@ -1,6 +1,6 @@
 # Pull requests and the merge queue: checks formatting and validates every root (task check), and plans gcp, github
 # and keycloak in a task each, all at once, as the ServiceAccount ci-infra-plan (read-only GCP roles) and Keycloak's
-# client terraform-plan (view roles), without taking the state lock (see the hub reference, "Terraform applies").
+# client terraform-plan (view roles), without taking the state lock (docs/infra/designs/terraform-plan-apply.md).
 # Octomaton sets spec.params (repo-url, revision) from .octomaton.yaml.
 apiVersion: tekton.dev/v1
 kind: PipelineRun
