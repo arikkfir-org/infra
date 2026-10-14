@@ -151,7 +151,7 @@ flowchart LR
 | `grafana/grafana` | Reads Cloud Monitoring |
 | `docs/docs`, `tests/tests` | Read their bucket |
 | `octomaton/octomaton`, `octomaton/octomaton-logs` | Write metrics and traces; `octomaton-logs` also reads the `_Default` log view, for the logs of CI pods that are gone |
-| Each tenant's `docs-publisher` and `docs-reader` | Write their own layer of `arikkfir-docs` (an IAM condition on `.layers/<repository>/`), and list the bucket's names |
+| Each tenant's `docs-publisher` and `docs-reader` | `docs-publisher` writes its own layer of `arikkfir-docs` (an IAM condition on `.layers/<repository>/`); both list the bucket's names |
 | `ci-tooling-publish`, `ci-octomaton-release`, `ci-fin-release` | Publish from `main`: the Claude Code bundle, Octomaton's and the reviewer's images, Fin's images and CI cache |
 | `ci-fin-preview`, `ci-fin-ci` | From any branch: Fin's pull requests' images, its end-to-end reports, client `fin-e2e`'s secret, and reading the CI cache |
 | `fin/api`, `fin/worker`, `fin/scraper` | Write traces and metrics; the API and the worker read `arikkfir-fin`, which the scraper writes; the worker calls Vertex AI |
@@ -206,7 +206,7 @@ All records live 300 seconds. The zones are `prevent_destroy`, and their attribu
 
 - Workloads hold no Google key: their tokens, and the nodes', come from the metadata server. The one key is `claude-code@`'s, made by hand, which the Claude Code environment holds.
 - Secret values live only in Secret Manager and in the Kubernetes Secrets External Secrets makes; Terraform never holds one, and its state holds no value.
-- A CI tenant's `pipeline` has no role, and every ServiceAccount that publishes is restricted to `main` by Octomaton, so a pull request can't write what production runs or serves.
+- A CI tenant's `pipeline` has no role, and every ServiceAccount that publishes what production runs or serves is restricted to `main` by Octomaton. Two write from any branch, by design: `ci-fin-preview` to `previews`, which only pull requests' environments pull, and `ci-fin-ci` to `arikkfir-tests`, under `reports/fin/`, behind the hub's sign-in.
 - `ci-infra-apply` holds `roles/iam.securityAdmin` and could grant itself more; only merges to `main` run as it ([Terraform plan and apply](../designs/terraform-plan-apply.md)).
 - `claude-code@`, a project Viewer, reads every bucket's objects through Cloud Storage's convenience bindings, `arikkfir-fin`'s raw statements included.
 
