@@ -67,7 +67,7 @@ resource "google_container_cluster" "hub" {
       disabled = true
     }
 
-    # Mounts the private arikkfir-docs bucket into the docs site.
+    # Mounts the private arikkfir-docs and arikkfir-tests buckets into the docs and tests sites.
     gcs_fuse_csi_driver_config {
       enabled = true
     }

@@ -8,6 +8,7 @@ locals {
     cert_manager         = "${local.k8s_principal_prefix}/ns/cert-manager/sa/cert-manager"
     grafana              = "${local.k8s_principal_prefix}/ns/grafana/sa/grafana"
     docs                 = "${local.k8s_principal_prefix}/ns/docs/sa/docs"
+    tests                = "${local.k8s_principal_prefix}/ns/tests/sa/tests"
     octomaton            = "${local.k8s_principal_prefix}/ns/octomaton/sa/octomaton"
     octomaton_logs       = "${local.k8s_principal_prefix}/ns/octomaton/sa/octomaton-logs"
     ci_tooling_publish   = "${local.k8s_principal_prefix}/ns/ci-tooling/sa/ci-tooling-publish"
@@ -101,6 +102,7 @@ locals {
 
   bucket_iam = merge(local.docs_listers, {
     "arikkfir-docs/docs/storage.objectViewer"             = { bucket = "arikkfir-docs", role = "roles/storage.objectViewer", member = local.principals.docs }
+    "arikkfir-tests/tests/storage.objectViewer"           = { bucket = "arikkfir-tests", role = "roles/storage.objectViewer", member = local.principals.tests }
     "arikkfir-claude/allUsers/storage.legacyObjectReader" = { bucket = "arikkfir-claude", role = "roles/storage.legacyObjectReader", member = "allUsers" }
     # tooling's publish pipeline, on main only (the ServiceAccount's octomaton.dev/branches).
     "arikkfir-claude/ci-tooling-publish/storage.objectUser"         = { bucket = "arikkfir-claude", role = "roles/storage.objectUser", member = local.principals.ci_tooling_publish }
@@ -200,9 +202,24 @@ resource "google_storage_bucket_iam_member" "docs_publisher" {
   }
 }
 
-# Fin's CI uploads each run's end-to-end report under .reports/fin/, from any branch, since pull requests' runs need
-# theirs too: ci-fin-ci may create objects there and nowhere else, and can't change or delete them (see the reference,
-# "Docs site").
+# What CI's tests keep goes to arikkfir-tests. Fin's CI uploads each run's end-to-end report under reports/fin/, from any
+# branch, since pull requests' runs need theirs too: ci-fin-ci may create objects there and nowhere else, and can't
+# change or delete them (see the reference, "Tests site").
+resource "google_storage_bucket_iam_member" "tests" {
+  for_each = { fin = local.principals.ci_fin_ci }
+
+  bucket = google_storage_bucket.this["arikkfir-tests"].name
+  role   = "roles/storage.objectCreator"
+  member = each.value
+
+  condition {
+    title      = "tests-${each.key}"
+    expression = "resource.name.startsWith(\"projects/_/buckets/arikkfir-tests/objects/reports/${each.key}/\")"
+  }
+}
+
+# Where reports went before arikkfir-tests: .reports/fin/ of arikkfir-docs. The grant stays until no branch of fin
+# uploads there any more, then goes with the reports it wrote (delivery's docs/delivery/runbooks/move-ci-reports.md).
 resource "google_storage_bucket_iam_member" "ci_reports" {
   for_each = { fin = local.principals.ci_fin_ci }
 
