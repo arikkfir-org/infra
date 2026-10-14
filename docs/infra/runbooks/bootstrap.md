@@ -185,4 +185,4 @@ In claude.ai/code, the environment's settings: the setup script
 curl -fsSL https://storage.googleapis.com/arikkfir-claude/setup.sh | bash
 ```
 
-and, as the environment's Google Cloud credential, a key of `claude-code@arikkfir.iam.gserviceaccount.com`, which its proxy adds to requests for `*.googleapis.com` ([Claude Code cluster and docs access](../../hub/designs/claude-code-cluster-access.md)).
+and, as the environment's Google Cloud credential, a key of `claude-code@arikkfir.iam.gserviceaccount.com`, which its proxy adds to requests for `*.googleapis.com` ([Claude Code cluster and docs access](../../tooling/designs/claude-code-cluster-access.md)).
