@@ -104,6 +104,9 @@ locals {
     "arikkfir-docs/docs/storage.objectViewer"             = { bucket = "arikkfir-docs", role = "roles/storage.objectViewer", member = local.principals.docs }
     "arikkfir-tests/tests/storage.objectViewer"           = { bucket = "arikkfir-tests", role = "roles/storage.objectViewer", member = local.principals.tests }
     "arikkfir-claude/allUsers/storage.legacyObjectReader" = { bucket = "arikkfir-claude", role = "roles/storage.legacyObjectReader", member = "allUsers" }
+    # Claude Code's cloud sessions read the docs site's pages from their layers, since the site itself is behind the
+    # hub's sign-in (see the reference, "Docs site").
+    "arikkfir-docs/claude-code/storage.objectViewer" = { bucket = "arikkfir-docs", role = "roles/storage.objectViewer", member = local.principals.claude_code }
     # tooling's publish pipeline, on main only (the ServiceAccount's octomaton.dev/branches).
     "arikkfir-claude/ci-tooling-publish/storage.objectUser"         = { bucket = "arikkfir-claude", role = "roles/storage.objectUser", member = local.principals.ci_tooling_publish }
     "arikkfir-claude/ci-tooling-publish/storage.legacyBucketReader" = { bucket = "arikkfir-claude", role = "roles/storage.legacyBucketReader", member = local.principals.ci_tooling_publish }
