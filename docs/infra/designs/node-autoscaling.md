@@ -109,10 +109,10 @@ neighbour uses more than it requests.
 
 - The profile is the cluster's, so the system pool's nodes also go sooner, and the autoscaler consolidates them more
   often, evicting their pods each time. Services with two replicas and a budget keep serving
-  ([disruption budgets](../../hub/designs/disruption-budgets.md)); single-replica ones, such as Argo CD's application
+  ([disruption budgets](../../delivery/designs/disruption-budgets.md)); single-replica ones, such as Argo CD's application
   controller, Tekton's controllers and each PostgreSQL, restart.
 - A packed node holds more pods, so a pod that uses more than it requests slows its neighbours more often. Requests
-  follow measured use ([resource requests](../../hub/designs/resource-requests.md)).
+  follow measured use ([resource requests](../../delivery/designs/resource-requests.md)).
 - With empty nodes gone sooner, more pods wait for a new one: about 50 seconds each, plus pulling their images.
 - An `e2-standard-8` node runs about twice the pods on the same 50 GB boot disk, which their workspaces, caches and
   images share. Pods evicted for ephemeral storage would mean it's too small. An empty one costs twice what an empty

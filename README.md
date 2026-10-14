@@ -4,20 +4,23 @@ Terraform for the `arikkfir-org` development hub: the GCP project (network, GKE,
 Manager, IAM, DNS), the Argo CD bootstrap, the organization's GitHub repositories and rulesets, and Keycloak's
 configuration.
 
-Every name, ID, CIDR, role and host comes from the hub reference (`hub/reference.md` in
-[arikkfir-org/docs](https://github.com/arikkfir-org/docs)). It is the contract: change it first, then this code.
+Every name, ID, CIDR, role and host comes from the [hub reference](https://docs.dev.kfirs.com/hub/reference.md). It is
+the contract: change it first, then this code.
 
-To build the hub from scratch, follow the
-[bootstrap runbook](https://github.com/arikkfir-org/docs/blob/main/hub/runbooks/bootstrap.md).
+What each root provisions, and why: [gcp](docs/infra/terraform/gcp.md), [argocd](docs/infra/terraform/argocd.md),
+[github](docs/infra/terraform/github.md) and [keycloak](docs/infra/terraform/keycloak.md). How pull requests plan and
+merges apply: [Terraform plan and apply](docs/infra/designs/terraform-plan-apply.md). To build the hub from scratch,
+follow the [bootstrap runbook](docs/infra/runbooks/bootstrap.md). Every page is also on the docs site, under
+`https://docs.dev.kfirs.com/infra/`.
 
 ## Layout
 
 | Path | Manages | State prefix |
 | --- | --- | --- |
-| `terraform/gcp` | APIs, VPC and Cloud NAT, ingress IPs, GKE cluster and node pools, Artifact Registry, buckets, secret containers, IAM, DNS zones and records | `gcp` |
-| `terraform/argocd` | Argo CD (bootstrap only) and the `root` Application | `argocd` |
-| `terraform/github` | The organization's settings; repositories, their settings, `Default branch` rulesets and `ENG-` autolinks to Linear, Dependabot alerts and Dependabot security updates; team `reviewers` (the pull request reviewer, `push` on every repository) | `github` |
-| `terraform/keycloak` | Keycloak's realm `hub` (its login page and flows, the Google identity provider, client `hub`, the people who may sign in and groups `admins` and `fin-e2e`, client `fin-e2e` for Fin's test users and client `fin-local` for Fin's local development) and, in realm `master`, the same Google sign-in for the admins and the pipelines' clients; it writes the clients' generated secrets to Secret Manager | `keycloak` |
+| [`terraform/gcp`](docs/infra/terraform/gcp.md) | APIs, VPC and Cloud NAT, ingress IPs, GKE cluster and node pools, Artifact Registry, buckets, secret containers, IAM, DNS zones and records | `gcp` |
+| [`terraform/argocd`](docs/infra/terraform/argocd.md) | Argo CD (bootstrap only) and the `root` Application | `argocd` |
+| [`terraform/github`](docs/infra/terraform/github.md) | The organization's settings; repositories, their settings, `Default branch` rulesets and `ENG-` autolinks to Linear, Dependabot alerts and Dependabot security updates; team `reviewers` (the pull request reviewer, `push` on every repository) | `github` |
+| [`terraform/keycloak`](docs/infra/terraform/keycloak.md) | Keycloak's realm `hub` (its login page and flows, the Google identity provider, client `hub`, the people who may sign in and groups `admins` and `fin-e2e`, client `fin-e2e` for Fin's test users and client `fin-local` for Fin's local development) and, in realm `master`, the same Google sign-in for the admins and the pipelines' clients; it writes the clients' generated secrets to Secret Manager | `keycloak` |
 | `.octomaton.yaml`, `.tekton/` | Pipeline `ci` (`Continuous Integration`): unit tests, `terraform fmt`, `validate`, and plans of `gcp`, `github` and `keycloak`, a task each, all at once, on pull requests and in the merge queue. Pipeline `apply` (`Apply`): applies `gcp` and `github` at once and `keycloak` after `gcp`, on each merge to `main`. Each task is also its own check, such as `Continuous Integration / gcp` | none |
 | `tests/` | Unit tests of `.tekton/plan-summary.py` (`python3 -m unittest discover -s tests`), which `ci` runs | none |
 | `Makefile` | `make terraform <root>`: `init`, then `apply` of one root | none |
@@ -62,85 +65,16 @@ then `apply`, which shows the plan and asks before it changes anything.
    `bootstrap-admin`, `KEYCLOAK_CLIENT_SECRET` the Secret Manager secret `keycloak-bootstrap-admin`). It creates the
    pipelines' own clients, `terraform-plan` and `terraform-apply`, and writes their secrets.
 
-After that, every merge to `main` applies `gcp`, `github` and `keycloak` through Octomaton (hub reference, "Terraform
-applies"):
-
-- Pull requests and the merge queue plan the three roots as `ci-infra/ci-infra-plan`, and `keycloak` as Keycloak's
-  client `terraform-plan`. Its GCP and Keycloak roles only read, but its GitHub token also writes contents (GitHub shows
-  merge settings only to such tokens), so code in a pull request can push branches and tags to every repository, though
-  not to default branches. The `Continuous Integration` check lists the planned changes, deletions and replacements
-  first (a long list is cut short; the root's task log has them all), and `Continuous Integration / <root>` lists one
-  root's, even when another root's plan fails. The merge queue takes one pull request at a time, after the
-  previous merge was applied.
-- `keycloak`'s pull request plans don't refresh: Keycloak shows a client's secret only to client managers, and the
-  provider reads the secret to refresh a client. They compare the code with the state, so they miss changes made in
-  Keycloak itself; `apply` refreshes and reverts them.
-- Pipeline `apply` plans the three again as `ci-infra/ci-infra-apply`, `keycloak` as `terraform-apply`, and applies the
-  saved plans in full, deletions and replacements included, a task per root: `gcp` and `github` at once, and `keycloak`
-  once `gcp` is applied, because it writes secret versions into secrets `gcp` creates. So one root can be applied while
-  another fails; a failure stops no task already running, but no task starts after it. The `Apply` check lists the
-  changes, and `Apply / <root>` one root's.
-- By hand, with `make terraform <root>`: `argocd`, and a change to the pipelines' own roles or tokens, which they can't
-  apply to themselves the first time. The tokens are the Secret Manager secrets `infra-plan-github-pat` and
-  `infra-apply-github-pat` (`gcloud secrets versions add`), with the permissions the hub reference lists; both need
-  Contents read and write, for the same reason.
+After that, every merge to `main` applies `gcp`, `github` and `keycloak` through Octomaton, and every pull request
+plans them ([Terraform plan and apply](docs/infra/designs/terraform-plan-apply.md)). By hand, with
+`make terraform <root>`: `argocd`, and a change to the pipelines' own roles or tokens, which they can't apply to
+themselves the first time. The tokens are the Secret Manager secrets `infra-plan-github-pat` and
+`infra-apply-github-pat` (`gcloud secrets versions add`), with the permissions that design lists; both need Contents
+read and write.
 
 ## Notes
 
-**GitHub settings outside Terraform.** The provider has no argument for these, so set them by hand in each
-repository's Settings → General, new repositories included: under Features, Sponsorships on and Preserve this
-repository off. Two more are GitHub's defaults and need nothing unless someone changes them: pull requests open to
-all users (Features → Pull requests) and comments on individual commits allowed (Commits). In the `Default branch`
-ruleset, likewise, the provider sets neither "Restrict who can dismiss pull request reviews" (off by default) nor
-"Require an additional approval for unattributed Copilot pull requests" (on by default). For the organization,
-Terraform sets the name, description and billing email, and leaves the rest of the profile and the security defaults
-for new repositories as they are: GitHub replaced those defaults with code security configurations.
-
-**Control plane access.** Only the DNS-based endpoint is enabled; both IP-based endpoints are off. Access needs IAM
-(`gcloud container clusters get-credentials hub --location=me-west1-a --dns-endpoint`). Nodes still reach the control
-plane privately. The endpoint (`*.gke.goog`) serves a publicly trusted Google Trust Services certificate, so the
-`argocd` root passes only an access token to the Helm provider. Adding the cluster CA certificate would replace the
-system trust store and break TLS verification.
-
-**Firewall.** Terraform adds no firewall rules. The cluster uses Private Service Connect: it has no
-`master_ipv4_cidr_block`, and GKE creates the `gke-hub-…-master` rule, which limits the control plane to TCP 443 and
-10250, only for clusters that use VPC peering
-([automatically created firewall rules](https://cloud.google.com/kubernetes-engine/docs/concepts/firewall-rules)).
-Here the API server reaches nodes and Pods through Konnectivity: `konnectivity-agent` Pods open connections to the
-control plane on TCP 8132, which default egress allows. Webhook calls, aggregated APIs such as the KEDA metrics server
-on 6443, and `logs`/`exec` traffic arrive from those Pods' IPs, and GKE's own `gke-hub-…-all` rule allows Pod-range
-traffic on every port
-([Konnectivity requirements](https://cloud.google.com/kubernetes-engine/docs/troubleshooting/kubectl)). Webhooks on
-9443, 8443 or 10250 therefore need no rule. NetworkPolicy still applies, because Dataplane V2 enforces it: a namespace
-with default-deny ingress must allow `kube-system` (konnectivity-agent) to reach its webhook and APIService ports.
-To confirm after the first apply, run `gcloud compute firewall-rules list --filter="name~^gke-hub-"`, which should
-list no `-master` rule, and `kubectl -n kube-system get deploy konnectivity-agent`, which should find the agent. If a
-`-master` rule appears, the cluster uses VPC peering: add an ingress rule from that rule's source range for the
-webhook ports.
-
-**Load balancers.** Traefik's `LoadBalancer` Services use backend service-based external passthrough network load
-balancers (`loadBalancerClass: networking.gke.io/l4-regional-external`), which bind the reserved `ingress-protected`
-and `ingress-public` IPs by name. The HTTP load balancing add-on (GKE Ingress) is disabled; below GKE 1.36 those load
-balancers still depend on it, so the cluster's minimum version is 1.36. No GKE Ingress or Gateway resources are used.
-
-**Argo CD handoff.** `helm_release.argocd` uses `ignore_changes = all`. After the first sync, Argo CD manages itself
-through the `argocd` Application in `arikkfir-org/delivery`, with the same chart and release name, so it adopts the
-bootstrap resources. Argo CD applies manifests directly and never updates the Helm release record, so Terraform
-installs Argo CD only when the release is missing and never reverts Argo CD's upgrades. Bootstrap resources that the
-self-managed values no longer render are not pruned; delete them once by hand.
-
-**Node pools.** Each pool's taint keeps every workload but its own off it. The pools as they are; the
-[design](docs/infra/designs/node-pools.md) gives them as its three pull requests leave them:
-
-| Pool | Machine | VMs | Nodes | Label | Taint (`NoSchedule`) | Runs |
-| --- | --- | --- | --- | --- | --- | --- |
-| `system` | `e2-standard-4` | on-demand | 1-3 | `kfirs.com/pool=system` | `components.gke.io/gke-managed-components=true` | the hub's services and GKE's components |
-| `ci` | `e2-standard-8` | Spot | 0-10 | `kfirs.com/pool=ci` | `kfirs.com/pool=ci` | CI runs |
-| `fin` | `e2-standard-4` | on-demand | 0-10 | `kfirs.com/pool=fin` | `kfirs.com/pool=fin` | Fin's environments |
-
-**Cost.** The cluster is zonal. The GKE free tier covers the management fee of one zonal cluster per billing account,
-but its single control plane is unavailable during control plane upgrades. Maintenance runs on Fridays and Saturdays, 00:00-08:00 UTC. The
-`ci` and `fin` pools scale to zero, though `fin` always holds production's node. `ci` runs Spot VMs, which a preemption
-takes from a run mid-task: from 1 to 12 October it ran on-demand ones, after Spot capacity in the region ran out often
-enough to preempt most CI runs. Monitoring collects free system metrics only. Managed Prometheus is on for
-`PodMonitoring` resources.
+The cluster's control plane access, firewall, load balancers, node pools and cost: [root gcp](docs/infra/terraform/gcp.md).
+Argo CD's handoff to itself: [root argocd](docs/infra/terraform/argocd.md#the-handoff). The GitHub settings the
+provider can't set, which the owner sets by hand in every repository, new ones included:
+[root github](docs/infra/terraform/github.md#set-outside-terraform).
