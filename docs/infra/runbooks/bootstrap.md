@@ -49,7 +49,7 @@ gcloud storage buckets update gs://arikkfir-devops --versioning
 | Events | Push, Pull request, Issue comment, Check suite, Check run, Merge group, Pull request review, Pull request review comment, Pull request review thread |
 | Where can it be installed | Only on this account |
 
-Generate a private key (download the `.pem`), note the App ID, and install the App on all of `arikkfir-org`'s repositories. A new App gets a new ID: if it isn't the one in the table below, change it there, in Octomaton's [octomaton.dev](../../octomaton/designs/octomaton-dev.md) and, before step 11, in `terraform/github/rulesets.tf` (`local.octomaton_app_id`), whose rulesets accept `Continuous Integration` and `Docs` only from that App.
+Generate a private key (download the `.pem`), note the App ID, and install the App on all of `arikkfir-org`'s repositories. A new App gets a new ID: if it isn't the one in the table below, change it there, in Octomaton's [octomaton.dev](../../octomaton/designs/octomaton-dev.md) and, before step 11, in `terraform/github/rulesets.tf` (`local.octomaton_app_id`), whose rulesets accept `Continuous Integration`, `Docs` and `Linear` only from that App.
 
 **Argo CD's**, which reads `fin`, an internal repository, and lists its pull requests: a GitHub App in `arikkfir-org` with no webhook, repository permissions Contents, Pull requests and Metadata read, installed on `fin` only. Note its ID and generate a private key.
 
@@ -171,13 +171,13 @@ kubectl -n keycloak exec keycloak-0 -- bash -c '
 
 ## 10. Verify CI and publish
 
-Open a pull request in any hub repository: a `Continuous Integration` check run from Octomaton appears and links to the Tekton Dashboard, and so does `Docs`.
+Open a pull request in any hub repository: a `Continuous Integration` check run from Octomaton appears and links to the Tekton Dashboard, and so do `Docs` and `Linear`.
 
 Pushes made before Octomaton ran were never delivered, so nothing is published yet. Merge a pull request (any change) into every repository: each merge publishes its docs layer, `tooling`'s also the Claude Code bundle, `octomaton`'s its images and `fin`'s Fin's production images. Then check `https://docs.dev.kfirs.com/README.md.html` (after signing in) and `https://storage.googleapis.com/arikkfir-claude/setup.sh`.
 
 ## 11. GitHub repositories and rulesets
 
-Only once Octomaton reports `Continuous Integration` and `Docs`, since the rulesets require both from its App ID (step 2):
+Only once Octomaton reports `Continuous Integration`, `Docs` and `Linear`, since the rulesets require all three from its App ID (step 2):
 
 ```bash
 make terraform github

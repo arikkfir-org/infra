@@ -63,7 +63,8 @@ then `apply`, which shows the plan and asks before it changes anything.
    `kfirfamily-com` zones and must show no changes to them.
 2. `argocd`: installs Argo CD, which then syncs everything from `arikkfir-org/delivery`, including Octomaton.
 3. `github`: the first plan imports the existing repositories (`imports.tf`). The rulesets require the
-   `Continuous Integration` and `Docs` checks from the Octomaton App, so apply them once Octomaton reports both.
+   `Continuous Integration`, `Docs` and `Linear` checks from the Octomaton App, so apply them once Octomaton reports all
+   three.
 4. `keycloak`, once Keycloak runs (`delivery`): the first apply runs as the bootstrap admin (`KEYCLOAK_CLIENT_ID` is
    `bootstrap-admin`, `KEYCLOAK_CLIENT_SECRET` the Secret Manager secret `keycloak-bootstrap-admin`). It creates the
    pipelines' own clients, `terraform-plan` and `terraform-apply`, and writes their secrets.

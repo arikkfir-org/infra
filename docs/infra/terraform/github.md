@@ -29,13 +29,13 @@ State: prefix `github` in `arikkfir-devops`. The provider authenticates with `GI
 
 | Repository | Visibility | Purpose | Default-branch rules | Required checks |
 | --- | --- | --- | --- | --- |
-| `.github` | public | The organization's welcome page on GitHub, `profile/README.md`, and nothing else | Pull request, one approval, merge queue | `Continuous Integration`, `Docs`, which nothing reports: without a CI tenant, its pull requests merge with the bypass |
-| `docs` | public | The hub-wide knowledge base; with every repository's `docs/`, the docs site | Pull request, one approval, merge queue | `Continuous Integration`, `Docs` |
-| `infra` | public | Terraform for GCP, GitHub, the Argo CD bootstrap and Keycloak's configuration; plans and applies `gcp`, `github` and `keycloak` | Pull request, one approval, a merge queue of one | `Continuous Integration` (tests, `fmt`, `validate`, plans), `Docs` |
-| `delivery` | public | Argo CD's applications (GitOps) for the hub cluster | Pull request, one approval, merge queue | `Continuous Integration`, `Docs` |
-| `octomaton` | public | The CI orchestrator: a GitHub App that runs Tekton pipelines | Pull request, one approval, merge queue | `Continuous Integration`, `Docs` |
-| `tooling` | public | The Claude Code bundle, the pull request reviewer and the organization pipelines every repository runs | Pull request, one approval, merge queue | `Continuous Integration`, `Docs` |
-| `fin` | internal: members of the organization's enterprise only | Fin, a personal finance manager and assistant | Pull request, one approval, merge queue | `Continuous Integration`, `Docs` |
+| `.github` | public | The organization's welcome page on GitHub, `profile/README.md`, and nothing else | Pull request, one approval, merge queue | `Continuous Integration`, `Docs`, `Linear`, which nothing reports: without a CI tenant, its pull requests merge with the bypass |
+| `docs` | public | The hub-wide knowledge base; with every repository's `docs/`, the docs site | Pull request, one approval, merge queue | `Continuous Integration`, `Docs`, `Linear` |
+| `infra` | public | Terraform for GCP, GitHub, the Argo CD bootstrap and Keycloak's configuration; plans and applies `gcp`, `github` and `keycloak` | Pull request, one approval, a merge queue of one | `Continuous Integration` (tests, `fmt`, `validate`, plans), `Docs`, `Linear` |
+| `delivery` | public | Argo CD's applications (GitOps) for the hub cluster | Pull request, one approval, merge queue | `Continuous Integration`, `Docs`, `Linear` |
+| `octomaton` | public | The CI orchestrator: a GitHub App that runs Tekton pipelines | Pull request, one approval, merge queue | `Continuous Integration`, `Docs`, `Linear` |
+| `tooling` | public | The Claude Code bundle, the pull request reviewer and the organization pipelines every repository runs | Pull request, one approval, merge queue | `Continuous Integration`, `Docs`, `Linear` |
+| `fin` | internal: members of the organization's enterprise only | Fin, a personal finance manager and assistant | Pull request, one approval, merge queue | `Continuous Integration`, `Docs`, `Linear` |
 
 No repository adds checks of its own today (`checks` in `local.repositories`). Every repository gets the same settings:
 
@@ -58,7 +58,7 @@ Adding a repository: an entry in `local.repositories`, and, if it already exists
 | Target | The default branch |
 | Branch protection | No deletion, no force-push |
 | Pull request | One approval, stale approvals dismissed, the last push approved by someone else, conversations resolved, merge commits only |
-| Required checks | `Continuous Integration` and `Docs`, from Octomaton's App `octomaton-dev` only (`integration_id` 5114814, `local.octomaton_app_id`; [octomaton.dev](../../octomaton/designs/octomaton-dev.md)), plus a repository's own `checks`, from any source |
+| Required checks | `Continuous Integration`, `Docs` and `Linear` (a Linear issue linked, or label `skip-linear`; [Linear](../../CONTRIBUTING.md#linear)), from Octomaton's App `octomaton-dev` only (`integration_id` 5114814, `local.octomaton_app_id`; [octomaton.dev](../../octomaton/designs/octomaton-dev.md)), plus a repository's own `checks`, from any source |
 | Merge queue | Merge commits, every entry passing (`ALLGREEN`), up to 5 entries building and 1 to 5 pull requests a group, a 3-minute wait for the minimum, 60-minute check timeout. `infra`'s builds one entry at a time, in groups of exactly one (`local.serial_merge_queues`), so each merge is planned after the previous one was applied |
 | Bypass | Organization admins and repository admins, always |
 | Off | Restricted creations and updates, linear history, required deployments, signed commits, code owner and team reviews, up-to-date branches, skipping checks on creation |
@@ -96,7 +96,7 @@ The provider has no argument for these:
 | Decision | Why | Rejected |
 | --- | --- | --- |
 | One settings block and one ruleset for every repository | A new repository gets the hub's rules by being listed | Settings per repository, by hand |
-| `Continuous Integration` and `Docs` pinned to the Octomaton App's ID | A check of that name from another App or a commit status counts for nothing | Checks by name alone |
+| `Continuous Integration`, `Docs` and `Linear` pinned to the Octomaton App's ID | A check of that name from another App or a commit status counts for nothing | Checks by name alone |
 | Bypass for admins, always | One person owns the hub, and can't approve their own pull requests | No bypass, which would block every merge without a second person |
 | Merge queues, merge commits only | `git log --first-parent` reads as the list of merges, each with its pull request's description ([pull request titles](../../hub/designs/pull-request-titles.md)) | Squash merges; no queue |
 | `infra`'s queue one entry at a time | Each merge's plan is the plan that is applied | Groups of up to five |
@@ -107,4 +107,4 @@ The provider has no argument for these:
 
 ## Running it
 
-The ruleset requires checks from the Octomaton App, so a repository's first apply comes once Octomaton reports both checks there; before that, its pull requests merge only through the bypass. By hand: `GITHUB_TOKEN=… make terraform github`. Its order in a bootstrap: the [bootstrap runbook](../runbooks/bootstrap.md).
+The ruleset requires checks from the Octomaton App, so a repository's first apply comes once Octomaton reports all three checks there; before that, its pull requests merge only through the bypass. By hand: `GITHUB_TOKEN=… make terraform github`. Its order in a bootstrap: the [bootstrap runbook](../runbooks/bootstrap.md).
