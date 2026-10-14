@@ -88,7 +88,7 @@ Each pool's taint keeps every workload but its own off it, and each pool's nodes
 | `ci` | `e2-standard-8` | Spot | 0-10 | `kfirs.com/pool=ci` | Tekton's TaskRun pods |
 | `fin` | `e2-standard-4` | on-demand | 0-10 | `kfirs.com/pool=fin` | Fin's environments |
 
-All three run as `gke-hub-nodes@`, a Google service account with `roles/container.defaultNodeServiceAccount` and read access to both Docker repositories, auto-repair and auto-upgrade on. `system` ignores changes to its initial node count, which a manual resize changes and which would otherwise replace the pool. Changing `ci`'s `spot` replaces the pool, the node that runs pipeline `apply` included, so the owner applies that by hand.
+All three run as `gke-hub-nodes@`, a Google service account with `roles/container.defaultNodeServiceAccount` and read access to both Docker repositories, auto-repair and auto-upgrade on. `system` ignores changes to its initial node count, which a manual resize changes and which would otherwise replace the pool. Changing `ci`'s `spot` replaces the pool, the node that runs pipeline `apply` included, so the owner applies that by hand. `ci`'s kubelet pulls up to 5 images at once, GKE's most (its default is 2 or 3, by boot disk), since a TaskRun pod pulls an image for each container that always pulls. Changing a kubelet setting re-creates the pool's nodes at once, that node included, so the owner applies that by hand too.
 
 ## Artifact Registry
 
