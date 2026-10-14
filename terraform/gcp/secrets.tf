@@ -17,6 +17,7 @@ resource "google_secret_manager_secret" "this" {
   for_each = toset([
     "reviewer-deepseek-api-key",
     "reviewer-github-pat",
+    "linear-api-key",
     "octomaton-github-app-id",
     "octomaton-github-private-key",
     "octomaton-github-webhook-secret",

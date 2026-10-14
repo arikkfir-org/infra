@@ -52,10 +52,10 @@ The roles cover each resource type in `terraform/gcp`. Each admin role also sets
 
 | Secret Manager secret | Token (fine-grained, resource owner `arikkfir-org`, all repositories) | Read by |
 | --- | --- | --- |
-| `infra-plan-github-pat` | Repository Administration and Metadata: read, Contents: read and write; organization Administration and Members: read | `ci-infra-plan` |
-| `infra-apply-github-pat` | Repository Administration and Contents: read and write, Metadata: read; organization Administration and Members: read and write | `ci-infra-apply` (through `roles/secretmanager.admin`) |
+| `infra-plan-github-pat` | Repository Administration, Metadata and Pull requests: read, Contents: read and write; organization Administration and Members: read | `ci-infra-plan` |
+| `infra-apply-github-pat` | Repository Administration, Contents and Pull requests: read and write, Metadata: read; organization Administration and Members: read and write | `ci-infra-apply` (through `roles/secretmanager.admin`) |
 
-Both have Contents read and write because GitHub shows a repository's merge settings (merge methods, auto-merge, branch updates and deletion, commit titles and messages) only to tokens that have it. Without it, the provider reads them as unset, so every plan shows every repository changed, and an apply stores the wrong values.
+Both have Contents read and write because GitHub shows a repository's merge settings (merge methods, auto-merge, branch updates and deletion, commit titles and messages) only to tokens that have it. Without it, the provider reads them as unset, so every plan shows every repository changed, and an apply stores the wrong values. Pull requests is for the repositories' labels, which GitHub's API serves under Issues or Pull requests; the repositories have issues off.
 
 A task's `token` step reads its GitHub token and Keycloak secret with `gcloud secrets versions access` into a memory volume only that task's steps share, and the providers take them from `GITHUB_TOKEN` and `KEYCLOAK_CLIENT_SECRET`, beside `KEYCLOAK_CLIENT_ID`. No Kubernetes Secret holds them: Octomaton never lets a `push` pipeline mount one. The owner creates both GitHub tokens, adds them with `gcloud secrets versions add`, and renews them within a year; [root keycloak](../terraform/keycloak.md) generates the Keycloak secrets.
 
