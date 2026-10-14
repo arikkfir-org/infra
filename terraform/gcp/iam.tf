@@ -218,21 +218,6 @@ resource "google_storage_bucket_iam_member" "tests" {
   }
 }
 
-# Where reports went before arikkfir-tests: .reports/fin/ of arikkfir-docs. The grant stays until no branch of fin
-# uploads there any more, then goes with the reports it wrote (delivery's docs/delivery/runbooks/move-ci-reports.md).
-resource "google_storage_bucket_iam_member" "ci_reports" {
-  for_each = { fin = local.principals.ci_fin_ci }
-
-  bucket = google_storage_bucket.this["arikkfir-docs"].name
-  role   = "roles/storage.objectCreator"
-  member = each.value
-
-  condition {
-    title      = "reports-${each.key}"
-    expression = "resource.name.startsWith(\"projects/_/buckets/arikkfir-docs/objects/.reports/${each.key}/\")"
-  }
-}
-
 # infra's plans read each bucket's settings.
 resource "google_storage_bucket_iam_member" "ci_infra_plan" {
   for_each = google_storage_bucket.this
