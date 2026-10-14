@@ -3,8 +3,9 @@
 **Decision**: The cluster runs three node pools, each tainted so that only its own workloads run there. `system` (1 to 3
 on-demand `e2-standard-4`) runs the hub's services beside GKE's own components, under GKE's taint for those components.
 `ci` (0 to 10 Spot `e2-standard-8`) runs CI. `fin` (0 to 10 on-demand `e2-standard-4`) runs Fin's environments.
-Pull requests: arikkfir-org/infra (the `fin` pool and `octomaton-logs`' grants; Spot CI; the system pool's taint), and
-the workloads' side in `delivery` ([node pools](../../delivery/designs/node-pools.md)) and `fin`.
+Pull requests: arikkfir-org/infra (the `fin` pool and `octomaton-logs`' grants; Spot CI; the system pool's taint; CI's
+parallel image pulls), and the workloads' side in `delivery` ([node pools](../../delivery/designs/node-pools.md)) and
+`fin`.
 
 ## Why
 
@@ -53,6 +54,7 @@ on the project, conditioned on the `_Default` bucket's `_Default` view, and the 
 | Fin's own pool | Its environments, five or six at a time with their suites, outgrow a node, and production should never wait on the hub's services nor they on it | More system nodes, which the profile would pack together again; a pool per kind of environment (Fin keeps production and pull requests on separate nodes with one anti-affinity rule instead) |
 | `fin` on-demand `e2-standard-4`, 0 to 10 | Production always runs, so a preempted node would take it down. A pull request's environment requests up to its quota's 2 CPUs, three scrapes included, so a node holds one or two of them | Spot, for production; `e2-standard-8`, whose empty node costs twice as much |
 | `ci` on Spot again, up to 10 nodes | The owner's choice. Spot VMs cost a fraction of on-demand ones, and a CI run survives a lost node better than production does: its tasks can retry | On-demand, as since arikkfir-org/infra#20 (risks below) |
+| `ci`'s kubelet pulls 5 images at once, GKE's most | A TaskRun pod pulls an image for each container that always pulls (the reviewer's pod: seven of its ten), and the kubelet ran 2 or 3 pulls at a time, GKE's default by boot disk. Review pods took 86 s to start at the 90th percentile, though their image downloads in 0.4 s at the median: the queue, not the download ([ENG-68](https://linear.app/arikkfir/issue/ENG-68)) | Pulling only in each pod's first container (a rule of the reviewer's, in `tooling`); pre-pulling images or GKE's image streaming, which shorten the download, not the queue |
 | `octomaton-logs` reads through the `_Default` view, by an IAM condition on a project grant | Narrower than `roles/logging.viewer`: no `_Required` bucket, no Data Access logs, no logging configuration, and it answers for CI's namespaces only. Its pipeline grants need nothing new | A view of CI's logs alone, which pipeline `apply` can't create without a logging role and `ci`'s plans can't read without one that reads every log; a grant on the view's own policy, which takes `logging.admin` |
 
 ## Risks
@@ -73,5 +75,8 @@ on the project, conditioned on the `_Default` bucket's `_Default` view, and the 
    to theirs.
 4. The system pool's taint, once both are synced: pipeline `apply` updates the pool's nodes in place, and running pods
    stay. Anything still without the toleration waits for a node when it next restarts.
+5. `ci`'s parallel image pulls, as step 2: GKE re-creates the pool's nodes at once, through its upgrade strategy and
+   whatever the maintenance window, the node that runs pipeline `apply` included, so the owner applies it while no CI
+   runs and merges it straight away.
 
 Roll back in reverse. Reverting the taint first frees every pod to land on the system pool again.

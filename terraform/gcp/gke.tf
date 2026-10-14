@@ -209,6 +209,13 @@ resource "google_container_node_pool" "ci" {
       effect = "NO_SCHEDULE"
     }
 
+    # GKE's most, up from its 2 or 3: a TaskRun pod pulls an image for each container that always pulls, and the
+    # queue held review pods back. Changing it re-creates the pool's nodes at once, the one that runs pipeline apply
+    # included: the owner applies it by hand (docs/infra/designs/node-pools.md).
+    kubelet_config {
+      max_parallel_image_pulls = 5
+    }
+
     boot_disk {
       disk_type = "pd-balanced"
       size_gb   = 50
