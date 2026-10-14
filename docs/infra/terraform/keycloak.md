@@ -89,12 +89,12 @@ Keycloak shows a client's secret only to administrators who can manage clients, 
 - **Secrets.** None reaches state, plans or Git. The plan credential only reads; the apply credential is an administrator, used only on `main` (Octomaton's ServiceAccount branch check on `ci-infra-apply`). The bootstrap admin, a full administrator, is deleted once the pipelines apply `keycloak`; `kc.sh bootstrap-admin` in a Keycloak pod recreates one for break-glass.
 - **Unverified Google emails.** The first-login flow links by email and doesn't check `email_verified`. Every declared user is a Gmail address, which Google verifies; before declaring one that isn't, filter the identity provider on that claim.
 - **Keycloak down fails every infra pull request's check**, since `ci` plans `keycloak` beside `gcp` and `github`. A fix that Keycloak itself needs merges with the admin bypass, or is applied by hand with `make terraform keycloak`.
-- **Losing Keycloak's database** loses sessions and Google links only: this root recreates the whole configuration, and people link again at their next sign-in.
+- **Losing Keycloak's database** loses sessions, Google links and the pipelines' own clients. Keycloak starts as a fresh install, with the bootstrap admin again, and the owner applies this root by hand as that admin (below), which recreates the whole configuration; people link again at their next sign-in.
 - **Drift** made in the console shows only in `Apply`, which reverts it.
 
 ## Running it by hand
 
-The first apply, and any apply while the pipelines can't reach Keycloak:
+The first apply, and after Keycloak lost its database, as the bootstrap admin:
 
 ```bash
 kubectl -n keycloak port-forward svc/keycloak-service 8080 &
@@ -103,4 +103,8 @@ KEYCLOAK_CLIENT_SECRET="$(gcloud secrets versions access latest --secret=keycloa
 make terraform keycloak ARGS="-var keycloak_url=http://localhost:8080"
 ```
 
-After the first apply, use client `terraform-apply`'s credentials (`infra-apply-keycloak-secret`) instead of the bootstrap admin's.
+At other times, while the pipelines can't apply, use client `terraform-apply`'s credentials (`infra-apply-keycloak-secret`) instead of the bootstrap admin's.
+
+## Later
+
+What the realm would gain once apps beyond the hub sign people in: an email provider, its password through the vault, before sign-up, verification or password resets; and sign-up and organizations for those apps, a realm or organizations per product. Keycloak's own side of that, its database and backups, is delivery's.
