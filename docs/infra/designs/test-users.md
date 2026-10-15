@@ -93,8 +93,8 @@ flowchart LR
 - **Any of Fin's branches can create users who sign in to Fin's environments, production included.** They reach
   nothing else: the hub's tools answer them 403, and the client can't touch anyone outside `fin-e2e`.
 - **A run that dies before its teardown leaves its users.** Each run tears down its own environment's `fin-e2e` members
-  created over an hour before, with what they kept in Fin, and deletes other pull requests' created over a day before;
-  only production's runs touch production's.
+  created over an hour before, with what they kept in Fin, and deletes other pull requests' created over an hour before
+  once their environment is gone, or over a day before; only production's runs touch production's.
 - **Reports show what the tests typed.** Playwright's traces hold the test users' passwords. Their reports go to bucket
   `arikkfir-tests`, which the tests site serves at `https://tests.dev.kfirs.com/reports/fin/<run>/`
   ([CI reports](../../fin/designs/ci-reports.md)). The users are deleted before the report goes up, but a dead run's
