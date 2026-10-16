@@ -41,6 +41,10 @@
   `curl -fsS https://storage.googleapis.com/arikkfir-docs/.layers/<repository>/<path>`, where `<repository>` is the
   path's first segment when it names a repository (`delivery/designs/node-pools.md` is `delivery`'s) and `docs`
   otherwise (`CONTRIBUTING.md`). Don't clone a repository to read its docs.
+- Large tasks run as Linear projects (https://docs.dev.kfirs.com/CONTRIBUTING.md, "Projects"): suggest one to your
+  person and create it once they agree; one issue per slice, however many pull requests it takes; slices preferably
+  self-contained and deployable on their own; keep the project's status current, with an update at each milestone or
+  significant change.
 
 ## Conventions
 
