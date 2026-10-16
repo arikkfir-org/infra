@@ -12,7 +12,7 @@ resource "helm_release" "argocd" {
   create_namespace = true
   repository       = local.argo_helm_repository
   chart            = "argo-cd"
-  version          = "10.9.4"
+  version          = "10.10.5"
   timeout          = 600
 
   # Mirrors the self-managed values where it matters at bootstrap; in particular Dex stays off, so no bootstrap-only
