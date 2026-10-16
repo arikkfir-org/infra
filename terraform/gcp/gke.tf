@@ -21,7 +21,7 @@ resource "google_container_cluster" "hub" {
   deletion_protection = true
 
   release_channel {
-    channel = "REGULAR"
+    channel = "RAPID"
   }
 
   # With the HTTP load-balancing add-on disabled, Traefik's LoadBalancer Services need GKE 1.36 or later.

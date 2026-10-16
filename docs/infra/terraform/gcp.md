@@ -65,7 +65,7 @@ Project `arikkfir` is number `8909046976`, in GCP organization `468825984716`. S
 
 | Setting | Value | Why |
 | --- | --- | --- |
-| Cluster | `hub`, zonal in `me-west1-a`, release channel `REGULAR`, minimum version 1.36, deletion protection | The free tier pays one zonal cluster's management fee. Its single control plane is unavailable while GKE upgrades it |
+| Cluster | `hub`, zonal in `me-west1-a`, release channel `RAPID`, minimum version 1.36, deletion protection | The free tier pays one zonal cluster's management fee. Its single control plane is unavailable while GKE upgrades it |
 | Networking | VPC-native on the ranges above; Dataplane V2 (eBPF), which also enforces NetworkPolicy | No Calico add-on, which GKE doesn't combine with Dataplane V2 |
 | Workload Identity | Pool `arikkfir.svc.id.goog`; every node pool in `GKE_METADATA` mode | IAM grants go straight to `namespace/ServiceAccount` principals (IAM below) |
 | Nodes | Private (no external IPs); shielded, with secure boot and integrity monitoring; Container-Optimized OS, 50 GB `pd-balanced` boot disks | Egress only through Cloud NAT |
