@@ -1,6 +1,6 @@
 # Root gcp: the GCP project
 
-**Decision**: `terraform/gcp` builds everything the hub runs on in GCP project `arikkfir` (`me-west1`): the APIs, a private network with Cloud NAT and two ingress IPs, one zonal GKE cluster with three tainted node pools, two Docker repositories, the buckets, the Secret Manager containers, every IAM grant and the DNS zones and records. Workloads authenticate as their Kubernetes ServiceAccounts through Workload Identity, never with keys. Pipeline `apply` applies it on every merge to `main` ([Terraform plan and apply](../designs/terraform-plan-apply.md)). This page documents every name, range and grant it creates; other repositories link it rather than repeat them.
+**Decision**: `terraform/gcp` builds everything the hub runs on in GCP project `arikkfir` (`me-west1`): the APIs, a private network with Cloud NAT and two ingress IPs, one zonal GKE cluster with three tainted node pools, three Docker repositories, the buckets, the Secret Manager containers, every IAM grant and the DNS zones and records. Workloads authenticate as their Kubernetes ServiceAccounts through Workload Identity, never with keys. Pipeline `apply` applies it on every merge to `main` ([Terraform plan and apply](../designs/terraform-plan-apply.md)). This page documents every name, range and grant it creates; other repositories link it rather than repeat them.
 
 ## Topology
 
@@ -17,7 +17,7 @@ flowchart TB
     end
     CP["Control plane<br/>DNS-based endpoint only"]
     LB["ingress-protected, ingress-public<br/>regional external IPs"]
-    AR[("Artifact Registry<br/>images, previews")]
+    AR[("Artifact Registry<br/>images, previews, octomaton")]
     GCS[("Buckets<br/>docs, tests, claude, fin, fin-pull-requests, fin-ci-cache")]
     GSM[("Secret Manager<br/>containers only")]
     DNS[("Cloud DNS<br/>kfirs.com, octomaton.dev, kfirfamily.com")]
@@ -37,7 +37,7 @@ flowchart TB
 | APIs | `apis.tf` | the services below, never disabled on destroy |
 | Network | `network.tf` | VPC `hub`, subnet `hub` with ranges `pods` and `services`, Cloud Router and NAT `hub`, addresses `ingress-protected` and `ingress-public` |
 | GKE | `gke.tf` | cluster `hub`, node pools `system`, `ci` and `fin`, node service account `gke-hub-nodes@` |
-| Artifact Registry | `registry.tf` | Docker repositories `images` and `previews` |
+| Artifact Registry | `registry.tf` | Docker repositories `images`, `previews` and `octomaton` |
 | Storage | `storage.tf` | six buckets |
 | Secret Manager | `secrets.tf` | twenty secret containers |
 | IAM | `iam.tf` | grants to Kubernetes principals and two Google service accounts, pool `fin-pull-requests` and its provider, service account `claude-code@` |
@@ -88,16 +88,17 @@ Each pool's taint keeps every workload but its own off it, and each pool's nodes
 | `ci` | `e2-standard-8` | Spot | 0-10 | `kfirs.com/pool=ci` | Tekton's TaskRun pods |
 | `fin` | `e2-standard-4` | on-demand | 0-10 | `kfirs.com/pool=fin` | Fin's environments |
 
-All three run as `gke-hub-nodes@`, a Google service account with `roles/container.defaultNodeServiceAccount` and read access to both Docker repositories, auto-repair and auto-upgrade on. `system` ignores changes to its initial node count, which a manual resize changes and which would otherwise replace the pool. Changing `ci`'s `spot` replaces the pool, the node that runs pipeline `apply` included, so the owner applies that by hand. `ci`'s kubelet pulls up to 5 images at once, GKE's most (its default is 2 or 3, by boot disk), since a TaskRun pod pulls an image for each container that always pulls. Changing a kubelet setting re-creates the pool's nodes at once, that node included, so the owner applies that by hand too.
+All three run as `gke-hub-nodes@`, a Google service account with `roles/container.defaultNodeServiceAccount` and read access to the private Docker repositories, `images` and `previews` (`octomaton` is public, so the nodes pull it as anyone does), auto-repair and auto-upgrade on. `system` ignores changes to its initial node count, which a manual resize changes and which would otherwise replace the pool. Changing `ci`'s `spot` replaces the pool, the node that runs pipeline `apply` included, so the owner applies that by hand. `ci`'s kubelet pulls up to 5 images at once, GKE's most (its default is 2 or 3, by boot disk), since a TaskRun pod pulls an image for each container that always pulls. Changing a kubelet setting re-creates the pool's nodes at once, that node included, so the owner applies that by hand too.
 
 ## Artifact Registry
 
 | Repository | Holds | Written by | Cleanup |
 | --- | --- | --- | --- |
-| `me-west1-docker.pkg.dev/arikkfir/images` | What runs from `main`: Octomaton's `octomaton` and `octomaton-logs`, the reviewer's `reviewer`, Fin's five images | `ci-octomaton-release` and `ci-fin-release`, from `main` only | Untagged versions after 14 days, except each image's 20 newest |
+| `me-west1-docker.pkg.dev/arikkfir/images` | What runs from `main`: the reviewer's `reviewer`, Fin's five images | `ci-octomaton-release` and `ci-fin-release`, from `main` only | Untagged versions after 14 days, except each image's 20 newest |
 | `me-west1-docker.pkg.dev/arikkfir/previews` | Fin's pull requests' images | `ci-fin-preview`, from any branch | Every version after 14 days, except each image's 20 newest |
+| `me-west1-docker.pkg.dev/arikkfir/octomaton` | Octomaton's releases, `octomaton` and `octomaton-logs`, tagged with the commit's short SHA and `main` ([releases](https://github.com/arikkfir-org/octomaton#releases)) | `ci-octomaton-release`, from `main` only | Untagged versions after 14 days, except each image's 20 newest |
 
-The nodes read both. Production never pulls from `previews`, so a pull request's code can't replace what production runs.
+The nodes read `images` and `previews`; `octomaton` is public, so every installation of Octomaton, the hub's included, pulls it as anyone. Production never pulls from `previews`, so a pull request's code can't replace what production runs.
 
 ## Buckets
 
@@ -174,7 +175,7 @@ Every grant `iam.tf` makes:
 | `ci-<repository>/docs-publisher` | `roles/storage.objectUser`, on objects under `.layers/<repository>/` only (IAM condition); `roles/storage.legacyBucketReader` | Bucket `arikkfir-docs` | Publishes its repository's docs layer, from `main` |
 | `ci-<repository>/docs-reader` | `roles/storage.legacyBucketReader` | Bucket `arikkfir-docs` | Lists the bucket's names, for the `Docs` check on pull requests |
 | `ci-tooling/ci-tooling-publish` | `roles/storage.objectUser`, `roles/storage.legacyBucketReader` | Bucket `arikkfir-claude` | Publishes the Claude Code bundle, from `main` |
-| `ci-octomaton/ci-octomaton-release` | `roles/artifactregistry.writer` | Repository `images` | Octomaton's and the reviewer's images, from `main` |
+| `ci-octomaton/ci-octomaton-release` | `roles/artifactregistry.writer` | Repositories `octomaton` and `images` | Octomaton's images, and the reviewer's, from `main` |
 | `ci-fin/ci-fin-release` | `roles/artifactregistry.writer` | Repository `images` | Fin's images, from `main` |
 | `ci-fin/ci-fin-release` | `roles/storage.objectUser` | Bucket `arikkfir-fin-ci-cache` | Saves Fin's CI cache, from `main` |
 | `ci-fin/ci-fin-preview` | `roles/artifactregistry.writer` | Repository `previews` | Fin's pull requests' images, from any branch |
@@ -194,10 +195,11 @@ Every grant `iam.tf` makes:
 | Pool `fin-pull-requests`, every identity in it | `roles/telemetry.tracesWriter`, `roles/telemetry.metricsWriter`, `roles/serviceusage.serviceUsageConsumer`, `roles/aiplatform.user` | Project | The same as production's, for every pull request's environment ([below](#pool-fin-pull-requests)) |
 | Pool `fin-pull-requests`, every identity in it | `roles/storage.objectUser` | Bucket `arikkfir-fin-pull-requests` | The environments' scrape artifacts, under each one's name |
 | `gke-hub-nodes@` | `roles/container.defaultNodeServiceAccount` | Project | Runs the nodes |
-| `gke-hub-nodes@` | `roles/artifactregistry.reader` | Repositories `images` and `previews` | Pulls images |
+| `gke-hub-nodes@` | `roles/artifactregistry.reader` | Repositories `images` and `previews` | Pulls images (`octomaton` needs no grant: `allUsers` reads it) |
 | `claude-code@` | `roles/viewer`, `roles/mcp.toolUser` | Project | Claude Code's cloud sessions look around the project and read the cluster through GKE's MCP server ([Claude Code cluster and docs access](../../tooling/designs/claude-code-cluster-access.md)) |
 | `claude-code@` | `roles/storage.objectViewer` | Bucket `arikkfir-docs` | The sessions read the docs site's pages from its layers |
 | `allUsers` | `roles/storage.legacyObjectReader` | Bucket `arikkfir-claude` | Anyone reads its objects by URL, without listing them |
+| `allUsers` | `roles/artifactregistry.reader` | Repository `octomaton` | Anyone pulls Octomaton's releases, the hub's nodes included |
 
 `<repository>` is each repository with a CI tenant: `delivery`, `docs`, `fin`, `infra`, `octomaton` and `tooling` (`local.docs_layers`). `gke-hub-nodes@` and `claude-code@` are the project's two Google service accounts (`<name>@arikkfir.iam.gserviceaccount.com`); `claude-code@` was made by hand, with its key, and is adopted here. "From `main`" means the ServiceAccount is annotated `octomaton.dev/branches: main`. A CI tenant's own ServiceAccount, `pipeline`, holds no role: a pipeline that needs Google Cloud names one of its own, which `delivery` creates and, when it publishes, restricts to `main` ([Octomaton's tenancy and identity](../../octomaton/designs/phase-2-octomaton.md#tenancy-and-identity)).
 
@@ -231,7 +233,7 @@ All records live 300 seconds. The zones are `prevent_destroy`, and their attribu
 
 ## Outputs
 
-`cluster_name`, `cluster_location`, `cluster_dns_endpoint`, `ingress_protected_ip`, `ingress_public_ip`, `artifact_registry_url`, `bucket_names`, and `octomaton_dev_name_servers`, which the owner sets at `octomaton.dev`'s registrar ([bootstrap runbook](../runbooks/bootstrap.md)).
+`cluster_name`, `cluster_location`, `cluster_dns_endpoint`, `ingress_protected_ip`, `ingress_public_ip`, `artifact_registry_url`, `octomaton_registry_url`, `bucket_names`, and `octomaton_dev_name_servers`, which the owner sets at `octomaton.dev`'s registrar ([bootstrap runbook](../runbooks/bootstrap.md)).
 
 ## Decisions
 
@@ -248,6 +250,7 @@ All records live 300 seconds. The zones are `prevent_destroy`, and their attribu
 | L4 passthrough load balancers bound to reserved IPs | The IPs outlive the Services, so DNS never changes | Ephemeral IPs; GKE Ingress |
 | Grants at the narrowest scope: bucket, repository, secret, zone, with IAM conditions on prefixes | A compromised workload reaches only its own objects | Project-wide roles |
 | Imports adopt what existed (the zones, `claude-code@`) | Nothing is recreated, so no record or key is lost | Recreating them |
+| Octomaton's releases in a public repository of their own | Octomaton is a product other installations run, and its images are its releases; `images` holds Fin's production images and the reviewer's, which stay private | Public read on `images`; a reader grant per installation |
 | Monitoring collects system metrics only, plus Managed Prometheus | Workload metrics come through the Telemetry API, and the free tier covers system metrics | GKE's paid workload metrics |
 
 ## Security

@@ -124,7 +124,8 @@ locals {
   })
 
   images_iam = {
-    # octomaton's and fin's release pipelines, on main only (the ServiceAccounts' octomaton.dev/branches).
+    # octomaton's release pipeline, for the reviewer's image, and fin's, on main only (the ServiceAccounts'
+    # octomaton.dev/branches).
     "ci-octomaton-release/artifactregistry.writer" = { role = "roles/artifactregistry.writer", member = local.principals.ci_octomaton_release }
     "ci-fin-release/artifactregistry.writer"       = { role = "roles/artifactregistry.writer", member = local.principals.ci_fin_release }
     "gke-nodes/artifactregistry.reader"            = { role = "roles/artifactregistry.reader", member = local.principals.gke_nodes }
@@ -134,6 +135,12 @@ locals {
     # fin's preview pipeline, from any branch: what it pushes runs only in previews.
     "ci-fin-preview/artifactregistry.writer" = { role = "roles/artifactregistry.writer", member = local.principals.ci_fin_preview }
     "gke-nodes/artifactregistry.reader"      = { role = "roles/artifactregistry.reader", member = local.principals.gke_nodes }
+  }
+
+  octomaton_iam = {
+    # octomaton's release pipeline, on main only; every installation, the hub's nodes included, pulls as anyone.
+    "ci-octomaton-release/artifactregistry.writer" = { role = "roles/artifactregistry.writer", member = local.principals.ci_octomaton_release }
+    "allUsers/artifactregistry.reader"             = { role = "roles/artifactregistry.reader", member = "allUsers" }
   }
 }
 
@@ -252,6 +259,15 @@ resource "google_artifact_registry_repository_iam_member" "previews" {
 
   location   = google_artifact_registry_repository.previews.location
   repository = google_artifact_registry_repository.previews.name
+  role       = each.value.role
+  member     = each.value.member
+}
+
+resource "google_artifact_registry_repository_iam_member" "octomaton" {
+  for_each = local.octomaton_iam
+
+  location   = google_artifact_registry_repository.octomaton.location
+  repository = google_artifact_registry_repository.octomaton.name
   role       = each.value.role
   member     = each.value.member
 }
