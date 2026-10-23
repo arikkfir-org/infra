@@ -124,8 +124,10 @@ locals {
   })
 
   images_iam = {
-    # octomaton's release pipeline, for the reviewer's image, and fin's, on main only (the ServiceAccounts'
-    # octomaton.dev/branches).
+    # tooling's publish pipeline and octomaton's release pipeline, for the reviewer's image (moving from octomaton
+    # to tooling, which runs it: octomaton's docs/octomaton/designs/host-agnostic.md), and fin's, on main only (the
+    # ServiceAccounts' octomaton.dev/branches).
+    "ci-tooling-publish/artifactregistry.writer"   = { role = "roles/artifactregistry.writer", member = local.principals.ci_tooling_publish }
     "ci-octomaton-release/artifactregistry.writer" = { role = "roles/artifactregistry.writer", member = local.principals.ci_octomaton_release }
     "ci-fin-release/artifactregistry.writer"       = { role = "roles/artifactregistry.writer", member = local.principals.ci_fin_release }
     "gke-nodes/artifactregistry.reader"            = { role = "roles/artifactregistry.reader", member = local.principals.gke_nodes }
