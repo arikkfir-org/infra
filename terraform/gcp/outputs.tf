@@ -28,6 +28,11 @@ output "artifact_registry_url" {
   value       = google_artifact_registry_repository.images.registry_uri
 }
 
+output "octomaton_registry_url" {
+  description = "Octomaton's public Docker repository URL (<url>/<image>:<tag>)."
+  value       = google_artifact_registry_repository.octomaton.registry_uri
+}
+
 output "bucket_names" {
   description = "Buckets."
   value       = sort([for bucket in google_storage_bucket.this : bucket.name])
