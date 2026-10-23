@@ -36,7 +36,7 @@ State: prefix `github` in `arikkfir-devops`. The provider authenticates with `GI
 | `octomaton` | public | The CI orchestrator: a GitHub App that runs Tekton pipelines | Pull request, one approval, merge queue | `Continuous Integration`, `Docs`, `Linear` |
 | `tooling` | public | The Claude Code bundle, the pull request reviewer and the organization pipelines every repository runs | Pull request, one approval, merge queue | `Continuous Integration`, `Docs`, `Linear` |
 | `fin` | internal: members of the organization's enterprise only | Fin, a personal finance manager and assistant | Pull request, one approval, merge queue | `Continuous Integration`, `Docs`, `Linear` |
-| `chrome-extensions` | public | Small Chrome extensions, each with only the access it needs | Pull request, one approval, merge queue | `Continuous Integration`, `Docs`, `Linear`, which nothing reports: without a CI tenant, its pull requests merge with the bypass |
+| `chrome-extensions` | public | Small Chrome extensions, each with only the access it needs | Pull request, one approval, merge queue | `Continuous Integration`, `Docs`, `Linear` |
 
 No repository adds checks of its own today (`checks` in `local.repositories`). Every repository gets the same settings:
 
