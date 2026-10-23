@@ -175,7 +175,7 @@ Every grant `iam.tf` makes:
 | `ci-<repository>/docs-publisher` | `roles/storage.objectUser`, on objects under `.layers/<repository>/` only (IAM condition); `roles/storage.legacyBucketReader` | Bucket `arikkfir-docs` | Publishes its repository's docs layer, from `main` |
 | `ci-<repository>/docs-reader` | `roles/storage.legacyBucketReader` | Bucket `arikkfir-docs` | Lists the bucket's names, for the `Docs` check on pull requests |
 | `ci-tooling/ci-tooling-publish` | `roles/storage.objectUser`, `roles/storage.legacyBucketReader` | Bucket `arikkfir-claude` | Publishes the Claude Code bundle, from `main` |
-| `ci-tooling/ci-tooling-publish` | `roles/artifactregistry.writer` | Repository `images` | The reviewer's image, from `main`, which is moving to `tooling` from `octomaton` ([design](../../octomaton/designs/host-agnostic.md)) |
+| `ci-tooling/ci-tooling-publish` | `roles/artifactregistry.writer` | Repository `images` | The reviewer's image, from `main`, which is moving to `tooling` from `octomaton` (its host-agnostic design, slice 6) |
 | `ci-octomaton/ci-octomaton-release` | `roles/artifactregistry.writer` | Repositories `octomaton` and `images` | Octomaton's images, and the reviewer's, from `main` |
 | `ci-fin/ci-fin-release` | `roles/artifactregistry.writer` | Repository `images` | Fin's images, from `main` |
 | `ci-fin/ci-fin-release` | `roles/storage.objectUser` | Bucket `arikkfir-fin-ci-cache` | Saves Fin's CI cache, from `main` |
