@@ -37,6 +37,11 @@ locals {
       checks      = []
       visibility  = "internal"
     }
+    chrome-extensions = {
+      description = "Small Chrome extensions, each with only the access it needs."
+      checks      = []
+      visibility  = "public"
+    }
   }
 }
 
