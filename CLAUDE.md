@@ -16,6 +16,11 @@
   `terraform init -backend=false -input=false && terraform validate`. After changing `.tekton/plan-summary.py`, run
   `python3 -m unittest discover -s tests`. CI (`.tekton/ci.yaml`) runs the same checks and plans `gcp`, `github` and
   `keycloak`.
+- Tekton files stay short and composed (https://docs.dev.kfirs.com/CONTRIBUTING.md, "Continuous integration"): a
+  PipelineRun references its Pipeline or Tasks by name, each in a file beside it (`<name>.pipeline.yaml`,
+  `<name>.task.yaml`), steps that Tasks share are StepActions (`<name>.step.yaml`), and a step names its command or
+  runs a script file of this repository rather than an inline script of more than a few lines. A change to a long,
+  inlined file splits what it touches.
 - Check every argument against the pinned provider schema (`terraform providers schema -json`). Do not use deprecated
   arguments.
 - Before adding a resource type, or an argument that calls an API this configuration hasn't called before, check that
