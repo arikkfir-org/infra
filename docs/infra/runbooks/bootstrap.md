@@ -46,6 +46,7 @@ gcloud storage buckets update gs://arikkfir-devops --versioning
 | Webhook URL | `https://octomaton.dev/github/hooks` |
 | Webhook secret | `openssl rand -hex 32` (keep it for step 5) |
 | Repository permissions | Checks: read and write; Contents: read; Metadata: read; Pull requests: read and write; Merge queues: read |
+| Organization permissions | Members: read (the `teams` of comment commands' allow-lists, [Octomaton's README](https://github.com/arikkfir-org/octomaton#github-app)) |
 | Events | Push, Pull request, Issue comment, Check suite, Check run, Merge group, Pull request review, Pull request review comment, Pull request review thread |
 | Where can it be installed | Only on this account |
 
