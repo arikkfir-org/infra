@@ -69,7 +69,7 @@ resource "google_artifact_registry_repository" "octomaton" {
   location      = var.region
   repository_id = "octomaton"
   format        = "DOCKER"
-  description   = "Octomaton's releases, built from its main and pulled by every installation."
+  description   = "Octomaton's releases, built from its main and its versions, and pulled by every installation."
 
   cleanup_policy_dry_run = false
 
