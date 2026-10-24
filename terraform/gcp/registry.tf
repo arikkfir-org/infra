@@ -63,8 +63,8 @@ resource "google_artifact_registry_repository" "previews" {
 }
 
 # Octomaton's releases, which anyone who runs Octomaton pulls (allUsers read, iam.tf): octomaton and octomaton-logs,
-# tagged with the commit's short SHA, and every version, tagged vX.Y.Z. Only its release pipeline writes
-# here, from main and from v* tags. The hub's own images, Fin's included, stay in images, which stays private.
+# tagged with the commit's short SHA, and every version, tagged vX.Y.Z (the same images, retagged). Only its
+# pipelines main and tag write here, from main and from v* tags. The hub's own images, Fin's included, stay in images, which stays private.
 resource "google_artifact_registry_repository" "octomaton" {
   location      = var.region
   repository_id = "octomaton"
