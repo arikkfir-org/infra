@@ -138,7 +138,8 @@ locals {
   }
 
   octomaton_iam = {
-    # octomaton's release pipeline, on main only; every installation, the hub's nodes included, pulls as anyone.
+    # octomaton's main and tag pipelines, on main and version tags only; every installation, the hub's nodes included, pulls
+    # as anyone.
     "ci-octomaton-release/artifactregistry.writer" = { role = "roles/artifactregistry.writer", member = local.principals.ci_octomaton_release }
     "allUsers/artifactregistry.reader"             = { role = "roles/artifactregistry.reader", member = "allUsers" }
   }
