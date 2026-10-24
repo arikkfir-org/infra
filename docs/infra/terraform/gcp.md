@@ -96,7 +96,7 @@ All three run as `gke-hub-nodes@`, a Google service account with `roles/containe
 | --- | --- | --- | --- |
 | `me-west1-docker.pkg.dev/arikkfir/images` | What runs from `main`: the reviewer's `reviewer`, Fin's five images | `ci-tooling-publish` and `ci-fin-release`, from `main` only | Untagged versions after 14 days, except each image's 20 newest |
 | `me-west1-docker.pkg.dev/arikkfir/previews` | Fin's pull requests' images | `ci-fin-preview`, from any branch | Every version after 14 days, except each image's 20 newest |
-| `me-west1-docker.pkg.dev/arikkfir/octomaton` | Octomaton's releases, `octomaton` and `octomaton-logs`, tagged with the commit's short SHA and `main` ([releases](https://github.com/arikkfir-org/octomaton#releases)) | `ci-octomaton-release`, from `main` only | Untagged versions after 14 days, except each image's 20 newest |
+| `me-west1-docker.pkg.dev/arikkfir/octomaton` | Octomaton's releases, `octomaton` and `octomaton-logs`: every commit on `main`, tagged with its short SHA and `main`, and every version, tagged `vX.Y.Z` ([releases](https://github.com/arikkfir-org/octomaton#releases)) | `ci-octomaton-release`, from `main` and `v*` tags only | Untagged versions after 14 days, except each image's 20 newest |
 
 The nodes read `images` and `previews`; `octomaton` is public, so every installation of Octomaton, the hub's included, pulls it as anyone. Production never pulls from `previews`, so a pull request's code can't replace what production runs.
 
@@ -176,7 +176,7 @@ Every grant `iam.tf` makes:
 | `ci-<repository>/docs-reader` | `roles/storage.legacyBucketReader` | Bucket `arikkfir-docs` | Lists the bucket's names, for the `Docs` check on pull requests |
 | `ci-tooling/ci-tooling-publish` | `roles/storage.objectUser`, `roles/storage.legacyBucketReader` | Bucket `arikkfir-claude` | Publishes the Claude Code bundle, from `main` |
 | `ci-tooling/ci-tooling-publish` | `roles/artifactregistry.writer` | Repository `images` | The reviewer's image, from `main` |
-| `ci-octomaton/ci-octomaton-release` | `roles/artifactregistry.writer` | Repository `octomaton` | Octomaton's images, from `main` |
+| `ci-octomaton/ci-octomaton-release` | `roles/artifactregistry.writer` | Repository `octomaton` | Octomaton's images, from `main` and from version tags (`v*`) |
 | `ci-fin/ci-fin-release` | `roles/artifactregistry.writer` | Repository `images` | Fin's images, from `main` |
 | `ci-fin/ci-fin-release` | `roles/storage.objectUser` | Bucket `arikkfir-fin-ci-cache` | Saves Fin's CI cache, from `main` |
 | `ci-fin/ci-fin-preview` | `roles/artifactregistry.writer` | Repository `previews` | Fin's pull requests' images, from any branch |
