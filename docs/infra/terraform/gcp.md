@@ -96,7 +96,7 @@ All three run as `gke-hub-nodes@`, a Google service account with `roles/containe
 | --- | --- | --- | --- |
 | `me-west1-docker.pkg.dev/arikkfir/images` | What runs from `main`: the reviewer's `reviewer`, Fin's five images | `ci-tooling-publish` and `ci-fin-release`, from `main` only | Untagged versions after 14 days, except each image's 20 newest |
 | `me-west1-docker.pkg.dev/arikkfir/previews` | Fin's pull requests' images | `ci-fin-preview`, from any branch | Every version after 14 days, except each image's 20 newest |
-| `me-west1-docker.pkg.dev/arikkfir/octomaton` | Octomaton's releases, `octomaton` and `octomaton-logs`, tagged with the commit's short SHA and `main` ([releases](https://github.com/arikkfir-org/octomaton#releases)) | `ci-octomaton-release`, from `main` only | Untagged versions after 14 days, except each image's 20 newest |
+| `me-west1-docker.pkg.dev/arikkfir/octomaton` | Octomaton's releases, `octomaton` and `octomaton-logs`: every commit on `main`, tagged with its short SHA, and every version, tagged `vX.Y.Z` (the same images, retagged) ([releases](https://github.com/arikkfir-org/octomaton#releases)) | `ci-octomaton-release`, from `main` and `v*` tags only | Untagged versions after 14 days, except each image's 20 newest |
 
 The nodes read `images` and `previews`; `octomaton` is public, so every installation of Octomaton, the hub's included, pulls it as anyone. Production never pulls from `previews`, so a pull request's code can't replace what production runs.
 
@@ -177,7 +177,7 @@ Every grant `iam.tf` makes:
 | `ci-<repository>/docs-reader` | `roles/storage.legacyBucketReader` | Bucket `arikkfir-docs` | Lists the bucket's names, for the `Docs` check on pull requests |
 | `ci-tooling/ci-tooling-publish` | `roles/storage.objectUser`, `roles/storage.legacyBucketReader` | Bucket `arikkfir-claude` | Publishes the Claude Code bundle, from `main` |
 | `ci-tooling/ci-tooling-publish` | `roles/artifactregistry.writer` | Repository `images` | The reviewer's image, from `main` |
-| `ci-octomaton/ci-octomaton-release` | `roles/artifactregistry.writer` | Repository `octomaton` | Octomaton's images, from `main` |
+| `ci-octomaton/ci-octomaton-release` | `roles/artifactregistry.writer` | Repository `octomaton` | Octomaton's images, from `main` and from version tags (`v*`) |
 | `ci-octomaton/ci-octomaton-release` | `roles/storage.objectUser` | Bucket `arikkfir-octomaton-ci-cache` | Restores and saves `main`'s Go caches, from `main` |
 | `ci-octomaton/ci-octomaton-ci` | `roles/storage.objectViewer` | Bucket `arikkfir-octomaton-ci-cache` | Restores `main`'s or its pull request's Go caches, from any branch. They hold nothing secret |
 | `ci-octomaton/ci-octomaton-ci` | `roles/storage.objectUser`, on objects under `pull-requests/` only (IAM condition) | Bucket `arikkfir-octomaton-ci-cache` | Saves each pull request's Go caches, from any branch; it can't change `main`'s |
@@ -206,7 +206,7 @@ Every grant `iam.tf` makes:
 | `allUsers` | `roles/storage.legacyObjectReader` | Bucket `arikkfir-claude` | Anyone reads its objects by URL, without listing them |
 | `allUsers` | `roles/artifactregistry.reader` | Repository `octomaton` | Anyone pulls Octomaton's releases, the hub's nodes included |
 
-`<repository>` is each repository with a CI tenant: `chrome-extensions`, `delivery`, `docs`, `fin`, `infra`, `octomaton` and `tooling` (`local.docs_layers`). `gke-hub-nodes@` and `claude-code@` are the project's two Google service accounts (`<name>@arikkfir.iam.gserviceaccount.com`); `claude-code@` was made by hand, with its key, and is adopted here. "From `main`" means the ServiceAccount is annotated `octomaton.dev/branches: main`. A CI tenant's own ServiceAccount, `pipeline`, holds no role: a pipeline that needs Google Cloud names one of its own, which `delivery` creates and, when it publishes, restricts to `main` ([Octomaton's tenancy and identity](../../octomaton/designs/phase-2-octomaton.md#tenancy-and-identity)).
+`<repository>` is each repository with a CI tenant: `chrome-extensions`, `delivery`, `docs`, `fin`, `infra`, `octomaton` and `tooling` (`local.docs_layers`). `gke-hub-nodes@` and `claude-code@` are the project's two Google service accounts (`<name>@arikkfir.iam.gserviceaccount.com`); `claude-code@` was made by hand, with its key, and is adopted here. "From `main`" means the ServiceAccount is annotated `octomaton.dev/branches: main`, and "from version tags" that it is annotated `octomaton.dev/tags: v*` too, so a run of a `v*` tag may use it as well. A CI tenant's own ServiceAccount, `pipeline`, holds no role: a pipeline that needs Google Cloud names one of its own, which `delivery` creates and, when it publishes, restricts to `main` (and, for Octomaton's releases, to `v*` tags) ([Octomaton's tenancy and identity](../../octomaton/designs/phase-2-octomaton.md#tenancy-and-identity)).
 
 ### Pool fin-pull-requests
 
@@ -262,7 +262,7 @@ All records live 300 seconds. The zones are `prevent_destroy`, and their attribu
 
 - Workloads hold no Google key: their tokens, and the nodes', come from the metadata server. The one key is `claude-code@`'s, made by hand, which the Claude Code environment holds.
 - Secret values live only in Secret Manager and in the Kubernetes Secrets External Secrets makes; Terraform never holds one, and its state holds no value.
-- A CI tenant's `pipeline` has no role, and every ServiceAccount that publishes what production runs or serves is restricted to `main` by Octomaton. Three write from any branch, by design: `ci-fin-preview` to `previews`, which only pull requests' environments pull, `ci-fin-ci` to `arikkfir-tests`, under `reports/fin/`, behind the hub's sign-in, and `ci-octomaton-ci` to `arikkfir-octomaton-ci-cache`, under `pull-requests/`, which only pull requests' runs restore.
+- A CI tenant's `pipeline` has no role, and every ServiceAccount that publishes what production runs or serves is restricted to `main` by Octomaton (`ci-octomaton-release` to `main` and `v*` tags; a `v*` tag takes only write access to push, so Octomaton's `tag` pipeline, read at `main`, refuses a tagged commit that is not on `main`). Three write from any branch, by design: `ci-fin-preview` to `previews`, which only pull requests' environments pull, `ci-fin-ci` to `arikkfir-tests`, under `reports/fin/`, behind the hub's sign-in, and `ci-octomaton-ci` to `arikkfir-octomaton-ci-cache`, under `pull-requests/`, which only pull requests' runs restore.
 - `ci-infra-apply` holds `roles/iam.securityAdmin` and could grant itself more; only merges to `main` run as it ([Terraform plan and apply](../designs/terraform-plan-apply.md)).
 - `claude-code@`, a project Viewer, reads every bucket's objects through Cloud Storage's convenience bindings, `arikkfir-fin`'s raw statements included.
 
