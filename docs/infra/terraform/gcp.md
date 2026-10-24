@@ -18,7 +18,7 @@ flowchart TB
     CP["Control plane<br/>DNS-based endpoint only"]
     LB["ingress-protected, ingress-public<br/>regional external IPs"]
     AR[("Artifact Registry<br/>images, previews, octomaton")]
-    GCS[("Buckets<br/>docs, tests, claude, fin, fin-pull-requests, fin-ci-cache")]
+    GCS[("Buckets<br/>docs, tests, claude, fin, fin-pull-requests, fin-ci-cache,<br/>octomaton-ci-cache")]
     GSM[("Secret Manager<br/>containers only")]
     DNS[("Cloud DNS<br/>kfirs.com, octomaton.dev, kfirfamily.com")]
     WIF["Workload Identity Federation<br/>pool fin-pull-requests"]
@@ -112,6 +112,7 @@ All in `ME-WEST1`, with uniform bucket-level access.
 | `arikkfir-fin` | prevented | 30 days | Fin production's scrape videos, traces and raw statements | `fin/api`, `fin/worker` | `fin/scraper`, creating only |
 | `arikkfir-fin-pull-requests` | prevented | 7 days | The same for every Fin pull request's environment, under its name | pool `fin-pull-requests` | pool `fin-pull-requests` |
 | `arikkfir-fin-ci-cache` | prevented | 14 days | Fin's CI caches | `ci-fin-ci`, `ci-fin-preview` | `ci-fin-release`, from `main` |
+| `arikkfir-octomaton-ci-cache` | prevented | 14 days | Octomaton's Go caches: `main`'s, and each pull request's under `pull-requests/<number>/` | `ci-octomaton-ci`, `ci-octomaton-release` | `ci-octomaton-release`, `main`'s; `ci-octomaton-ci`, from any branch, under `pull-requests/` only |
 | `arikkfir-devops` | prevented | never (versioned) | Terraform's state, a prefix per root: `gcp`, `github`, `argocd`, `keycloak` | `ci-infra-plan` | `ci-infra-apply`; made by hand, outside every root ([bootstrap runbook](../runbooks/bootstrap.md#1-terraform-state-bucket)) |
 
 A bucket made with uniform access also gets Cloud Storage's convenience bindings, which let the project's Viewers read its objects; `claude-code@` is one ([Claude Code cluster and docs access](../../tooling/designs/claude-code-cluster-access.md)). The docs and tests sites: delivery's [docs and tests servers](../../delivery/designs/docs-and-tests-servers.md). Fin's buckets: Fin's [environments](../../fin/designs/environments.md).
@@ -153,7 +154,7 @@ Kubernetes workloads authenticate with GKE's Workload Identity Federation, and t
 flowchart LR
   subgraph k8s["Kubernetes ServiceAccounts (GKE Workload Identity)"]
     PLAT["platform: external-secrets, cert-manager,<br/>grafana, docs, tests, octomaton, octomaton-logs"]
-    TEN["CI tenants: docs-publisher, docs-reader,<br/>ci-tooling-publish, ci-octomaton-release,<br/>ci-fin-release, ci-fin-preview, ci-fin-ci,<br/>ci-infra-plan, ci-infra-apply"]
+    TEN["CI tenants: docs-publisher, docs-reader,<br/>ci-tooling-publish, ci-octomaton-release,<br/>ci-octomaton-ci, ci-fin-release, ci-fin-preview, ci-fin-ci,<br/>ci-infra-plan, ci-infra-apply"]
     FINP["Fin production: fin/api, fin/worker, fin/scraper"]
   end
   POOL["pool fin-pull-requests:<br/>pods in namespaces fin-pr-*"]
@@ -177,6 +178,9 @@ Every grant `iam.tf` makes:
 | `ci-tooling/ci-tooling-publish` | `roles/storage.objectUser`, `roles/storage.legacyBucketReader` | Bucket `arikkfir-claude` | Publishes the Claude Code bundle, from `main` |
 | `ci-tooling/ci-tooling-publish` | `roles/artifactregistry.writer` | Repository `images` | The reviewer's image, from `main` |
 | `ci-octomaton/ci-octomaton-release` | `roles/artifactregistry.writer` | Repository `octomaton` | Octomaton's images, from `main` |
+| `ci-octomaton/ci-octomaton-release` | `roles/storage.objectUser` | Bucket `arikkfir-octomaton-ci-cache` | Restores and saves `main`'s Go caches, from `main` |
+| `ci-octomaton/ci-octomaton-ci` | `roles/storage.objectViewer` | Bucket `arikkfir-octomaton-ci-cache` | Restores `main`'s or its pull request's Go caches, from any branch. They hold nothing secret |
+| `ci-octomaton/ci-octomaton-ci` | `roles/storage.objectUser`, on objects under `pull-requests/` only (IAM condition) | Bucket `arikkfir-octomaton-ci-cache` | Saves each pull request's Go caches, from any branch; it can't change `main`'s |
 | `ci-fin/ci-fin-release` | `roles/artifactregistry.writer` | Repository `images` | Fin's images, from `main` |
 | `ci-fin/ci-fin-release` | `roles/storage.objectUser` | Bucket `arikkfir-fin-ci-cache` | Saves Fin's CI cache, from `main` |
 | `ci-fin/ci-fin-preview` | `roles/artifactregistry.writer` | Repository `previews` | Fin's pull requests' images, from any branch |
@@ -258,7 +262,7 @@ All records live 300 seconds. The zones are `prevent_destroy`, and their attribu
 
 - Workloads hold no Google key: their tokens, and the nodes', come from the metadata server. The one key is `claude-code@`'s, made by hand, which the Claude Code environment holds.
 - Secret values live only in Secret Manager and in the Kubernetes Secrets External Secrets makes; Terraform never holds one, and its state holds no value.
-- A CI tenant's `pipeline` has no role, and every ServiceAccount that publishes what production runs or serves is restricted to `main` by Octomaton. Two write from any branch, by design: `ci-fin-preview` to `previews`, which only pull requests' environments pull, and `ci-fin-ci` to `arikkfir-tests`, under `reports/fin/`, behind the hub's sign-in.
+- A CI tenant's `pipeline` has no role, and every ServiceAccount that publishes what production runs or serves is restricted to `main` by Octomaton. Three write from any branch, by design: `ci-fin-preview` to `previews`, which only pull requests' environments pull, `ci-fin-ci` to `arikkfir-tests`, under `reports/fin/`, behind the hub's sign-in, and `ci-octomaton-ci` to `arikkfir-octomaton-ci-cache`, under `pull-requests/`, which only pull requests' runs restore.
 - `ci-infra-apply` holds `roles/iam.securityAdmin` and could grant itself more; only merges to `main` run as it ([Terraform plan and apply](../designs/terraform-plan-apply.md)).
 - `claude-code@`, a project Viewer, reads every bucket's objects through Cloud Storage's convenience bindings, `arikkfir-fin`'s raw statements included.
 

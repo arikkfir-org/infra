@@ -3,16 +3,18 @@
 # list them anonymously. arikkfir-docs is private; the docs site in the cluster serves it, and it keeps the layers
 # forever. arikkfir-tests holds what CI's tests keep, such as each run's report, which the tests site serves, for 30
 # days. arikkfir-fin and arikkfir-fin-pull-requests hold Fin's scrape videos, traces and raw statements, which only
-# fin-api serves. arikkfir-fin-ci-cache holds Fin's CI cache, which its release pipeline saves on main. Readers and the
-# writers are granted in iam.tf.
+# fin-api serves. arikkfir-fin-ci-cache holds Fin's CI cache, which its release pipeline saves on main.
+# arikkfir-octomaton-ci-cache holds Octomaton's CI caches: main's, which its main pipeline saves, and each pull
+# request's, which its ci saves. Readers and the writers are granted in iam.tf.
 resource "google_storage_bucket" "this" {
   for_each = {
-    "arikkfir-docs"              = { public_access_prevention = "enforced", delete_after_days = null }
-    "arikkfir-tests"             = { public_access_prevention = "enforced", delete_after_days = 30 }
-    "arikkfir-claude"            = { public_access_prevention = "inherited", delete_after_days = null }
-    "arikkfir-fin"               = { public_access_prevention = "enforced", delete_after_days = 30 }
-    "arikkfir-fin-pull-requests" = { public_access_prevention = "enforced", delete_after_days = 7 }
-    "arikkfir-fin-ci-cache"      = { public_access_prevention = "enforced", delete_after_days = 14 }
+    "arikkfir-docs"               = { public_access_prevention = "enforced", delete_after_days = null }
+    "arikkfir-tests"              = { public_access_prevention = "enforced", delete_after_days = 30 }
+    "arikkfir-claude"             = { public_access_prevention = "inherited", delete_after_days = null }
+    "arikkfir-fin"                = { public_access_prevention = "enforced", delete_after_days = 30 }
+    "arikkfir-fin-pull-requests"  = { public_access_prevention = "enforced", delete_after_days = 7 }
+    "arikkfir-fin-ci-cache"       = { public_access_prevention = "enforced", delete_after_days = 14 }
+    "arikkfir-octomaton-ci-cache" = { public_access_prevention = "enforced", delete_after_days = 14 }
   }
 
   name                        = each.key

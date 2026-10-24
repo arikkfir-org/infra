@@ -13,6 +13,7 @@ locals {
     octomaton_logs       = "${local.k8s_principal_prefix}/ns/octomaton/sa/octomaton-logs"
     ci_tooling_publish   = "${local.k8s_principal_prefix}/ns/ci-tooling/sa/ci-tooling-publish"
     ci_octomaton_release = "${local.k8s_principal_prefix}/ns/ci-octomaton/sa/ci-octomaton-release"
+    ci_octomaton_ci      = "${local.k8s_principal_prefix}/ns/ci-octomaton/sa/ci-octomaton-ci"
     ci_fin_preview       = "${local.k8s_principal_prefix}/ns/ci-fin/sa/ci-fin-preview"
     ci_fin_release       = "${local.k8s_principal_prefix}/ns/ci-fin/sa/ci-fin-release"
     ci_fin_ci            = "${local.k8s_principal_prefix}/ns/ci-fin/sa/ci-fin-ci"
@@ -121,6 +122,11 @@ locals {
     "arikkfir-fin-ci-cache/ci-fin-release/storage.objectUser"   = { bucket = "arikkfir-fin-ci-cache", role = "roles/storage.objectUser", member = local.principals.ci_fin_release }
     "arikkfir-fin-ci-cache/ci-fin-ci/storage.objectViewer"      = { bucket = "arikkfir-fin-ci-cache", role = "roles/storage.objectViewer", member = local.principals.ci_fin_ci }
     "arikkfir-fin-ci-cache/ci-fin-preview/storage.objectViewer" = { bucket = "arikkfir-fin-ci-cache", role = "roles/storage.objectViewer", member = local.principals.ci_fin_preview }
+    # Octomaton's CI caches: its main pipeline restores and saves main's; ci, from any branch, restores main's or its
+    # pull request's, and saves only under pull-requests/ (google_storage_bucket_iam_member.octomaton_ci_cache). They
+    # hold nothing secret.
+    "arikkfir-octomaton-ci-cache/ci-octomaton-release/storage.objectUser" = { bucket = "arikkfir-octomaton-ci-cache", role = "roles/storage.objectUser", member = local.principals.ci_octomaton_release }
+    "arikkfir-octomaton-ci-cache/ci-octomaton-ci/storage.objectViewer"    = { bucket = "arikkfir-octomaton-ci-cache", role = "roles/storage.objectViewer", member = local.principals.ci_octomaton_ci }
   })
 
   images_iam = {
@@ -225,6 +231,20 @@ resource "google_storage_bucket_iam_member" "tests" {
   condition {
     title      = "tests-${each.key}"
     expression = "resource.name.startsWith(\"projects/_/buckets/arikkfir-tests/objects/reports/${each.key}/\")"
+  }
+}
+
+# Octomaton's ci runs on every pull request, as an identity any branch may use: it saves each pull request's CI cache
+# under pull-requests/ and can't change main's, which only main's own pipeline writes. objectUser, since saving replaces
+# the pull request's previous cache.
+resource "google_storage_bucket_iam_member" "octomaton_ci_cache" {
+  bucket = google_storage_bucket.this["arikkfir-octomaton-ci-cache"].name
+  role   = "roles/storage.objectUser"
+  member = local.principals.ci_octomaton_ci
+
+  condition {
+    title      = "pull-requests"
+    expression = "resource.name.startsWith(\"projects/_/buckets/arikkfir-octomaton-ci-cache/objects/pull-requests/\")"
   }
 }
 
