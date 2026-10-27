@@ -87,7 +87,7 @@ locals {
 
   # Every repository with a CI tenant publishes its docs to its own layer of arikkfir-docs, .layers/<repository>/
   # (https://docs.dev.kfirs.com/hub/designs/docs-site-composition.md).
-  docs_layers = toset(["chrome-extensions", "delivery", "docs", "fin", "infra", "octomaton", "tooling"])
+  docs_layers = toset(["chrome-extensions", "delivery", "devhub", "docs", "fin", "infra", "octomaton", "tooling"])
 
   # The docs site's pipelines list the bucket's object names: docs-reader on pull requests, docs-publisher on main.
   docs_listers = merge([
