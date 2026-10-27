@@ -42,6 +42,11 @@ locals {
       checks      = []
       visibility  = "public"
     }
+    devhub = {
+      description = "DevHub: an all-in-one, AI-first development platform, installed on any Kubernetes cluster."
+      checks      = []
+      visibility  = "public"
+    }
   }
 }
 

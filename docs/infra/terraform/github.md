@@ -21,7 +21,7 @@ flowchart LR
 | `rulesets.tf` | `github_repository_ruleset` `Default branch` per repository |
 | `labels.tf` | `github_issue_label` `skip-linear` per repository |
 | `teams.tf` | team `reviewers` (closed), its member `arikkfir-reviewer`, and `push` on every repository |
-| `imports.tf` | the eight repositories and the organization, which existed before |
+| `imports.tf` | the nine repositories and the organization, which existed before |
 
 State: prefix `github` in `arikkfir-devops`. The provider authenticates with `GITHUB_TOKEN`: the pipelines' fine-grained tokens ([GitHub tokens](../designs/terraform-plan-apply.md#github-tokens)), or, by hand, a token with the permissions the README lists.
 
@@ -37,6 +37,7 @@ State: prefix `github` in `arikkfir-devops`. The provider authenticates with `GI
 | `tooling` | public | The Claude Code bundle, the pull request reviewer and the organization pipelines every repository runs | Pull request, one approval, merge queue | `Continuous Integration`, `Docs`, `Linear` |
 | `fin` | internal: members of the organization's enterprise only | Fin, a personal finance manager and assistant | Pull request, one approval, merge queue | `Continuous Integration`, `Docs`, `Linear` |
 | `chrome-extensions` | public | Small Chrome extensions, each with only the access it needs | Pull request, one approval, merge queue | `Continuous Integration`, `Docs`, `Linear` |
+| `devhub` | public | DevHub, an all-in-one, AI-first development platform installed on any Kubernetes cluster; a product of its own, not the hub | Pull request, one approval, merge queue | `Continuous Integration`, `Docs`, `Linear` |
 
 No repository adds checks of its own today (`checks` in `local.repositories`). Every repository gets the same settings:
 
