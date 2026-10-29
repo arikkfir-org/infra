@@ -97,7 +97,7 @@ All three run as `gke-hub-nodes@`, a Google service account with `roles/containe
 | `me-west1-docker.pkg.dev/arikkfir/images` | What runs from `main`: the reviewer's `reviewer`, Fin's five images | `ci-tooling-publish` and `ci-fin-release`, from `main` only | Untagged versions after 14 days, except each image's 20 newest |
 | `me-west1-docker.pkg.dev/arikkfir/previews` | Fin's pull requests' images | `ci-fin-preview`, from any branch | Every version after 14 days, except each image's 20 newest |
 | `me-west1-docker.pkg.dev/arikkfir/octomaton` | Octomaton's releases, `octomaton` and `octomaton-logs`: every commit on `main`, tagged with its short SHA, and every version, tagged `vX.Y.Z` (the same images, retagged) ([releases](https://github.com/arikkfir-org/octomaton#releases)) | `ci-octomaton-release`, from `main` and `v*` tags only | Untagged versions after 14 days, except each image's 20 newest |
-| `me-west1-docker.pkg.dev/arikkfir/devhub` | DevHub's images, `devhub` and `devhub-console`: every commit on `main`, tagged with its short SHA | `ci-devhub-release`, from `main` only | Untagged versions after 14 days, except each image's 20 newest |
+| `me-west1-docker.pkg.dev/arikkfir/devhub` | DevHub's images, `devhub` and `devhub-console`: `main`'s newest commit, tagged with its short SHA | `ci-devhub-release`, from `main` only | Untagged versions after 14 days, except each image's 20 newest |
 
 The nodes read `images` and `previews`; `octomaton` and `devhub` are public, so every installation of Octomaton or DevHub, the hub's included, pulls them as anyone. Production never pulls from `previews`, so a pull request's code can't replace what production runs.
 
