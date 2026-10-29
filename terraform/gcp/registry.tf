@@ -95,3 +95,36 @@ resource "google_artifact_registry_repository" "octomaton" {
 
   depends_on = [google_project_service.this]
 }
+
+# DevHub's images, which anyone who installs DevHub pulls (allUsers read, iam.tf): devhub and devhub-console, tagged with
+# the commit's short SHA. Only devhub's pipeline main writes here, from main. The hub's demo installation runs them.
+resource "google_artifact_registry_repository" "devhub" {
+  location      = var.region
+  repository_id = "devhub"
+  format        = "DOCKER"
+  description   = "DevHub's images, built from its main, and pulled by every installation."
+
+  cleanup_policy_dry_run = false
+
+  cleanup_policies {
+    id     = "delete-untagged"
+    action = "DELETE"
+
+    condition {
+      tag_state  = "UNTAGGED"
+      older_than = "14d"
+    }
+  }
+
+  # KEEP wins over DELETE: the 20 newest versions of each image survive even when untagged.
+  cleanup_policies {
+    id     = "keep-recent"
+    action = "KEEP"
+
+    most_recent_versions {
+      keep_count = 20
+    }
+  }
+
+  depends_on = [google_project_service.this]
+}

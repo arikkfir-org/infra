@@ -14,6 +14,7 @@ locals {
     ci_tooling_publish   = "${local.k8s_principal_prefix}/ns/ci-tooling/sa/ci-tooling-publish"
     ci_octomaton_release = "${local.k8s_principal_prefix}/ns/ci-octomaton/sa/ci-octomaton-release"
     ci_octomaton_ci      = "${local.k8s_principal_prefix}/ns/ci-octomaton/sa/ci-octomaton-ci"
+    ci_devhub_release    = "${local.k8s_principal_prefix}/ns/ci-devhub/sa/ci-devhub-release"
     ci_fin_preview       = "${local.k8s_principal_prefix}/ns/ci-fin/sa/ci-fin-preview"
     ci_fin_release       = "${local.k8s_principal_prefix}/ns/ci-fin/sa/ci-fin-release"
     ci_fin_ci            = "${local.k8s_principal_prefix}/ns/ci-fin/sa/ci-fin-ci"
@@ -24,6 +25,8 @@ locals {
     fin_api              = "${local.k8s_principal_prefix}/ns/fin/sa/api"
     fin_worker           = "${local.k8s_principal_prefix}/ns/fin/sa/worker"
     fin_scraper          = "${local.k8s_principal_prefix}/ns/fin/sa/scraper"
+    # The REST and GraphQL servers of DevHub's demo (the chart's ServiceAccount of release devhub).
+    devhub_server = "${local.k8s_principal_prefix}/ns/devhub/sa/devhub-server"
     # Every pod of a Fin pull request's environment that presents its projected token (pool fin-pull-requests below).
     fin_pull_requests = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.fin_pull_requests.name}/*"
   }
@@ -127,6 +130,8 @@ locals {
     # hold nothing secret.
     "arikkfir-octomaton-ci-cache/ci-octomaton-release/storage.objectUser" = { bucket = "arikkfir-octomaton-ci-cache", role = "roles/storage.objectUser", member = local.principals.ci_octomaton_release }
     "arikkfir-octomaton-ci-cache/ci-octomaton-ci/storage.objectViewer"    = { bucket = "arikkfir-octomaton-ci-cache", role = "roles/storage.objectViewer", member = local.principals.ci_octomaton_ci }
+    # DevHub's demo keeps every large or binary object in its bucket; only its servers reach it.
+    "arikkfir-devhub/devhub-server/storage.objectUser" = { bucket = "arikkfir-devhub", role = "roles/storage.objectUser", member = local.principals.devhub_server }
   })
 
   images_iam = {
@@ -148,6 +153,12 @@ locals {
     # as anyone.
     "ci-octomaton-release/artifactregistry.writer" = { role = "roles/artifactregistry.writer", member = local.principals.ci_octomaton_release }
     "allUsers/artifactregistry.reader"             = { role = "roles/artifactregistry.reader", member = "allUsers" }
+  }
+
+  devhub_iam = {
+    # devhub's main pipeline, on main only; every installation, the hub's demo included, pulls as anyone.
+    "ci-devhub-release/artifactregistry.writer" = { role = "roles/artifactregistry.writer", member = local.principals.ci_devhub_release }
+    "allUsers/artifactregistry.reader"          = { role = "roles/artifactregistry.reader", member = "allUsers" }
   }
 }
 
@@ -289,6 +300,15 @@ resource "google_artifact_registry_repository_iam_member" "octomaton" {
 
   location   = google_artifact_registry_repository.octomaton.location
   repository = google_artifact_registry_repository.octomaton.name
+  role       = each.value.role
+  member     = each.value.member
+}
+
+resource "google_artifact_registry_repository_iam_member" "devhub" {
+  for_each = local.devhub_iam
+
+  location   = google_artifact_registry_repository.devhub.location
+  repository = google_artifact_registry_repository.devhub.name
   role       = each.value.role
   member     = each.value.member
 }
