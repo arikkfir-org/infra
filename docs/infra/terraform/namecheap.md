@@ -34,7 +34,7 @@ To add a domain registered at Namecheap, first add its zone to `local.dns_zones`
 
 - The owner turns API access on for the account, in Namecheap's dashboard (Profile, Tools, API Access), and adds address `egress` to the account's allow-list of IPs (`terraform -chdir=terraform/gcp output -raw egress_ip`). Namecheap answers only calls from an IP on that list, so this root runs where the pipelines run, in the cluster.
 - The key is the account's only one, and Namecheap has no read-only kind: it can change or transfer every domain of the account. Plans hold it too, as the owner decided ([security](../designs/terraform-plan-apply.md#security-and-failure-modes)).
-- Three domains take a plan or an apply a handful of calls, well under the 20 a minute that the provider paces itself to.
+- Namecheap allows the account 20 requests a minute, counted across every run at once, and every pull request plans this root in its own run. The provider paces each run to 5 a minute, so four plans and applies fit at once, and spaces a refused call's retries 10 s to a minute apart, so they outlast a one-minute window (`versions.tf`, as the provider's guide for CI sets). A plan of three domains takes a handful of calls, so about a minute.
 
 ## Decisions
 
@@ -42,6 +42,7 @@ To add a domain registered at Namecheap, first add its zone to `local.dns_zones`
 | --- | --- | --- |
 | A root of its own | One root per target. A failing Namecheap stops no apply of `gcp` | The resources in root gcp, beside the zones |
 | Name servers read from the zones | Root gcp creates the zones, and reading them keeps one source | A copy of each zone's name servers; root gcp's outputs through `terraform_remote_state`, which reads its whole state |
+| 5 requests a minute, retries up to a minute apart | Every pull request's run plans the root while `Apply` may run too, and Octomaton serializes runs, not one task of them. A quarter of the quota each keeps four at once within it, and a retry after the window keeps a refused call from spending more of it | The provider's default of 20, which two runs at once exceed; a concurrency group for every `ci` run, which would serialize every root's plans |
 | `client_ip` is address `egress` | Every call from the cluster leaves through it, and Namecheap admits only the IPs on the allow-list | The provider's own detection through `api.ipify.org`, a third party every plan would depend on |
 | Mode `OVERWRITE` | The domain's nameservers are exactly its zone's, as the provider recommends for nameservers | `MERGE`, which keeps nameservers set by hand beside them |
 | Pull request plans hold the key | A change to a domain's delegation shows in its pull request before a merge applies it. Octomaton never runs a fork's pull request (owner, [ENG-222](https://linear.app/arikkfir/issue/ENG-222)) | Planning this root only in `apply`; a narrower key, which Namecheap doesn't offer |

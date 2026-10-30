@@ -1,6 +1,6 @@
 # Bootstrap runbook
 
-Bringing the hub up from nothing, in order. Every step can run again. What each Terraform root makes: [gcp](../terraform/gcp.md), [argocd](../terraform/argocd.md), [github](../terraform/github.md), [keycloak](../terraform/keycloak.md). Designs: [Octomaton](../../octomaton/designs/phase-2-octomaton.md), [ingress and authentication](../../delivery/designs/phase-3-ingress-and-auth.md), Fin's [environments](../../fin/designs/environments.md).
+Bringing the hub up from nothing, in order. Every step can run again. What each Terraform root makes: [gcp](../terraform/gcp.md), [argocd](../terraform/argocd.md), [github](../terraform/github.md), [keycloak](../terraform/keycloak.md), [namecheap](../terraform/namecheap.md). Designs: [Octomaton](../../octomaton/designs/phase-2-octomaton.md), [ingress and authentication](../../delivery/designs/phase-3-ingress-and-auth.md), Fin's [environments](../../fin/designs/environments.md).
 
 ```mermaid
 flowchart TD
