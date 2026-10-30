@@ -14,8 +14,6 @@ locals {
     ci_tooling_publish   = "${local.k8s_principal_prefix}/ns/ci-tooling/sa/ci-tooling-publish"
     ci_octomaton_release = "${local.k8s_principal_prefix}/ns/ci-octomaton/sa/ci-octomaton-release"
     ci_octomaton_ci      = "${local.k8s_principal_prefix}/ns/ci-octomaton/sa/ci-octomaton-ci"
-    ci_devhub_release    = "${local.k8s_principal_prefix}/ns/ci-devhub/sa/ci-devhub-release"
-    ci_devhub_preview    = "${local.k8s_principal_prefix}/ns/ci-devhub/sa/ci-devhub-preview"
     ci_cobranch_release  = "${local.k8s_principal_prefix}/ns/ci-cobranch/sa/ci-cobranch-release"
     ci_cobranch_preview  = "${local.k8s_principal_prefix}/ns/ci-cobranch/sa/ci-cobranch-preview"
     ci_fin_preview       = "${local.k8s_principal_prefix}/ns/ci-fin/sa/ci-fin-preview"
@@ -28,9 +26,7 @@ locals {
     fin_api              = "${local.k8s_principal_prefix}/ns/fin/sa/api"
     fin_worker           = "${local.k8s_principal_prefix}/ns/fin/sa/worker"
     fin_scraper          = "${local.k8s_principal_prefix}/ns/fin/sa/scraper"
-    # The REST and GraphQL servers of DevHub's demo (the chart's ServiceAccount of release devhub).
-    devhub_server = "${local.k8s_principal_prefix}/ns/devhub/sa/devhub-server"
-    # The same for Cobranch, DevHub's new name (release cobranch, namespace cobranch).
+    # The REST and GraphQL servers of Cobranch's demo (the chart's ServiceAccount of release cobranch).
     cobranch_server = "${local.k8s_principal_prefix}/ns/cobranch/sa/cobranch-server"
     # Every pod of a Fin pull request's environment that presents its projected token (pool fin-pull-requests below).
     fin_pull_requests = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.fin_pull_requests.name}/*"
@@ -95,7 +91,7 @@ locals {
 
   # Every repository with a CI tenant publishes its docs to its own layer of arikkfir-docs, .layers/<repository>/
   # (https://docs.dev.kfirs.com/hub/designs/docs-site-composition.md).
-  docs_layers = toset(["chrome-extensions", "cobranch", "delivery", "devhub", "docs", "fin", "infra", "octomaton", "tooling"])
+  docs_layers = toset(["chrome-extensions", "cobranch", "delivery", "docs", "fin", "infra", "octomaton", "tooling"])
 
   # The docs site's pipelines list the bucket's object names: docs-reader on pull requests, docs-publisher on main.
   docs_listers = merge([
@@ -135,9 +131,7 @@ locals {
     # hold nothing secret.
     "arikkfir-octomaton-ci-cache/ci-octomaton-release/storage.objectUser" = { bucket = "arikkfir-octomaton-ci-cache", role = "roles/storage.objectUser", member = local.principals.ci_octomaton_release }
     "arikkfir-octomaton-ci-cache/ci-octomaton-ci/storage.objectViewer"    = { bucket = "arikkfir-octomaton-ci-cache", role = "roles/storage.objectViewer", member = local.principals.ci_octomaton_ci }
-    # DevHub's demo keeps every large or binary object in its bucket; only its servers reach it.
-    "arikkfir-devhub/devhub-server/storage.objectUser" = { bucket = "arikkfir-devhub", role = "roles/storage.objectUser", member = local.principals.devhub_server }
-    # Cobranch's demo, the same way.
+    # Cobranch's demo keeps every large or binary object in its bucket; only its servers reach it.
     "arikkfir-cobranch/cobranch-server/storage.objectUser" = { bucket = "arikkfir-cobranch", role = "roles/storage.objectUser", member = local.principals.cobranch_server }
   })
 
@@ -163,16 +157,8 @@ locals {
   }
 
   devhub_iam = {
-    # devhub's pipelines main and tag, on main and v* tags only; every installation, the hub's demo included, pulls as
-    # anyone.
-    "ci-devhub-release/artifactregistry.writer" = { role = "roles/artifactregistry.writer", member = local.principals.ci_devhub_release }
-    "allUsers/artifactregistry.reader"          = { role = "roles/artifactregistry.reader", member = "allUsers" }
-  }
-
-  devhub_previews_iam = {
-    # devhub's preview pipeline, from any branch: what it pushes runs only in DevHub's previews.
-    "ci-devhub-preview/artifactregistry.writer" = { role = "roles/artifactregistry.writer", member = local.principals.ci_devhub_preview }
-    "gke-nodes/artifactregistry.reader"         = { role = "roles/artifactregistry.reader", member = local.principals.gke_nodes }
+    # DevHub's 0.0.1, as published before its rename to Cobranch: anyone may still pull it.
+    "allUsers/artifactregistry.reader" = { role = "roles/artifactregistry.reader", member = "allUsers" }
   }
 
   cobranch_iam = {
@@ -336,15 +322,6 @@ resource "google_artifact_registry_repository_iam_member" "devhub" {
 
   location   = google_artifact_registry_repository.devhub.location
   repository = google_artifact_registry_repository.devhub.name
-  role       = each.value.role
-  member     = each.value.member
-}
-
-resource "google_artifact_registry_repository_iam_member" "devhub_previews" {
-  for_each = local.devhub_previews_iam
-
-  location   = google_artifact_registry_repository.devhub_previews.location
-  repository = google_artifact_registry_repository.devhub_previews.name
   role       = each.value.role
   member     = each.value.member
 }

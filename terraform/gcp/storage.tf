@@ -5,8 +5,8 @@
 # days. arikkfir-fin and arikkfir-fin-pull-requests hold Fin's scrape videos, traces and raw statements, which only
 # fin-api serves. arikkfir-fin-ci-cache holds Fin's CI cache, which its release pipeline saves on main.
 # arikkfir-octomaton-ci-cache holds Octomaton's CI caches: main's, which its main pipeline saves, and each pull
-# request's, which its ci saves. arikkfir-devhub is the bucket of DevHub's demo installation, which only its servers
-# reach, and arikkfir-cobranch the same for Cobranch, DevHub's new name. Readers and the writers are granted in iam.tf.
+# request's, which its ci saves. arikkfir-cobranch is the bucket of Cobranch's demo installation, which only its servers
+# reach. Readers and the writers are granted in iam.tf.
 resource "google_storage_bucket" "this" {
   for_each = {
     "arikkfir-docs"               = { public_access_prevention = "enforced", delete_after_days = null }
@@ -16,7 +16,6 @@ resource "google_storage_bucket" "this" {
     "arikkfir-fin-pull-requests"  = { public_access_prevention = "enforced", delete_after_days = 7 }
     "arikkfir-fin-ci-cache"       = { public_access_prevention = "enforced", delete_after_days = 14 }
     "arikkfir-octomaton-ci-cache" = { public_access_prevention = "enforced", delete_after_days = 14 }
-    "arikkfir-devhub"             = { public_access_prevention = "enforced", delete_after_days = null }
     "arikkfir-cobranch"           = { public_access_prevention = "enforced", delete_after_days = null }
   }
 
