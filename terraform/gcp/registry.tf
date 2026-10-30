@@ -130,3 +130,38 @@ resource "google_artifact_registry_repository" "devhub" {
 
   depends_on = [google_project_service.this]
 }
+
+# DevHub's pull requests' preview images: devhub and devhub-console of each pushed head commit, tagged with its short SHA,
+# which only DevHub's previews pull. Not previews: devhub is public and its pull requests' CI runs Dependabot's
+# dependency code, so a writer there could replace Fin's preview images. Not devhub, whose main and release tags every
+# installation pulls. A preview needs its images only while its pull request is open.
+resource "google_artifact_registry_repository" "devhub_previews" {
+  location      = var.region
+  repository_id = "devhub-previews"
+  format        = "DOCKER"
+  description   = "Container images of DevHub's pull requests' previews, built by its CI from any branch."
+
+  cleanup_policy_dry_run = false
+
+  cleanup_policies {
+    id     = "delete-old"
+    action = "DELETE"
+
+    condition {
+      tag_state  = "ANY"
+      older_than = "14d"
+    }
+  }
+
+  # KEEP wins over DELETE: the 20 newest versions of each image survive, so a quiet pull request's preview still pulls.
+  cleanup_policies {
+    id     = "keep-recent"
+    action = "KEEP"
+
+    most_recent_versions {
+      keep_count = 20
+    }
+  }
+
+  depends_on = [google_project_service.this]
+}
