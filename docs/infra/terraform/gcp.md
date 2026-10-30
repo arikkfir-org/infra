@@ -39,7 +39,7 @@ flowchart TB
 | GKE | `gke.tf` | cluster `hub`, node pools `system`, `ci` and `fin`, node service account `gke-hub-nodes@` |
 | Artifact Registry | `registry.tf` | Docker repositories `images`, `previews`, `octomaton`, `devhub` and `devhub-previews` |
 | Storage | `storage.tf` | eight buckets |
-| Secret Manager | `secrets.tf` | twenty secret containers |
+| Secret Manager | `secrets.tf` | twenty-two secret containers |
 | IAM | `iam.tf` | grants to Kubernetes principals and two Google service accounts, pool `fin-pull-requests` and its provider, service account `claude-code@` |
 | DNS | `dns.tf` | zones `kfirs-com`, `kfirfamily-com`, `octomaton-dev`, `cobranch-dev` and `cobranch-app`, the hub's hosts and `octomaton.dev` |
 | Adopted | `imports.tf` | zones `kfirs-com` and `kfirfamily-com`, service account `claude-code@` and its viewer role, all made by hand first |
@@ -123,7 +123,7 @@ A bucket made with uniform access also gets Cloud Storage's convenience bindings
 
 ## Secret Manager
 
-`terraform/gcp` creates the containers only. The owner adds values with `gcloud secrets versions add <name> --data-file=-` ([bootstrap runbook](../runbooks/bootstrap.md#5-secret-values)), except the four Keycloak client secrets that [root keycloak](keycloak.md#generated-secrets) generates and writes. External Secrets Operator (`external-secrets/external-secrets`) syncs every secret but the five pipeline secrets into the Kubernetes Secret named below, which the repository named with it declares.
+`terraform/gcp` creates the containers only. The owner adds values with `gcloud secrets versions add <name> --data-file=-` ([bootstrap runbook](../runbooks/bootstrap.md#5-secret-values)), except the four Keycloak client secrets that [root keycloak](keycloak.md#generated-secrets) generates and writes. External Secrets Operator (`external-secrets/external-secrets`) syncs every secret but the seven pipeline secrets into the Kubernetes Secret named below, which the repository named with it declares.
 
 | Secret | Content | Value set by | Read by |
 | --- | --- | --- | --- |
@@ -146,9 +146,11 @@ A bucket made with uniform access also gets Cloud Storage's convenience bindings
 | `infra-apply-github-pat` | The applies' GitHub token | the owner | `ci-infra-apply`, at run time, through `roles/secretmanager.admin` |
 | `infra-plan-keycloak-secret` | Secret of Keycloak client `terraform-plan` | root keycloak | `ci-infra-plan`, at run time |
 | `infra-apply-keycloak-secret` | Secret of Keycloak client `terraform-apply` | root keycloak | `ci-infra-apply`, at run time, through `roles/secretmanager.admin` |
+| `infra-namecheap-api-user` | The Namecheap account's user name, which its API takes as both `ApiUser` and `UserName` | the owner | `ci-infra-plan`, at run time, and `ci-infra-apply`, through `roles/secretmanager.admin` |
+| `infra-namecheap-api-key` | The Namecheap account's API key, which Namecheap accepts only from the IPs on the account's allow-list, here address `egress` ([network](#network)). It has no read-only kind, so it can change or transfer every domain of the account | the owner | the same |
 | `ci-fin-e2e-keycloak-secret` | Secret of Keycloak client `fin-e2e` | root keycloak | `ci-fin/ci-fin-ci`, at run time ([test users](../designs/test-users.md)) |
 
-The five pipeline secrets never pass through External Secrets, so no Kubernetes Secret holds them: Octomaton lets no `push` pipeline mount one, and a pull request's pipeline can't name one at all.
+The seven pipeline secrets never pass through External Secrets, so no Kubernetes Secret holds them: Octomaton lets no `push` pipeline mount one, and a pull request's pipeline can't name one at all.
 
 ## IAM
 
@@ -170,7 +172,7 @@ Every grant `iam.tf` makes:
 
 | Principal | Roles | Scope | For |
 | --- | --- | --- | --- |
-| `external-secrets/external-secrets` | `roles/secretmanager.secretAccessor` | Each secret but the five pipeline secrets | Syncs them into Kubernetes Secrets ([Secret Manager](#secret-manager)) |
+| `external-secrets/external-secrets` | `roles/secretmanager.secretAccessor` | Each secret but the seven pipeline secrets | Syncs them into Kubernetes Secrets ([Secret Manager](#secret-manager)) |
 | `cert-manager/cert-manager` | `roles/dns.admin` | Zones `kfirs-com` and `octomaton-dev` | Let's Encrypt's DNS-01 challenges. Zone-scoped, so its solvers must name their zone |
 | `grafana/grafana` | `roles/monitoring.viewer` | Project | Reads Cloud Monitoring |
 | `docs/docs` | `roles/storage.objectViewer` | Bucket `arikkfir-docs` | The docs site serves it |
@@ -196,7 +198,7 @@ Every grant `iam.tf` makes:
 | `ci-infra/ci-infra-plan` | `roles/iam.securityReviewer`, `roles/serviceusage.serviceUsageViewer`, `roles/compute.networkViewer`, `roles/container.clusterViewer`, `roles/artifactregistry.reader`, `roles/secretmanager.viewer`, `roles/dns.reader`, `roles/iam.serviceAccountViewer`, `roles/iam.workloadIdentityPoolViewer` | Project | Plans: reads everything this root manages, every IAM policy included ([identities](../designs/terraform-plan-apply.md#identities)) |
 | `ci-infra/ci-infra-plan` | `roles/storage.legacyBucketReader` | Each bucket this root manages | Reads their settings |
 | `ci-infra/ci-infra-plan` | `roles/storage.objectViewer` | Bucket `arikkfir-devops` | Reads Terraform's state, without the lock |
-| `ci-infra/ci-infra-plan` | `roles/secretmanager.secretAccessor` | Secrets `infra-plan-github-pat` and `infra-plan-keycloak-secret` | Its GitHub token and Keycloak credential, at run time |
+| `ci-infra/ci-infra-plan` | `roles/secretmanager.secretAccessor` | Secrets `infra-plan-github-pat`, `infra-plan-keycloak-secret`, `infra-namecheap-api-user` and `infra-namecheap-api-key` | Its GitHub token and Keycloak credential, and the Namecheap API user and key that applies use too, at run time |
 | `ci-infra/ci-infra-apply` | `roles/serviceusage.serviceUsageAdmin`, `roles/compute.networkAdmin`, `roles/container.admin`, `roles/artifactregistry.admin`, `roles/storage.admin`, `roles/secretmanager.admin`, `roles/dns.admin`, `roles/iam.serviceAccountAdmin`, `roles/iam.securityAdmin`, `roles/iam.workloadIdentityPoolAdmin` | Project | Applies, from `main`: an admin role per resource type, and the project's and DNS zones' IAM policies ([identities](../designs/terraform-plan-apply.md#identities)) |
 | `ci-infra/ci-infra-apply` | `roles/iam.serviceAccountUser` | Service account `gke-hub-nodes@` | Creates node pools that run as it |
 | `fin/api`, `fin/worker`, `fin/scraper` | `roles/telemetry.tracesWriter`, `roles/telemetry.metricsWriter`, `roles/serviceusage.serviceUsageConsumer` | Project | Traces and metrics |
