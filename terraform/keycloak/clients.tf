@@ -2,6 +2,7 @@ locals {
   # Bump a version to rotate that secret: Terraform writes a new value to Keycloak and to Secret Manager.
   secret_versions = {
     hub             = "1"
+    cobranch        = "1"
     fin-e2e         = "2"
     terraform-plan  = "1"
     terraform-apply = "1"
@@ -48,6 +49,28 @@ resource "keycloak_openid_group_membership_protocol_mapper" "hub_groups" {
   add_to_id_token     = true
   add_to_access_token = true
   add_to_userinfo     = true
+}
+
+# Cobranch's demo (delivery's platform/cobranch) signs people in through this client: realm hub's users, who sign in with
+# Google. Its Auth server, the only workload that holds the secret, serves https://cobranch.dev.kfirs.com/auth.
+resource "keycloak_openid_client" "cobranch" {
+  realm_id                     = keycloak_realm.hub.id
+  client_id                    = "cobranch"
+  name                         = "Cobranch's demo"
+  access_type                  = "CONFIDENTIAL"
+  standard_flow_enabled        = true
+  direct_access_grants_enabled = false
+  pkce_code_challenge_method   = "S256"
+  valid_redirect_uris          = ["https://cobranch.dev.kfirs.com/auth/callback"]
+
+  client_secret_wo         = ephemeral.random_password.secret["cobranch"].result
+  client_secret_wo_version = local.secret_versions.cobranch
+}
+
+resource "google_secret_manager_secret_version" "cobranch" {
+  secret                 = "projects/${var.project_id}/secrets/keycloak-cobranch-client-secret"
+  secret_data_wo         = ephemeral.random_password.secret["cobranch"].result
+  secret_data_wo_version = local.secret_versions.cobranch
 }
 
 # Fin's local development: its dev server signs a developer in through this client, as oauth2-proxy does in the

@@ -1,6 +1,6 @@
 # Root keycloak: Keycloak's configuration
 
-**Decision**: `terraform/keycloak` holds all of Keycloak's configuration: realm `hub`, which signs people in with Google, and only the people it declares; its clients for oauth2-proxy and Argo CD, Fin's local development and Fin's end-to-end runs; groups `admins` and `fin-e2e`; and, in realm `master`, the same Google sign-in for the administrators and the pipelines' own clients. It generates every client secret itself and writes it, write-only, to Keycloak and to Secret Manager, so no secret is in its state, its plans or Git. Pipeline `apply` applies it on every merge to `main`, after `gcp`, as client `terraform-apply`; pull requests plan it, without refreshing, as `terraform-plan` ([Terraform plan and apply](../designs/terraform-plan-apply.md)). Keycloak itself, its database and its routes run in the cluster, from `delivery` ([Keycloak in the cluster](../../delivery/designs/keycloak.md)). This page documents every realm, client and setting it creates; other repositories link it rather than repeat them.
+**Decision**: `terraform/keycloak` holds all of Keycloak's configuration: realm `hub`, which signs people in with Google, and only the people it declares; its clients for oauth2-proxy and Argo CD, Cobranch's demo, Fin's local development and Fin's end-to-end runs; groups `admins` and `fin-e2e`; and, in realm `master`, the same Google sign-in for the administrators and the pipelines' own clients. It generates every client secret itself and writes it, write-only, to Keycloak and to Secret Manager, so no secret is in its state, its plans or Git. Pipeline `apply` applies it on every merge to `main`, after `gcp`, as client `terraform-apply`; pull requests plan it, without refreshing, as `terraform-plan` ([Terraform plan and apply](../designs/terraform-plan-apply.md)). Keycloak itself, its database and its routes run in the cluster, from `delivery` ([Keycloak in the cluster](../../delivery/designs/keycloak.md)). This page documents every realm, client and setting it creates; other repositories link it rather than repeat them.
 
 ```mermaid
 flowchart LR
@@ -11,6 +11,7 @@ flowchart LR
   OW["owner, by hand"] -->|"Google client secret"| SM
   SM --> ES["External Secrets"]
   ES -->|"client hub's secret"| C["oauth2-proxy, Argo CD"]
+  ES -->|"client cobranch's secret"| CB["Cobranch's demo"]
   ES -->|"Google client secret,<br/>as a vault file"| K
   SM -->|"fin-e2e's secret,<br/>read at run time"| E["Fin's end-to-end runs"]
 ```
@@ -18,7 +19,7 @@ flowchart LR
 | File | Resources |
 | --- | --- |
 | `realm.tf` | realm `hub`; realm `master`'s browser flow `browser-google`; flow `existing-users-only` and identity provider `google` in both realms; realm `hub`'s client policy `no-password-grants` |
-| `clients.tf` | clients `hub`, `fin-local` and `fin-e2e` and their mappers; `fin-e2e`'s admin permission on group `fin-e2e`; the generated secrets and their Secret Manager versions |
+| `clients.tf` | clients `hub`, `cobranch`, `fin-local` and `fin-e2e` and their mappers; `fin-e2e`'s admin permission on group `fin-e2e`; the generated secrets and their Secret Manager versions |
 | `users.tf` | the people (`local.users`), the administrators' users in realm `master`, groups `admins` and `fin-e2e` |
 | `pipelines.tf` | clients `terraform-plan` and `terraform-apply` in realm `master`, their roles and secrets |
 
@@ -43,6 +44,7 @@ State: prefix `keycloak` in `arikkfir-devops`. Providers: `keycloak/keycloak` 5.
 | Client | Kind | What | Secret |
 | --- | --- | --- | --- |
 | `hub` | Confidential, standard flow only; redirect URIs `https://auth.kfirs.com/oauth2/callback` and `https://argocd.dev.kfirs.com/auth/callback` | Shared by oauth2-proxy and Argo CD, so Argo CD accepts the ID tokens oauth2-proxy forwards. Mapper `groups` puts the user's groups, by name, in its tokens and userinfo: the hub's tools admit only `admins`, and fin-api tells test users by `fin-e2e` | `keycloak-hub-client-secret` |
+| `cobranch` | Confidential, standard flow with PKCE (`S256`) only; redirect URI `https://cobranch.dev.kfirs.com/auth/callback` | Cobranch's demo ([Cobranch on the hub](../../delivery/designs/cobranch.md)): its Auth server signs people in as realm `hub`'s users, so the demo's sign-in is the hub's Google sign-in. Only the demo, on its fixed host: previews (`pr-<n>` hosts) get no client, since redirect URIs take no wildcard in the host, and sign in as their seeded users instead | `keycloak-cobranch-client-secret` |
 | `fin-local` | Public, standard flow with PKCE (`S256`) only; redirect URI `http://localhost:5173/oauth2/callback` | Fin's local development: its dev server signs a developer in, and the local fin-api accepts its ID tokens. Mapper `groups` too | none: its codes reach only the developer's machine |
 | `fin-e2e` | Confidential, service account only | Fin's end-to-end runs create, sign in and delete members of group `fin-e2e`, and nobody else: admin permission `fin-e2e-members` (scopes `view`, `view-members`, `manage-members`, `manage-membership` on the group) for user policy `fin-e2e`, which names the client's service account user ([test users](../designs/test-users.md)) | `ci-fin-e2e-keycloak-secret`, which `ci-fin-ci` reads at run time |
 
