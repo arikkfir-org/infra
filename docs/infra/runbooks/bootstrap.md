@@ -85,7 +85,7 @@ make terraform gcp    # the two existing DNS zones must import without changes
 
 This creates the network, the static IPs, the cluster, the buckets, the registries, the secret containers, IAM, the `octomaton-dev` DNS zone and the records for every hub host ([root gcp](../terraform/gcp.md)).
 
-Then delegate `octomaton.dev` to its new zone: at the domain's registrar, set the name servers to the four that `terraform -chdir=terraform/gcp output octomaton_dev_name_servers` prints. Turn DNSSEC off at the registrar first if it's on. `dig +short NS octomaton.dev` must list them before step 7, because the Gateways wait for the `octomaton.dev` certificate.
+Then delegate `octomaton.dev` to its new zone. The pipelines don't run yet, and Namecheap's API answers only the cluster's egress IP, so do it in Namecheap's dashboard this once: set the domain's nameservers to the four that `terraform -chdir=terraform/gcp output octomaton_dev_name_servers` prints, without their trailing dots, and the same for `cobranch.dev` and `cobranch.app`. Turn DNSSEC off there first if it's on. `dig +short NS octomaton.dev` must list them before step 7, because the Gateways wait for the `octomaton.dev` certificate. From here on [root namecheap](../terraform/namecheap.md) keeps them, once its pipelines run: turn on Namecheap's API access and add `terraform -chdir=terraform/gcp output -raw egress_ip` to its allow-list now.
 
 ## 5. Secret values
 
@@ -186,7 +186,7 @@ Only once Octomaton reports `Continuous Integration`, `Docs` and `Linear`, since
 make terraform github
 ```
 
-Then set by hand what the provider can't ([root github](../terraform/github.md#set-outside-terraform)). From here on, every merge to `infra` applies `gcp`, `github` and `keycloak` ([Terraform plan and apply](../designs/terraform-plan-apply.md)).
+Then set by hand what the provider can't ([root github](../terraform/github.md#set-outside-terraform)). From here on, every merge to `infra` applies `gcp`, `github`, `keycloak` and `namecheap` ([Terraform plan and apply](../designs/terraform-plan-apply.md)).
 
 ## 12. Claude Code environment
 

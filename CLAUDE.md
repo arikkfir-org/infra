@@ -10,12 +10,12 @@
   change needs a new or different value from another repository, say so; do not diverge silently.
 - Never run `terraform apply`, `make terraform`, `destroy`, `import`, `state …`, `taint`, `force-unlock` or anything
   else that changes real infrastructure or state. Never call GCP or GitHub APIs to inspect live resources. Pipeline
-  `apply` applies `gcp`, `github` and `keycloak` on each merge to `main`; the owner applies the rest by hand (see
-  README.md).
+  `apply` applies `gcp`, `github`, `keycloak` and `namecheap` on each merge to `main`; the owner applies the rest by
+  hand (see README.md).
 - Before finishing, run `terraform fmt -recursive` at the repository root, then, in each root under `terraform/`:
   `terraform init -backend=false -input=false && terraform validate`. After changing `.tekton/plan-summary.py`, run
-  `python3 -m unittest discover -s tests`. CI (`.tekton/ci.yaml`) runs the same checks and plans `gcp`, `github` and
-  `keycloak`.
+  `python3 -m unittest discover -s tests`. CI (`.tekton/ci.yaml`) runs the same checks and plans `gcp`, `github`,
+  `keycloak` and `namecheap`. After changing `.tekton/scripts/`, run `shellcheck .tekton/scripts/*.sh`.
 - Tekton files stay short and composed (https://docs.dev.kfirs.com/CONTRIBUTING.md, "Continuous integration"): a
   PipelineRun references its Pipeline (`pipelineRef`), or its inline `pipelineSpec` its Tasks (`taskRef`), by name,
   each in a file beside it (`<name>.pipeline.yaml`, `<name>.task.yaml`), steps that Tasks share are StepActions
@@ -28,11 +28,12 @@
   `local.project_iam` in `terraform/gcp/iam.tf` and in the IAM table of `docs/infra/terraform/gcp.md`;
   `terraform/github` runs on the tokens `infra-plan-github-pat` and `infra-apply-github-pat`; `terraform/keycloak` on
   the clients `terraform-plan` and `terraform-apply` in `terraform/keycloak/pipelines.tf`, and since its pull request
-  plans don't refresh, `terraform-plan` reads only its data sources). Read a role's permissions, not its name. A plan
-  only reads, so a missing write permission plans green and fails partway through the apply, with the state
-  half-written. A missing role goes in a pull request of its own first, which the owner applies by hand, since the
-  pipelines can't apply changes to their own roles (README.md, "Apply order"). A missing token permission is the owner's
-  to add before the merge.
+  plans don't refresh, `terraform-plan` reads only its data sources; `terraform/namecheap` on the one Namecheap key,
+  `infra-namecheap-api-key`, which both pipelines hold and which can do anything at Namecheap). Read a role's
+  permissions, not its name. A plan only reads, so a missing write permission plans green and fails partway through
+  the apply, with the state half-written. A missing role goes in a pull request of its own first, which the owner
+  applies by hand, since the pipelines can't apply changes to their own roles (README.md, "Apply order"). A missing
+  token permission is the owner's to add before the merge.
 - Terraform deletes a resource before it updates the resources that named it, and Keycloak refuses to delete the flow a
   realm is bound to. So never rebind a realm and delete its old flow through `keycloak_authentication_bindings` in one
   change; set realm `hub`'s flows on `keycloak_realm`, whose updates write them from state anyway.
@@ -56,7 +57,7 @@
 - Keep one root per target (`terraform/<target>`) with state prefix = directory name. Do not add modules.
 - Split files by concern: `versions.tf` (terraform block, backend, providers), `variables.tf`, `outputs.tf`,
   `imports.tf`, then one file per area (in `gcp`: `apis`, `network`, `gke`, `registry`, `storage`, `secrets`,
-  `iam`, `dns`; in `keycloak`: `realm`, `clients`, `users`, `pipelines`).
+  `iam`, `dns`; in `keycloak`: `realm`, `clients`, `users`, `pipelines`; in `namecheap`: `domains`).
 - Name a resource after its object (`hub`, `images`, `gke_nodes`). Name a for_each group after what its members
   share (`ingress`, `public`, `protected`), or `this` when it is the only group of that type. Key for_each
   collections by the real object name.
@@ -66,7 +67,9 @@
 - Adopt pre-existing objects with `import {}` blocks in `imports.tf` plus `lifecycle { prevent_destroy = true }`.
   Import lists name only objects that already exist.
 - Write comments only for intent that the code cannot show.
-- Add new roots to the loop in `.tekton/ci.yaml` and to `ROOTS` in the `Makefile`.
+- Add new roots to the loop in `.tekton/scripts/validate.sh` and to `ROOTS` in the `Makefile`. A root the pipelines
+  plan and apply also gets a task in `.tekton/ci.yaml` and `.tekton/apply.yaml` and, if its providers take
+  credentials, a case in `.tekton/scripts/credentials.sh` and their environment in `.tekton/scripts/terraform.sh`.
 
 ## How to
 
@@ -87,6 +90,8 @@
   `terraform/gcp/iam.tf`, then add an entry to the map for its scope: `project_iam`, `bucket_iam` or `images_iam`.
   For another resource type, add an `*_iam_member` resource on that resource.
 - Hostname: add it to `local.ingress_hosts` in `terraform/gcp/dns.tf` with its gateway (`protected` or `public`).
+- Domain registered at Namecheap: add its zone to `local.dns_zones` in `terraform/gcp/dns.tf`, in a pull request of its
+  own, then the domain to `local.domains` in `terraform/namecheap/domains.tf`, whose plan reads that zone.
 - Person who may sign in to the hub: add the email of their Google account, with their first and last name, to
   `local.users` in `terraform/keycloak/users.tf`. Their first Google sign-in links to that user; nobody else gets in.
   `admin = true` also makes them a Keycloak administrator: a user in realm `master` with realm role `admin`, who signs

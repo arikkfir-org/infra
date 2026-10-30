@@ -31,7 +31,7 @@ State: prefix `github` in `arikkfir-devops`. The provider authenticates with `GI
 | --- | --- | --- | --- | --- |
 | `.github` | public | The organization's welcome page on GitHub, `profile/README.md`, and nothing else | Pull request, one approval, merge queue | `Continuous Integration`, `Docs`, `Linear`, which nothing reports: without a CI tenant, its pull requests merge with the bypass |
 | `docs` | public | The hub-wide knowledge base; with every repository's `docs/`, the docs site | Pull request, one approval, merge queue | `Continuous Integration`, `Docs`, `Linear` |
-| `infra` | public | Terraform for GCP, GitHub, the Argo CD bootstrap and Keycloak's configuration; plans and applies `gcp`, `github` and `keycloak` | Pull request, one approval, a merge queue of one | `Continuous Integration` (tests, `fmt`, `validate`, plans), `Docs`, `Linear` |
+| `infra` | public | Terraform for GCP, GitHub, the Argo CD bootstrap and Keycloak's configuration; plans and applies `gcp`, `github`, `keycloak` and `namecheap` | Pull request, one approval, a merge queue of one | `Continuous Integration` (tests, `fmt`, `validate`, plans), `Docs`, `Linear` |
 | `delivery` | public | Argo CD's applications (GitOps) for the hub cluster | Pull request, one approval, merge queue | `Continuous Integration`, `Docs`, `Linear` |
 | `octomaton` | public | The CI orchestrator: a GitHub App that runs Tekton pipelines | Pull request, one approval, merge queue | `Continuous Integration`, `Docs`, `Linear` |
 | `tooling` | public | The Claude Code bundle, the pull request reviewer and the organization pipelines every repository runs | Pull request, one approval, merge queue | `Continuous Integration`, `Docs`, `Linear` |
