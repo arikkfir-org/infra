@@ -104,7 +104,7 @@ resource "google_artifact_registry_repository" "devhub" {
   location      = var.region
   repository_id = "devhub"
   format        = "DOCKER"
-  description   = "DevHub's images, built from its main, and pulled by every installation."
+  description   = "DevHub's releases, built from its main and its versions, and pulled by every installation."
 
   cleanup_policy_dry_run = false
 
