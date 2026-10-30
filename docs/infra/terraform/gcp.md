@@ -1,6 +1,6 @@
 # Root gcp: the GCP project
 
-**Decision**: `terraform/gcp` builds everything the hub runs on in GCP project `arikkfir` (`me-west1`): the APIs, a private network with Cloud NAT on one egress IP and two ingress IPs, one zonal GKE cluster with three tainted node pools, seven Docker repositories, the buckets, the Secret Manager containers, every IAM grant and the DNS zones and records. Workloads authenticate as their Kubernetes ServiceAccounts through Workload Identity, never with keys. Pipeline `apply` applies it on every merge to `main` ([Terraform plan and apply](../designs/terraform-plan-apply.md)). This page documents every name, range and grant it creates; other repositories link it rather than repeat them.
+**Decision**: `terraform/gcp` builds everything the hub runs on in GCP project `arikkfir` (`me-west1`): the APIs, a private network with Cloud NAT on one egress IP and two ingress IPs, one zonal GKE cluster with three tainted node pools, six Docker repositories, the buckets, the Secret Manager containers, every IAM grant and the DNS zones and records. Workloads authenticate as their Kubernetes ServiceAccounts through Workload Identity, never with keys. Pipeline `apply` applies it on every merge to `main` ([Terraform plan and apply](../designs/terraform-plan-apply.md)). This page documents every name, range and grant it creates; other repositories link it rather than repeat them.
 
 ## Topology
 
@@ -17,8 +17,8 @@ flowchart TB
     end
     CP["Control plane<br/>DNS-based endpoint only"]
     LB["ingress-protected, ingress-public<br/>regional external IPs"]
-    AR[("Artifact Registry<br/>images, previews, octomaton, devhub,<br/>devhub-previews, cobranch, cobranch-previews")]
-    GCS[("Buckets<br/>docs, tests, claude, fin, fin-pull-requests, fin-ci-cache,<br/>octomaton-ci-cache, devhub, cobranch")]
+    AR[("Artifact Registry<br/>images, previews, octomaton, devhub,<br/>cobranch, cobranch-previews")]
+    GCS[("Buckets<br/>docs, tests, claude, fin, fin-pull-requests, fin-ci-cache,<br/>octomaton-ci-cache, cobranch")]
     GSM[("Secret Manager<br/>containers only")]
     DNS[("Cloud DNS<br/>kfirs.com, octomaton.dev, cobranch.dev,<br/>cobranch.app, kfirfamily.com")]
     WIF["Workload Identity Federation<br/>pool fin-pull-requests"]
@@ -37,8 +37,8 @@ flowchart TB
 | APIs | `apis.tf` | the services below, never disabled on destroy |
 | Network | `network.tf` | VPC `hub`, subnet `hub` with ranges `pods` and `services`, Cloud Router and NAT `hub`, addresses `egress`, `ingress-protected` and `ingress-public` |
 | GKE | `gke.tf` | cluster `hub`, node pools `system`, `ci` and `fin`, node service account `gke-hub-nodes@` |
-| Artifact Registry | `registry.tf` | Docker repositories `images`, `previews`, `octomaton`, `devhub`, `devhub-previews`, `cobranch` and `cobranch-previews` |
-| Storage | `storage.tf` | nine buckets |
+| Artifact Registry | `registry.tf` | Docker repositories `images`, `previews`, `octomaton`, `devhub`, `cobranch` and `cobranch-previews` |
+| Storage | `storage.tf` | eight buckets |
 | Secret Manager | `secrets.tf` | twenty-two secret containers |
 | IAM | `iam.tf` | grants to Kubernetes principals and two Google service accounts, pool `fin-pull-requests` and its provider, service account `claude-code@` |
 | DNS | `dns.tf` | zones `kfirs-com`, `kfirfamily-com`, `octomaton-dev`, `cobranch-dev` and `cobranch-app`, the hub's hosts, `octomaton.dev` and `cobranch.dev` |
@@ -89,7 +89,7 @@ Each pool's taint keeps every workload but its own off it, and each pool's nodes
 | `ci` | `e2-standard-8` | Spot | 0-10 | `kfirs.com/pool=ci` | Tekton's TaskRun pods |
 | `fin` | `e2-standard-4` | on-demand | 0-10 | `kfirs.com/pool=fin` | Fin's environments |
 
-All three run as `gke-hub-nodes@`, a Google service account with `roles/container.defaultNodeServiceAccount` and read access to the private Docker repositories, `images`, `previews`, `devhub-previews` and `cobranch-previews` (`octomaton`, `devhub` and `cobranch` are public, so the nodes pull them as anyone does), auto-repair and auto-upgrade on. `system` ignores changes to its initial node count, which a manual resize changes and which would otherwise replace the pool. Changing `ci`'s `spot` replaces the pool, the node that runs pipeline `apply` included, so the owner applies that by hand. `ci`'s kubelet pulls up to 5 images at once, GKE's most (its default is 2 or 3, by boot disk), since a TaskRun pod pulls an image for each container that always pulls. Changing a kubelet setting re-creates the pool's nodes at once, that node included, so the owner applies that by hand too.
+All three run as `gke-hub-nodes@`, a Google service account with `roles/container.defaultNodeServiceAccount` and read access to the private Docker repositories, `images`, `previews` and `cobranch-previews` (`octomaton`, `devhub` and `cobranch` are public, so the nodes pull them as anyone does), auto-repair and auto-upgrade on. `system` ignores changes to its initial node count, which a manual resize changes and which would otherwise replace the pool. Changing `ci`'s `spot` replaces the pool, the node that runs pipeline `apply` included, so the owner applies that by hand. `ci`'s kubelet pulls up to 5 images at once, GKE's most (its default is 2 or 3, by boot disk), since a TaskRun pod pulls an image for each container that always pulls. Changing a kubelet setting re-creates the pool's nodes at once, that node included, so the owner applies that by hand too.
 
 ## Artifact Registry
 
@@ -98,14 +98,13 @@ All three run as `gke-hub-nodes@`, a Google service account with `roles/containe
 | `me-west1-docker.pkg.dev/arikkfir/images` | What runs from `main`: the reviewer's `reviewer`, Fin's five images | `ci-tooling-publish` and `ci-fin-release`, from `main` only | Untagged versions after 14 days, except each image's 20 newest |
 | `me-west1-docker.pkg.dev/arikkfir/previews` | Fin's pull requests' images | `ci-fin-preview`, from any branch | Every version after 14 days, except each image's 20 newest |
 | `me-west1-docker.pkg.dev/arikkfir/octomaton` | Octomaton's releases, `octomaton` and `octomaton-logs`: every commit on `main`, tagged with its short SHA, and every version, tagged `vX.Y.Z` (the same images, retagged) ([releases](https://github.com/arikkfir-org/octomaton#releases)) | `ci-octomaton-release`, from `main` and `v*` tags only | Untagged versions after 14 days, except each image's 20 newest |
-| `me-west1-docker.pkg.dev/arikkfir/devhub` | DevHub's releases: images `devhub` and `devhub-console` of `main`'s newest commit, tagged with its short SHA, and every version, tagged `X.Y.Z` (the same images, retagged); Helm chart `charts/devhub` at every version ([the DevHub repository](../../devhub/designs/repository.md)) | `ci-devhub-release`, from `main` and `v*` tags only | Untagged versions after 14 days, except each image's 20 newest |
-| `me-west1-docker.pkg.dev/arikkfir/devhub-previews` | DevHub's pull requests' images, `devhub` and `devhub-console` of each pushed head commit, tagged with its short SHA | `ci-devhub-preview`, from any branch | Every version after 14 days, except each image's 20 newest |
-| `me-west1-docker.pkg.dev/arikkfir/cobranch` | Cobranch's releases, DevHub's under its new name: images `cobranch` and `cobranch-console`, and Helm chart `charts/cobranch`, as `devhub` holds DevHub's | `ci-cobranch-release`, from `main` and `v*` tags only | Untagged versions after 14 days, except each image's 20 newest |
+| `me-west1-docker.pkg.dev/arikkfir/devhub` | DevHub's releases, as published before its rename to Cobranch: images `devhub` and `devhub-console` and Helm chart `charts/devhub` at 0.0.1 | Nobody | Untagged versions after 14 days, except each image's 20 newest |
+| `me-west1-docker.pkg.dev/arikkfir/cobranch` | Cobranch's releases: images `cobranch` and `cobranch-console` of `main`'s newest commit, tagged with its short SHA, and every version, tagged `X.Y.Z` (the same images, retagged); Helm chart `charts/cobranch` at every version ([the Cobranch repository](../../cobranch/designs/repository.md)) | `ci-cobranch-release`, from `main` and `v*` tags only | Untagged versions after 14 days, except each image's 20 newest |
 | `me-west1-docker.pkg.dev/arikkfir/cobranch-previews` | Cobranch's pull requests' images, `cobranch` and `cobranch-console` of each pushed head commit, tagged with its short SHA | `ci-cobranch-preview`, from any branch | Every version after 14 days, except each image's 20 newest |
 
-The nodes read `images`, `previews`, `devhub-previews` and `cobranch-previews`; `octomaton`, `devhub` and `cobranch` are public, so every installation of Octomaton, DevHub or Cobranch, the hub's included, pulls them as anyone. Production never pulls from `previews`, so a pull request's code can't replace what production runs. DevHub's pull requests push to `devhub-previews`, and Cobranch's to `cobranch-previews`, not `previews`: the repository is public and its pull requests' CI runs Dependabot's dependency code, which must not be able to replace Fin's preview images, nor the release repository's `main` and release tags. Only its previews pull from each.
+The nodes read `images`, `previews` and `cobranch-previews`; `octomaton`, `devhub` and `cobranch` are public, so every installation of Octomaton or Cobranch, the hub's included, pulls them as anyone, and DevHub's 0.0.1 stays pullable. Production never pulls from `previews`, so a pull request's code can't replace what production runs. Cobranch's pull requests push to `cobranch-previews`, not `previews`: the repository is public and its pull requests' CI runs Dependabot's dependency code, which must not be able to replace Fin's preview images, nor `cobranch`'s `main` and release tags. Only its previews pull from it.
 
-DevHub is being renamed Cobranch (ENG-221). Its `cobranch` repositories, bucket, hosts and grants stand beside DevHub's until the hub's demo and previews move to them; then DevHub's go, except repository `devhub`, which keeps DevHub's 0.0.1 as published.
+Cobranch was DevHub until [ENG-221](https://linear.app/arikkfir/issue/ENG-221) renamed it. DevHub's names went with its demo and previews, except repository `devhub`, which keeps DevHub's 0.0.1 as published.
 
 ## Buckets
 
@@ -120,7 +119,6 @@ All in `ME-WEST1`, with uniform bucket-level access.
 | `arikkfir-fin-pull-requests` | prevented | 7 days | The same for every Fin pull request's environment, under its name | pool `fin-pull-requests` | pool `fin-pull-requests` |
 | `arikkfir-fin-ci-cache` | prevented | 14 days | Fin's CI caches | `ci-fin-ci`, `ci-fin-preview` | `ci-fin-release`, from `main` |
 | `arikkfir-octomaton-ci-cache` | prevented | 14 days | Octomaton's Go caches: `main`'s, and each pull request's under `pull-requests/<number>/` | `ci-octomaton-ci`, `ci-octomaton-release` | `ci-octomaton-release`, `main`'s; `ci-octomaton-ci`, from any branch, under `pull-requests/` only |
-| `arikkfir-devhub` | prevented | never | The objects of DevHub's demo installation | `devhub/devhub-server` | `devhub/devhub-server` |
 | `arikkfir-cobranch` | prevented | never | The objects of Cobranch's demo installation | `cobranch/cobranch-server` | `cobranch/cobranch-server` |
 | `arikkfir-devops` | prevented | never (versioned) | Terraform's state, a prefix per root: `gcp`, `github`, `argocd`, `keycloak`, `namecheap` | `ci-infra-plan` | `ci-infra-apply`; made by hand, outside every root ([bootstrap runbook](../runbooks/bootstrap.md#1-terraform-state-bucket)) |
 
@@ -164,8 +162,8 @@ Kubernetes workloads authenticate with GKE's Workload Identity Federation, and t
 ```mermaid
 flowchart LR
   subgraph k8s["Kubernetes ServiceAccounts (GKE Workload Identity)"]
-    PLAT["platform: external-secrets, cert-manager,<br/>grafana, docs, tests, octomaton, octomaton-logs,<br/>devhub-server, cobranch-server"]
-    TEN["CI tenants: docs-publisher, docs-reader,<br/>ci-tooling-publish, ci-octomaton-release,<br/>ci-octomaton-ci, ci-devhub-release, ci-devhub-preview,<br/>ci-cobranch-release, ci-cobranch-preview, ci-fin-release,<br/>ci-fin-preview, ci-fin-ci, ci-infra-plan, ci-infra-apply"]
+    PLAT["platform: external-secrets, cert-manager,<br/>grafana, docs, tests, octomaton, octomaton-logs,<br/>cobranch-server"]
+    TEN["CI tenants: docs-publisher, docs-reader,<br/>ci-tooling-publish, ci-octomaton-release,<br/>ci-octomaton-ci, ci-cobranch-release,<br/>ci-cobranch-preview, ci-fin-release, ci-fin-preview,<br/>ci-fin-ci, ci-infra-plan, ci-infra-apply"]
     FINP["Fin production: fin/api, fin/worker, fin/scraper"]
   end
   POOL["pool fin-pull-requests:<br/>pods in namespaces fin-pr-*"]
@@ -192,11 +190,9 @@ Every grant `iam.tf` makes:
 | `ci-octomaton/ci-octomaton-release` | `roles/storage.objectUser` | Bucket `arikkfir-octomaton-ci-cache` | Restores and saves `main`'s Go caches, from `main` |
 | `ci-octomaton/ci-octomaton-ci` | `roles/storage.objectViewer` | Bucket `arikkfir-octomaton-ci-cache` | Restores `main`'s or its pull request's Go caches, from any branch. They hold nothing secret |
 | `ci-octomaton/ci-octomaton-ci` | `roles/storage.objectUser`, on objects under `pull-requests/` only (IAM condition) | Bucket `arikkfir-octomaton-ci-cache` | Saves each pull request's Go caches, from any branch; it can't change `main`'s |
-| `ci-devhub/ci-devhub-release` | `roles/artifactregistry.writer` | Repository `devhub` | DevHub's images, from `main`; a version's image tags and chart, from `v*` tags |
 | `ci-cobranch/ci-cobranch-release` | `roles/artifactregistry.writer` | Repository `cobranch` | Cobranch's images, from `main`; a version's image tags and chart, from `v*` tags |
 | `ci-fin/ci-fin-release` | `roles/artifactregistry.writer` | Repository `images` | Fin's images, from `main` |
 | `ci-fin/ci-fin-release` | `roles/storage.objectUser` | Bucket `arikkfir-fin-ci-cache` | Saves Fin's CI cache, from `main` |
-| `ci-devhub/ci-devhub-preview` | `roles/artifactregistry.writer` | Repository `devhub-previews` | DevHub's pull requests' images, from any branch |
 | `ci-cobranch/ci-cobranch-preview` | `roles/artifactregistry.writer` | Repository `cobranch-previews` | Cobranch's pull requests' images, from any branch |
 | `ci-fin/ci-fin-preview` | `roles/artifactregistry.writer` | Repository `previews` | Fin's pull requests' images, from any branch |
 | `ci-fin/ci-fin-preview`, `ci-fin/ci-fin-ci` | `roles/storage.objectViewer` | Bucket `arikkfir-fin-ci-cache` | Restore Fin's CI cache, from any branch. It holds nothing secret |
@@ -214,18 +210,17 @@ Every grant `iam.tf` makes:
 | `fin/scraper` | `roles/storage.objectCreator` | Bucket `arikkfir-fin` | Writes its scrape videos, traces and raw statements, and can't read them back |
 | Pool `fin-pull-requests`, every identity in it | `roles/telemetry.tracesWriter`, `roles/telemetry.metricsWriter`, `roles/serviceusage.serviceUsageConsumer`, `roles/aiplatform.user` | Project | The same as production's, for every pull request's environment ([below](#pool-fin-pull-requests)) |
 | Pool `fin-pull-requests`, every identity in it | `roles/storage.objectUser` | Bucket `arikkfir-fin-pull-requests` | The environments' scrape artifacts, under each one's name |
-| `devhub/devhub-server` | `roles/storage.objectUser` | Bucket `arikkfir-devhub` | DevHub's demo installation: its REST and GraphQL servers keep their objects there |
-| `cobranch/cobranch-server` | `roles/storage.objectUser` | Bucket `arikkfir-cobranch` | Cobranch's demo installation, the same way |
+| `cobranch/cobranch-server` | `roles/storage.objectUser` | Bucket `arikkfir-cobranch` | Cobranch's demo installation: its REST and GraphQL servers keep their objects there |
 | `gke-hub-nodes@` | `roles/container.defaultNodeServiceAccount` | Project | Runs the nodes |
-| `gke-hub-nodes@` | `roles/artifactregistry.reader` | Repositories `images`, `previews`, `devhub-previews` and `cobranch-previews` | Pulls images (`octomaton`, `devhub` and `cobranch` need no grant: `allUsers` reads them) |
+| `gke-hub-nodes@` | `roles/artifactregistry.reader` | Repositories `images`, `previews` and `cobranch-previews` | Pulls images (`octomaton`, `devhub` and `cobranch` need no grant: `allUsers` reads them) |
 | `claude-code@` | `roles/viewer`, `roles/mcp.toolUser` | Project | Claude Code's cloud sessions look around the project and read the cluster through GKE's MCP server ([Claude Code cluster and docs access](../../tooling/designs/claude-code-cluster-access.md)) |
 | `claude-code@` | `roles/storage.objectViewer` | Bucket `arikkfir-docs` | The sessions read the docs site's pages from its layers |
 | `allUsers` | `roles/storage.legacyObjectReader` | Bucket `arikkfir-claude` | Anyone reads its objects by URL, without listing them |
 | `allUsers` | `roles/artifactregistry.reader` | Repository `octomaton` | Anyone pulls Octomaton's releases, the hub's nodes included |
-| `allUsers` | `roles/artifactregistry.reader` | Repository `devhub` | Anyone pulls DevHub's images, the hub's nodes included |
+| `allUsers` | `roles/artifactregistry.reader` | Repository `devhub` | Anyone pulls DevHub's 0.0.1 |
 | `allUsers` | `roles/artifactregistry.reader` | Repository `cobranch` | Anyone pulls Cobranch's images and chart, the hub's nodes included |
 
-`<repository>` is each repository with a CI tenant: `chrome-extensions`, `cobranch`, `delivery`, `devhub`, `docs`, `fin`, `infra`, `octomaton` and `tooling` (`local.docs_layers`). `gke-hub-nodes@` and `claude-code@` are the project's two Google service accounts (`<name>@arikkfir.iam.gserviceaccount.com`); `claude-code@` was made by hand, with its key, and is adopted here. "From `main`" means the ServiceAccount is annotated `octomaton.dev/branches: main`, and "from version tags" that it is annotated `octomaton.dev/tags: v*` too, so a run of a `v*` tag may use it as well. A CI tenant's own ServiceAccount, `pipeline`, holds no role: a pipeline that needs Google Cloud names one of its own, which `delivery` creates and, when it publishes, restricts to `main` (and, for Octomaton's, DevHub's and Cobranch's releases, to `v*` tags) ([Octomaton's tenancy and identity](../../octomaton/designs/phase-2-octomaton.md#tenancy-and-identity)).
+`<repository>` is each repository with a CI tenant: `chrome-extensions`, `cobranch`, `delivery`, `docs`, `fin`, `infra`, `octomaton` and `tooling` (`local.docs_layers`). `gke-hub-nodes@` and `claude-code@` are the project's two Google service accounts (`<name>@arikkfir.iam.gserviceaccount.com`); `claude-code@` was made by hand, with its key, and is adopted here. "From `main`" means the ServiceAccount is annotated `octomaton.dev/branches: main`, and "from version tags" that it is annotated `octomaton.dev/tags: v*` too, so a run of a `v*` tag may use it as well. A CI tenant's own ServiceAccount, `pipeline`, holds no role: a pipeline that needs Google Cloud names one of its own, which `delivery` creates and, when it publishes, restricts to `main` (and, for Octomaton's and Cobranch's releases, to `v*` tags) ([Octomaton's tenancy and identity](../../octomaton/designs/phase-2-octomaton.md#tenancy-and-identity)).
 
 ### Pool fin-pull-requests
 
@@ -252,10 +247,10 @@ This root manages no other pool: not GKE's own, `arikkfir.svc.id.goog`, nor `git
 
 | Gateway | Hosts (under `kfirs.com`) |
 | --- | --- |
-| `protected` (behind the hub's sign-in) | `argocd.dev`, `tekton.dev`, `grafana.dev`, `traefik.dev`, `nui.dev`, `docs.dev`, `tests.dev`, `devhub.dev`, `*.devhub.dev`, `cobranch.dev`, `*.cobranch.dev`, `admin.id`, `app.fin`, `*.app.dev.fin` |
+| `protected` (behind the hub's sign-in) | `argocd.dev`, `tekton.dev`, `grafana.dev`, `traefik.dev`, `nui.dev`, `docs.dev`, `tests.dev`, `cobranch.dev`, `*.cobranch.dev`, `admin.id`, `app.fin`, `*.app.dev.fin` |
 | `public` | `auth`, `id`, `legal`, `fin` |
 
-All records live 300 seconds. The zones are `prevent_destroy`, and the imported ones' attributes mirror the live zones, so importing them planned no change. Fin's pull requests' wildcard sits at `*.app.dev.fin`, beside its certificate's DNS-01 challenge records: a record at `_acme-challenge.app.dev.fin` would stop a wildcard higher up from answering for the names below `app.dev.fin`. DevHub's previews answer at `pr-<number>.devhub.dev`, beside the demo's `devhub.dev`; their challenge record, `_acme-challenge.devhub.dev`, is a sibling of those names and leaves the wildcard alone, and Cobranch's at `pr-<number>.cobranch.dev` beside `cobranch.dev`, the same way. These are hosts under `kfirs.com`, behind the hub's sign-in, whose cookie covers `kfirs.com` only; the domain `cobranch.dev` is the product's.
+All records live 300 seconds. The zones are `prevent_destroy`, and the imported ones' attributes mirror the live zones, so importing them planned no change. Fin's pull requests' wildcard sits at `*.app.dev.fin`, beside its certificate's DNS-01 challenge records: a record at `_acme-challenge.app.dev.fin` would stop a wildcard higher up from answering for the names below `app.dev.fin`. Cobranch's previews answer at `pr-<number>.cobranch.dev`, beside the demo's `cobranch.dev`; their challenge record, `_acme-challenge.cobranch.dev`, is a sibling of those names and leaves the wildcard alone. These are hosts under `kfirs.com`, behind the hub's sign-in, whose cookie covers `kfirs.com` only; the domain `cobranch.dev` is the product's.
 
 ## Outputs
 
@@ -277,14 +272,14 @@ All records live 300 seconds. The zones are `prevent_destroy`, and the imported 
 | L4 passthrough load balancers bound to reserved IPs | The IPs outlive the Services, so DNS never changes | Ephemeral IPs; GKE Ingress |
 | Grants at the narrowest scope: bucket, repository, secret, zone, with IAM conditions on prefixes | A compromised workload reaches only its own objects | Project-wide roles |
 | Imports adopt what existed (the zones, `claude-code@`) | Nothing is recreated, so no record or key is lost | Recreating them |
-| Octomaton's, DevHub's and Cobranch's images in public repositories of their own | Each is a product other installations run, and its images are its releases; `images` holds Fin's production images and the reviewer's, which stay private | Public read on `images`; a reader grant per installation |
+| Octomaton's and Cobranch's images in public repositories of their own | Each is a product other installations run, and its images are its releases; `images` holds Fin's production images and the reviewer's, which stay private | Public read on `images`; a reader grant per installation |
 | Monitoring collects system metrics only, plus Managed Prometheus | Workload metrics come through the Telemetry API, and the free tier covers system metrics | GKE's paid workload metrics |
 
 ## Security
 
 - Workloads hold no Google key: their tokens, and the nodes', come from the metadata server. The one key is `claude-code@`'s, made by hand, which the Claude Code environment holds.
 - Secret values live only in Secret Manager and in the Kubernetes Secrets External Secrets makes; Terraform never holds one, and its state holds no value.
-- A CI tenant's `pipeline` has no role, and every ServiceAccount that publishes what production runs or serves is restricted to `main` by Octomaton (`ci-octomaton-release` to `main` and `v*` tags; a `v*` tag takes only write access to push, so Octomaton's `tag` pipeline, read at `main`, refuses a tagged commit that is not on `main`). Five write from any branch, by design: `ci-fin-preview` to `previews`, which only pull requests' environments pull, `ci-devhub-preview` to `devhub-previews` and `ci-cobranch-preview` to `cobranch-previews`, which only DevHub's and Cobranch's previews pull, `ci-fin-ci` to `arikkfir-tests`, under `reports/fin/`, behind the hub's sign-in, and `ci-octomaton-ci` to `arikkfir-octomaton-ci-cache`, under `pull-requests/`, which only pull requests' runs restore.
+- A CI tenant's `pipeline` has no role, and every ServiceAccount that publishes what production runs or serves is restricted to `main` by Octomaton (`ci-octomaton-release` to `main` and `v*` tags; a `v*` tag takes only write access to push, so Octomaton's `tag` pipeline, read at `main`, refuses a tagged commit that is not on `main`). Four write from any branch, by design: `ci-fin-preview` to `previews`, which only pull requests' environments pull, `ci-cobranch-preview` to `cobranch-previews`, which only Cobranch's previews pull, `ci-fin-ci` to `arikkfir-tests`, under `reports/fin/`, behind the hub's sign-in, and `ci-octomaton-ci` to `arikkfir-octomaton-ci-cache`, under `pull-requests/`, which only pull requests' runs restore.
 - `ci-infra-apply` holds `roles/iam.securityAdmin` and could grant itself more; only merges to `main` run as it ([Terraform plan and apply](../designs/terraform-plan-apply.md)).
 - `claude-code@`, a project Viewer, reads every bucket's objects through Cloud Storage's convenience bindings, `arikkfir-fin`'s raw statements included.
 

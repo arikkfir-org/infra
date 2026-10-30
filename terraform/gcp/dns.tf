@@ -22,13 +22,9 @@ locals {
     "nui.dev"     = "protected"
     "docs.dev"    = "protected"
     "tests.dev"   = "protected"
-    "devhub.dev"  = "protected"
-    # DevHub's pull requests' previews (pr-<number>.devhub.dev), beside the demo. Their certificate's DNS-01 challenge
-    # record, _acme-challenge.devhub.dev, is a sibling of the names the wildcard answers for, which it leaves alone.
-    "*.devhub.dev" = "protected"
-    # Cobranch, DevHub's new name: its demo and its pull requests' previews (pr-<number>.cobranch.dev), the same way.
-    # These are hosts under kfirs.com, behind the hub's sign-in, not the cobranch.dev domain. DevHub's go once the demo
-    # moves (ENG-221).
+    # Cobranch's demo, and its pull requests' previews (pr-<number>.cobranch.dev) beside it: hosts under kfirs.com, behind
+    # the hub's sign-in, not the cobranch.dev domain. The previews' certificate's DNS-01 challenge record,
+    # _acme-challenge.cobranch.dev, is a sibling of the names the wildcard answers for, which it leaves alone.
     "cobranch.dev"   = "protected"
     "*.cobranch.dev" = "protected"
     auth             = "public"

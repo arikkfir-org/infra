@@ -39,7 +39,7 @@ output "octomaton_registry_url" {
 }
 
 output "devhub_registry_url" {
-  description = "DevHub's public Docker repository URL (<url>/<image>:<tag>)."
+  description = "DevHub's public Docker repository URL (<url>/<image>:<tag>), which keeps 0.0.1 as published."
   value       = google_artifact_registry_repository.devhub.registry_uri
 }
 
