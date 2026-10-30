@@ -21,7 +21,7 @@ flowchart LR
 | `rulesets.tf` | `github_repository_ruleset` `Default branch` per repository |
 | `labels.tf` | `github_issue_label` `skip-linear` per repository |
 | `teams.tf` | team `reviewers` (closed), its member `arikkfir-reviewer`, and `push` on every repository |
-| `imports.tf` | the nine repositories and the organization, which existed before |
+| `imports.tf` | the eight repositories made by hand and the organization, which existed before |
 
 State: prefix `github` in `arikkfir-devops`. The provider authenticates with `GITHUB_TOKEN`: the pipelines' fine-grained tokens ([GitHub tokens](../designs/terraform-plan-apply.md#github-tokens)), or, by hand, a token with the permissions the README lists.
 
