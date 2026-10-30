@@ -75,7 +75,8 @@ then `apply`, which shows the plan and asks before it changes anything.
    pipelines' own clients, `terraform-plan` and `terraform-apply`, and writes their secrets.
 5. `namecheap`, through the pipelines only, once root `gcp`'s zones and address `egress` exist, the owner has turned on
    Namecheap's API access, allow-listed `egress` and added the values of `infra-namecheap-api-user` and
-   `infra-namecheap-api-key`. Its first plan imports the domains.
+   `infra-namecheap-api-key`. Before its first plan, the owner runs `terraform -chdir=terraform/namecheap init` once,
+   which creates its empty state: `ci-infra-plan` can only read the state bucket. Its first plan imports the domains.
 
 After that, every merge to `main` applies `gcp`, `github`, `keycloak` and `namecheap` through Octomaton, and every pull
 request plans them ([Terraform plan and apply](docs/infra/designs/terraform-plan-apply.md)). By hand, with

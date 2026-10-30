@@ -101,6 +101,7 @@ No Kubernetes Secret holds them: Octomaton never lets a `push` pipeline mount on
 - Octomaton is the only workload that creates pods in `ci-infra` (RoleBinding `octomaton`), so it is the only path to `ci-infra-apply`. Cluster admins can always bypass it.
 - A merge applies its plan in full, deletions and replacements included. The pull request's `Continuous Integration` check lists them first: read it before merging.
 - An apply that fails part-way leaves what it applied; the next merge, or the owner, finishes. A refused run (wrong branch) fails the `Apply` check with the reason. Missing roles show up as a failed plan or apply, never as a wrong change, but a missing write permission plans green and fails partway through the apply (`CLAUDE.md`).
+- A root's first `init` writes its empty state, which `ci-infra-plan` can't: every plan of a root that only the pipelines apply fails until the owner runs `terraform -chdir=terraform/<root> init` once ([root namecheap](../terraform/namecheap.md#running-it-by-hand)).
 - With Keycloak down, every pull request's `Continuous Integration` fails on its `keycloak` task ([root keycloak](../terraform/keycloak.md#security-and-failure-modes)), and with Namecheap's API down, or address `egress` off its allow-list, on its `namecheap` task ([root namecheap](../terraform/namecheap.md#security-and-failure-modes)).
 
 ## History

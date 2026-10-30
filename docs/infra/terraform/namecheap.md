@@ -57,4 +57,4 @@ To add a domain registered at Namecheap, first add its zone to `local.dns_zones`
 
 ## Running it by hand
 
-Namecheap admits only address `egress`, so no workstation can plan or apply this root. While the pipelines can't run, set a domain's nameservers in Namecheap's dashboard to the four that root gcp's output for it prints (`octomaton_dev_name_servers`, `cobranch_dev_name_servers`, `cobranch_app_name_servers`), without their trailing dots. The next `Apply` finds them already set.
+Namecheap admits only address `egress`, so no workstation can plan or apply this root. One command runs by hand, once, before the first plan: `terraform -chdir=terraform/namecheap init`. It creates the root's empty state in `arikkfir-devops`, which `ci-infra-plan` can only read; without it, every plan fails on writing `namecheap/default.tflock`. While the pipelines can't run, set a domain's nameservers in Namecheap's dashboard to the four that root gcp's output for it prints (`octomaton_dev_name_servers`, `cobranch_dev_name_servers`, `cobranch_app_name_servers`), without their trailing dots. The next `Apply` finds them already set.

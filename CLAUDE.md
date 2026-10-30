@@ -69,7 +69,9 @@
 - Write comments only for intent that the code cannot show.
 - Add new roots to the loop in `.tekton/scripts/validate.sh` and to `ROOTS` in the `Makefile`. A root the pipelines
   plan and apply also gets a task in `.tekton/ci.yaml` and `.tekton/apply.yaml` and, if its providers take
-  credentials, a case in `.tekton/scripts/credentials.sh` and their environment in `.tekton/scripts/terraform.sh`.
+  credentials, a case in `.tekton/scripts/credentials.sh` and their environment in `.tekton/scripts/terraform.sh`. A
+  root nobody applies by hand needs its empty state created first (`terraform -chdir=terraform/<root> init`, by the
+  owner): `ci-infra-plan` only reads the state bucket, so its plans fail until then.
 
 ## How to
 
