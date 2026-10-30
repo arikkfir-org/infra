@@ -23,6 +23,11 @@ output "ingress_public_ip" {
   value       = google_compute_address.ingress["public"].address
 }
 
+output "egress_ip" {
+  description = "The one IP the hub's nodes and pods reach the internet from (Cloud NAT hub), for outside allow-lists."
+  value       = google_compute_address.egress.address
+}
+
 output "artifact_registry_url" {
   description = "Docker repository URL (<url>/<image>:<tag>)."
   value       = google_artifact_registry_repository.images.registry_uri

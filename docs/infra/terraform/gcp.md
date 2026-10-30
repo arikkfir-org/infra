@@ -1,6 +1,6 @@
 # Root gcp: the GCP project
 
-**Decision**: `terraform/gcp` builds everything the hub runs on in GCP project `arikkfir` (`me-west1`): the APIs, a private network with Cloud NAT and two ingress IPs, one zonal GKE cluster with three tainted node pools, five Docker repositories, the buckets, the Secret Manager containers, every IAM grant and the DNS zones and records. Workloads authenticate as their Kubernetes ServiceAccounts through Workload Identity, never with keys. Pipeline `apply` applies it on every merge to `main` ([Terraform plan and apply](../designs/terraform-plan-apply.md)). This page documents every name, range and grant it creates; other repositories link it rather than repeat them.
+**Decision**: `terraform/gcp` builds everything the hub runs on in GCP project `arikkfir` (`me-west1`): the APIs, a private network with Cloud NAT on one egress IP and two ingress IPs, one zonal GKE cluster with three tainted node pools, five Docker repositories, the buckets, the Secret Manager containers, every IAM grant and the DNS zones and records. Workloads authenticate as their Kubernetes ServiceAccounts through Workload Identity, never with keys. Pipeline `apply` applies it on every merge to `main` ([Terraform plan and apply](../designs/terraform-plan-apply.md)). This page documents every name, range and grant it creates; other repositories link it rather than repeat them.
 
 ## Topology
 
@@ -13,7 +13,7 @@ flowchart TB
         CI["pool ci<br/>e2-standard-8 Spot, 0-10"]
         FIN["pool fin<br/>e2-standard-4 on-demand, 0-10"]
       end
-      NAT["Cloud Router and NAT hub"]
+      NAT["Cloud Router and NAT hub<br/>egress IP egress"]
     end
     CP["Control plane<br/>DNS-based endpoint only"]
     LB["ingress-protected, ingress-public<br/>regional external IPs"]
@@ -35,7 +35,7 @@ flowchart TB
 | Area | File | Resources |
 | --- | --- | --- |
 | APIs | `apis.tf` | the services below, never disabled on destroy |
-| Network | `network.tf` | VPC `hub`, subnet `hub` with ranges `pods` and `services`, Cloud Router and NAT `hub`, addresses `ingress-protected` and `ingress-public` |
+| Network | `network.tf` | VPC `hub`, subnet `hub` with ranges `pods` and `services`, Cloud Router and NAT `hub`, addresses `egress`, `ingress-protected` and `ingress-public` |
 | GKE | `gke.tf` | cluster `hub`, node pools `system`, `ci` and `fin`, node service account `gke-hub-nodes@` |
 | Artifact Registry | `registry.tf` | Docker repositories `images`, `previews`, `octomaton`, `devhub` and `devhub-previews` |
 | Storage | `storage.tf` | eight buckets |
@@ -56,7 +56,8 @@ Project `arikkfir` is number `8909046976`, in GCP organization `468825984716`. S
 | --- | --- |
 | VPC `hub` | Custom subnets, regional routing |
 | Subnet `hub` | Nodes on `10.10.0.0/20`, with Private Google Access; secondary ranges `pods` (`10.20.0.0/16`) and `services` (`10.30.0.0/20`) for GKE's VPC-native networking |
-| Cloud Router and NAT `hub` | Egress for the private nodes and their pods, on auto-allocated IPs, logging errors only |
+| Cloud Router and NAT `hub` | Egress for the private nodes and their pods, from address `egress` only, logging errors only |
+| `egress` | Regional external IP (Premium tier), the NAT's only one: every node and pod reaches the internet from it, so an outside allow-list, such as Namecheap's API's, names the hub by it. One IP gives the NAT 64,512 ports, 64 per node, so it serves up to 1,008 nodes |
 | `ingress-protected`, `ingress-public` | Regional external IPs (Premium tier) that Traefik's two load balancers bind by name; the DNS records below point at them |
 
 **No firewall rules.** The cluster uses Private Service Connect: it has no `master_ipv4_cidr_block`, and GKE creates the `gke-hub-…-master` rule, which limits the control plane to TCP 443 and 10250, only for clusters that use VPC peering ([automatically created firewall rules](https://cloud.google.com/kubernetes-engine/docs/concepts/firewall-rules)). The API server reaches nodes and pods through Konnectivity: `konnectivity-agent` pods open connections to the control plane on TCP 8132, which default egress allows. Webhook calls, aggregated APIs such as KEDA's metrics server on 6443, and `logs`/`exec` traffic arrive from those pods' IPs, which GKE's own `gke-hub-…-all` rule allows on every port ([Konnectivity requirements](https://cloud.google.com/kubernetes-engine/docs/troubleshooting/kubectl)), so webhooks on 9443, 8443 or 10250 need no rule. NetworkPolicy still applies, since Dataplane V2 enforces it: a namespace with default-deny ingress must admit `kube-system` (konnectivity-agent) to its webhook and APIService ports. To confirm on a new cluster: `gcloud compute firewall-rules list --filter="name~^gke-hub-"` lists no `-master` rule, and `kubectl -n kube-system get deploy konnectivity-agent` finds the agent. If a `-master` rule appears, the cluster uses VPC peering: add an ingress rule from that rule's source range for the webhook ports.
@@ -247,7 +248,7 @@ All records live 300 seconds. The zones are `prevent_destroy`, and the imported 
 
 ## Outputs
 
-`cluster_name`, `cluster_location`, `cluster_dns_endpoint`, `ingress_protected_ip`, `ingress_public_ip`, `artifact_registry_url`, `octomaton_registry_url`, `devhub_registry_url`, `bucket_names`, `octomaton_dev_name_servers`, which the owner sets at `octomaton.dev`'s registrar ([bootstrap runbook](../runbooks/bootstrap.md)), and `cobranch_dev_name_servers` and `cobranch_app_name_servers`, set the same way at those domains' registrar.
+`cluster_name`, `cluster_location`, `cluster_dns_endpoint`, `egress_ip`, which the owner adds to the allow-list of a service that admits callers by IP, such as Namecheap's API, `ingress_protected_ip`, `ingress_public_ip`, `artifact_registry_url`, `octomaton_registry_url`, `devhub_registry_url`, `bucket_names`, `octomaton_dev_name_servers`, which the owner sets at `octomaton.dev`'s registrar ([bootstrap runbook](../runbooks/bootstrap.md)), and `cobranch_dev_name_servers` and `cobranch_app_name_servers`, set the same way at those domains' registrar.
 
 ## Decisions
 
@@ -261,6 +262,7 @@ All records live 300 seconds. The zones are `prevent_destroy`, and the imported 
 | Three tainted node pools | The hub's services, CI's bursts and Fin's end-to-end suites stop starving each other ([node pools](../designs/node-pools.md)) | One pool for everything |
 | Spot VMs for `ci` | CI is bursty and retryable, and Spot costs a fraction. From 1 to 12 October `ci` ran on-demand, after Spot capacity in the region ran out often enough to preempt most runs | On-demand CI nodes (the cost); CI on the system pool |
 | GKE's Gateway controller off, the CRDs from Argo CD | Traefik implements the Gateway API | GKE's controller |
+| One reserved egress IP | Namecheap's API admits only the IPs on its allow-list, and Google's auto-allocated NAT IPs change without notice | Auto-allocated NAT IPs; a proxy with an IP of its own |
 | L4 passthrough load balancers bound to reserved IPs | The IPs outlive the Services, so DNS never changes | Ephemeral IPs; GKE Ingress |
 | Grants at the narrowest scope: bucket, repository, secret, zone, with IAM conditions on prefixes | A compromised workload reaches only its own objects | Project-wide roles |
 | Imports adopt what existed (the zones, `claude-code@`) | Nothing is recreated, so no record or key is lost | Recreating them |
