@@ -1,0 +1,77 @@
+# The task of .tekton/apply.yaml for each root: plans it as ci-infra-apply and Keycloak's client terraform-apply,
+# summarizes the plan into the task's check and applies the saved plan (docs/infra/designs/terraform-plan-apply.md).
+# Octomaton inlines it, and the steps it references, into the PipelineRun.
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: apply
+spec:
+  params:
+    - name: repo-url
+      type: string
+    - name: revision
+      type: string
+    - name: root
+      type: string
+      description: The root to apply, terraform/<root>.
+  workspaces:
+    - name: source
+  results:
+    - name: check-title
+      type: string
+    - name: check-summary
+      type: string
+  volumes:
+    # The root's credentials, in memory, for this task's steps only.
+    - name: credentials
+      emptyDir:
+        medium: Memory
+    # Terraform's provider cache. init links .terraform/providers into it, so every step that runs terraform must see
+    # the same cache, not its own container's /tmp.
+    - name: terraform-plugins
+      emptyDir: {}
+  stepTemplate:
+    workingDir: $(workspaces.source.path)
+    env:
+      - name: ROOT
+        value: $(params.root)
+      - name: TF_IN_AUTOMATION
+        value: "true"
+      - name: TF_PLUGIN_CACHE_DIR
+        value: /tmp/terraform-plugins
+      - name: KEYCLOAK_CLIENT_ID
+        value: terraform-apply
+    volumeMounts:
+      - name: credentials
+        mountPath: /var/run/credentials
+      - name: terraform-plugins
+        mountPath: /tmp/terraform-plugins
+  # plan-summary.py sizes its results for a pod of at most 10 containers: three init containers and the steps.
+  steps:
+    - name: clone
+      ref: {name: clone}
+      params:
+        - name: repo-url
+          value: $(params.repo-url)
+        - name: revision
+          value: $(params.revision)
+    - name: credentials
+      ref: {name: credentials}
+      params:
+        - name: identity
+          value: apply
+    - name: plan
+      image: hashicorp/terraform:1.16.4
+      command: [sh, .tekton/scripts/terraform.sh, plan, -lock-timeout=10m]
+    - name: summary
+      ref: {name: summary}
+      params:
+        - name: root
+          value: $(params.root)
+        - name: title
+          value: $(results.check-title.path)
+        - name: summary
+          value: $(results.check-summary.path)
+    - name: apply
+      image: hashicorp/terraform:1.16.4
+      command: [sh, .tekton/scripts/terraform.sh, apply]

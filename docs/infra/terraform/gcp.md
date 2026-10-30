@@ -117,7 +117,7 @@ All in `ME-WEST1`, with uniform bucket-level access.
 | `arikkfir-fin-ci-cache` | prevented | 14 days | Fin's CI caches | `ci-fin-ci`, `ci-fin-preview` | `ci-fin-release`, from `main` |
 | `arikkfir-octomaton-ci-cache` | prevented | 14 days | Octomaton's Go caches: `main`'s, and each pull request's under `pull-requests/<number>/` | `ci-octomaton-ci`, `ci-octomaton-release` | `ci-octomaton-release`, `main`'s; `ci-octomaton-ci`, from any branch, under `pull-requests/` only |
 | `arikkfir-devhub` | prevented | never | The objects of DevHub's demo installation | `devhub/devhub-server` | `devhub/devhub-server` |
-| `arikkfir-devops` | prevented | never (versioned) | Terraform's state, a prefix per root: `gcp`, `github`, `argocd`, `keycloak` | `ci-infra-plan` | `ci-infra-apply`; made by hand, outside every root ([bootstrap runbook](../runbooks/bootstrap.md#1-terraform-state-bucket)) |
+| `arikkfir-devops` | prevented | never (versioned) | Terraform's state, a prefix per root: `gcp`, `github`, `argocd`, `keycloak`, `namecheap` | `ci-infra-plan` | `ci-infra-apply`; made by hand, outside every root ([bootstrap runbook](../runbooks/bootstrap.md#1-terraform-state-bucket)) |
 
 A bucket made with uniform access also gets Cloud Storage's convenience bindings, which let the project's Viewers read its objects; `claude-code@` is one ([Claude Code cluster and docs access](../../tooling/designs/claude-code-cluster-access.md)). The docs and tests sites: delivery's [docs and tests servers](../../delivery/designs/docs-and-tests-servers.md). Fin's buckets: Fin's [environments](../../fin/designs/environments.md).
 
@@ -236,9 +236,9 @@ This root manages no other pool: not GKE's own, `arikkfir.svc.id.goog`, nor `git
 | Zone | Domain | Records |
 | --- | --- | --- |
 | `kfirs-com` | `kfirs.com` | An A record per hub host, pointing at the IP of the gateway that serves it (below) |
-| `octomaton-dev` | `octomaton.dev` | The apex, on the public gateway: Octomaton's webhook and Go import page. Delegated to this zone at the domain's registrar |
-| `cobranch-dev` | `cobranch.dev` | None yet. Cobranch's open-source product, which anyone installs. Delegated to this zone at the domain's registrar |
-| `cobranch-app` | `cobranch.app` | None yet. Cobranch's hosted service. Delegated to this zone at the domain's registrar |
+| `octomaton-dev` | `octomaton.dev` | The apex, on the public gateway: Octomaton's webhook and Go import page. Delegated to this zone at Namecheap by [root namecheap](namecheap.md) |
+| `cobranch-dev` | `cobranch.dev` | None yet. Cobranch's open-source product, which anyone installs. Delegated to this zone at Namecheap by [root namecheap](namecheap.md) |
+| `cobranch-app` | `cobranch.app` | None yet. Cobranch's hosted service. Delegated to this zone at Namecheap by [root namecheap](namecheap.md) |
 | `kfirfamily-com` | `kfirfamily.com` | Unused; imported with `kfirs-com` |
 
 | Gateway | Hosts (under `kfirs.com`) |
@@ -250,7 +250,7 @@ All records live 300 seconds. The zones are `prevent_destroy`, and the imported 
 
 ## Outputs
 
-`cluster_name`, `cluster_location`, `cluster_dns_endpoint`, `egress_ip`, which the owner adds to the allow-list of a service that admits callers by IP, such as Namecheap's API, `ingress_protected_ip`, `ingress_public_ip`, `artifact_registry_url`, `octomaton_registry_url`, `devhub_registry_url`, `bucket_names`, `octomaton_dev_name_servers`, which the owner sets at `octomaton.dev`'s registrar ([bootstrap runbook](../runbooks/bootstrap.md)), and `cobranch_dev_name_servers` and `cobranch_app_name_servers`, set the same way at those domains' registrar.
+`cluster_name`, `cluster_location`, `cluster_dns_endpoint`, `egress_ip`, which the owner adds to the allow-list of a service that admits callers by IP, such as Namecheap's API ([root namecheap](namecheap.md#namecheaps-api)), `ingress_protected_ip`, `ingress_public_ip`, `artifact_registry_url`, `octomaton_registry_url`, `devhub_registry_url`, `bucket_names`, and `octomaton_dev_name_servers`, `cobranch_dev_name_servers` and `cobranch_app_name_servers`, the zones' name servers, which [root namecheap](namecheap.md) reads from the zones and sets at Namecheap.
 
 ## Decisions
 

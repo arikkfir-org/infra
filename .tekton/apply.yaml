@@ -1,7 +1,8 @@
-# Merges to main: plans gcp, github and keycloak as ci-infra-apply and Keycloak's client terraform-apply, and applies
-# each saved plan, in a task per root: gcp and github at once, keycloak after gcp, which creates the secrets keycloak
-# writes (docs/infra/designs/terraform-plan-apply.md). ci-infra-apply carries octomaton.dev/branches: main, so
-# Octomaton refuses to run this anywhere else.
+# Merges to main: plans gcp, github, keycloak and namecheap as ci-infra-apply and Keycloak's client terraform-apply,
+# and applies each saved plan, in a task per root (apply.task.yaml): gcp and github at once, then keycloak, which writes
+# secrets gcp creates, and namecheap, which reads the DNS zones gcp creates
+# (docs/infra/designs/terraform-plan-apply.md).
+# ci-infra-apply carries octomaton.dev/branches: main, so Octomaton refuses to run this anywhere else.
 # Octomaton sets spec.params (repo-url, revision) from .octomaton.yaml.
 apiVersion: tekton.dev/v1
 kind: PipelineRun
@@ -22,6 +23,8 @@ spec:
     - pipelineTaskName: github
       computeResources: *resources
     - pipelineTaskName: keycloak
+      computeResources: *resources
+    - pipelineTaskName: namecheap
       computeResources: *resources
   timeouts:
     pipeline: 1h
@@ -44,7 +47,8 @@ spec:
     results:
       - name: check-title
         value: >-
-          $(tasks.gcp.results.check-title); $(tasks.github.results.check-title); $(tasks.keycloak.results.check-title)
+          $(tasks.gcp.results.check-title); $(tasks.github.results.check-title);
+          $(tasks.keycloak.results.check-title); $(tasks.namecheap.results.check-title)
       - name: check-summary
         value: |-
           $(tasks.gcp.results.check-summary)
@@ -52,8 +56,9 @@ spec:
           $(tasks.github.results.check-summary)
 
           $(tasks.keycloak.results.check-summary)
+
+          $(tasks.namecheap.results.check-summary)
     tasks:
-      # One task per root, all with this taskSpec (the YAML anchor apply).
       - name: gcp
         params:
           - name: repo-url
@@ -65,106 +70,8 @@ spec:
         workspaces:
           - name: source
             workspace: source
-        taskSpec: &apply
-          params:
-            - name: repo-url
-              type: string
-            - name: revision
-              type: string
-            - name: root
-              type: string
-          workspaces:
-            - name: source
-          results:
-            - name: check-title
-              type: string
-            - name: check-summary
-              type: string
-          # The GitHub token and the Keycloak client secret, in memory, for this task's steps only.
-          volumes:
-            - name: credentials
-              emptyDir:
-                medium: Memory
-            # Terraform's provider cache. init links .terraform/providers into it, so every step that runs terraform
-            # must see the same cache, not its own container's /tmp.
-            - name: terraform-plugins
-              emptyDir: {}
-          stepTemplate:
-            workingDir: $(workspaces.source.path)
-            env:
-              - name: ROOT
-                value: $(params.root)
-              - name: TF_IN_AUTOMATION
-                value: "true"
-              - name: TF_PLUGIN_CACHE_DIR
-                value: /tmp/terraform-plugins
-            volumeMounts:
-              - name: credentials
-                mountPath: /var/run/credentials
-              - name: terraform-plugins
-                mountPath: /tmp/terraform-plugins
-          # plan-summary.py sizes its results for a pod of at most 10 containers: three init containers and the steps.
-          steps:
-            - name: clone
-              image: alpine/git:2.54.0
-              env:
-                - name: REPO_URL
-                  value: $(params.repo-url)
-                - name: REVISION
-                  value: $(params.revision)
-              script: |
-                #!/bin/sh
-                set -eu
-                git init --quiet .
-                git remote add origin "$REPO_URL"
-                git fetch --quiet --depth=1 origin "$REVISION"
-                git checkout --quiet FETCH_HEAD
-            - name: token
-              image: gcr.io/google.com/cloudsdktool/google-cloud-cli:587.0.0-slim
-              script: |
-                #!/bin/sh
-                set -eu
-                umask 077
-                gcloud secrets versions access latest --secret=infra-apply-github-pat --project=arikkfir \
-                  > /var/run/credentials/github-token
-                gcloud secrets versions access latest --secret=infra-apply-keycloak-secret --project=arikkfir \
-                  > /var/run/credentials/keycloak-secret
-            - name: plan
-              image: hashicorp/terraform:1.16.4
-              env:
-                - name: KEYCLOAK_CLIENT_ID
-                  value: terraform-apply
-              script: |
-                #!/bin/sh
-                set -eu
-                mkdir -p "$TF_PLUGIN_CACHE_DIR"
-                GITHUB_TOKEN="$(cat /var/run/credentials/github-token)"
-                KEYCLOAK_CLIENT_SECRET="$(cat /var/run/credentials/keycloak-secret)"
-                export GITHUB_TOKEN KEYCLOAK_CLIENT_SECRET
-                terraform -chdir="terraform/${ROOT}" init -input=false
-                terraform -chdir="terraform/${ROOT}" plan -input=false -lock-timeout=10m -out="${ROOT}.tfplan"
-                terraform -chdir="terraform/${ROOT}" show -json "${ROOT}.tfplan" > "${ROOT}.plan.json"
-            - name: summary
-              image: gcr.io/google.com/cloudsdktool/google-cloud-cli:587.0.0-slim
-              script: |
-                #!/bin/sh
-                set -eu
-                python3 .tekton/plan-summary.py --title "$(results.check-title.path)" \
-                  --summary "$(results.check-summary.path)" "${ROOT}=${ROOT}.plan.json"
-            # A saved plan applies only if the state hasn't changed since it was made.
-            - name: apply
-              image: hashicorp/terraform:1.16.4
-              env:
-                - name: KEYCLOAK_CLIENT_ID
-                  value: terraform-apply
-              script: |
-                #!/bin/sh
-                set -eu
-                mkdir -p "$TF_PLUGIN_CACHE_DIR"
-                GITHUB_TOKEN="$(cat /var/run/credentials/github-token)"
-                KEYCLOAK_CLIENT_SECRET="$(cat /var/run/credentials/keycloak-secret)"
-                export GITHUB_TOKEN KEYCLOAK_CLIENT_SECRET
-                terraform -chdir="terraform/${ROOT}" apply -input=false -lock-timeout=10m "${ROOT}.tfplan"
+        taskRef:
+          name: apply # .tekton/apply.task.yaml
       - name: github
         params:
           - name: repo-url
@@ -176,7 +83,8 @@ spec:
         workspaces:
           - name: source
             workspace: source
-        taskSpec: *apply
+        taskRef:
+          name: apply # .tekton/apply.task.yaml
       - name: keycloak
         runAfter:
           - gcp
@@ -190,4 +98,20 @@ spec:
         workspaces:
           - name: source
             workspace: source
-        taskSpec: *apply
+        taskRef:
+          name: apply # .tekton/apply.task.yaml
+      - name: namecheap
+        runAfter:
+          - gcp
+        params:
+          - name: repo-url
+            value: $(params.repo-url)
+          - name: revision
+            value: $(params.revision)
+          - name: root
+            value: namecheap
+        workspaces:
+          - name: source
+            workspace: source
+        taskRef:
+          name: apply # .tekton/apply.task.yaml

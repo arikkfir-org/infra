@@ -1,0 +1,38 @@
+# Task check of .tekton/ci.yaml: the unit tests of plan-summary.py, terraform fmt, and init -backend=false and validate
+# in every root (scripts/validate.sh). Octomaton inlines it, and the steps it references, into the PipelineRun.
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: check
+spec:
+  params:
+    - name: repo-url
+      type: string
+    - name: revision
+      type: string
+  workspaces:
+    - name: source
+  stepTemplate:
+    workingDir: $(workspaces.source.path)
+  steps:
+    - name: clone
+      ref: {name: clone}
+      params:
+        - name: repo-url
+          value: $(params.repo-url)
+        - name: revision
+          value: $(params.revision)
+    - name: test
+      image: gcr.io/google.com/cloudsdktool/google-cloud-cli:587.0.0-slim
+      command: [python3, -m, unittest, discover, -s, tests]
+    - name: fmt
+      image: hashicorp/terraform:1.16.4
+      command: [terraform, fmt, -check, -recursive, -diff]
+    - name: validate
+      image: hashicorp/terraform:1.16.4
+      env:
+        - name: TF_IN_AUTOMATION
+          value: "true"
+        - name: TF_PLUGIN_CACHE_DIR
+          value: /tmp/terraform-plugins
+      command: [sh, .tekton/scripts/validate.sh]

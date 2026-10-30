@@ -136,13 +136,13 @@ class SummaryTest(unittest.TestCase):
         self.assertLessEqual(plan_summary.encoded_size(title), plan_summary.TITLE_LIMIT)
 
     def test_run_title_fits_github(self):
-        """The pipelines join the three roots' titles with "; " into the run's check title, which GitHub refuses
+        """The pipelines join the four roots' titles with "; " into the run's check title, which GitHub refuses
         beyond 255 characters."""
         kinds = [("create",), ("delete",), ("update",), ("delete", "create")]
         plan = [change(f"a.{i}-{j}", *actions) for i in range(100) for j, actions in enumerate(kinds)]
         plan += [change(f"b.{i}", "no-op", importing=True) for i in range(100)]
         plan += [change(f"c.{i}", "update", importing=True) for i in range(100)]
-        titles = [run((root, plan))[0] for root in ("gcp", "github", "keycloak")]
+        titles = [run((root, plan))[0] for root in ("gcp", "github", "keycloak", "namecheap")]
         self.assertLessEqual(len("; ".join(titles)), 255)
 
 
