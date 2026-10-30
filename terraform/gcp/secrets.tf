@@ -32,6 +32,7 @@ resource "google_secret_manager_secret" "this" {
     "keycloak-bootstrap-admin",
     "keycloak-google-client-secret",
     "keycloak-hub-client-secret",
+    "keycloak-cobranch-client-secret",
     "infra-plan-github-pat",
     "infra-apply-github-pat",
     "infra-plan-keycloak-secret",
