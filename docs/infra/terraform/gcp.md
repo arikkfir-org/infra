@@ -1,6 +1,6 @@
 # Root gcp: the GCP project
 
-**Decision**: `terraform/gcp` builds everything the hub runs on in GCP project `arikkfir` (`me-west1`): the APIs, a private network with Cloud NAT and two ingress IPs, one zonal GKE cluster with three tainted node pools, five Docker repositories, the buckets, the Secret Manager containers, every IAM grant and the DNS zones and records. Workloads authenticate as their Kubernetes ServiceAccounts through Workload Identity, never with keys. Pipeline `apply` applies it on every merge to `main` ([Terraform plan and apply](../designs/terraform-plan-apply.md)). This page documents every name, range and grant it creates; other repositories link it rather than repeat them.
+**Decision**: `terraform/gcp` builds everything the hub runs on in GCP project `arikkfir` (`me-west1`): the APIs, a private network with Cloud NAT and two ingress IPs, one zonal GKE cluster with three tainted node pools, seven Docker repositories, the buckets, the Secret Manager containers, every IAM grant and the DNS zones and records. Workloads authenticate as their Kubernetes ServiceAccounts through Workload Identity, never with keys. Pipeline `apply` applies it on every merge to `main` ([Terraform plan and apply](../designs/terraform-plan-apply.md)). This page documents every name, range and grant it creates; other repositories link it rather than repeat them.
 
 ## Topology
 
@@ -38,7 +38,7 @@ flowchart TB
 | Network | `network.tf` | VPC `hub`, subnet `hub` with ranges `pods` and `services`, Cloud Router and NAT `hub`, addresses `ingress-protected` and `ingress-public` |
 | GKE | `gke.tf` | cluster `hub`, node pools `system`, `ci` and `fin`, node service account `gke-hub-nodes@` |
 | Artifact Registry | `registry.tf` | Docker repositories `images`, `previews`, `octomaton`, `devhub`, `devhub-previews`, `cobranch` and `cobranch-previews` |
-| Storage | `storage.tf` | eight buckets |
+| Storage | `storage.tf` | nine buckets |
 | Secret Manager | `secrets.tf` | twenty secret containers |
 | IAM | `iam.tf` | grants to Kubernetes principals and two Google service accounts, pool `fin-pull-requests` and its provider, service account `claude-code@` |
 | DNS | `dns.tf` | zones `kfirs-com`, `kfirfamily-com`, `octomaton-dev`, `cobranch-dev` and `cobranch-app`, the hub's hosts, `octomaton.dev` and `cobranch.dev` |
@@ -102,7 +102,7 @@ All three run as `gke-hub-nodes@`, a Google service account with `roles/containe
 | `me-west1-docker.pkg.dev/arikkfir/cobranch` | Cobranch's releases, DevHub's under its new name: images `cobranch` and `cobranch-console`, and Helm chart `charts/cobranch`, as `devhub` holds DevHub's | `ci-cobranch-release`, from `main` and `v*` tags only | Untagged versions after 14 days, except each image's 20 newest |
 | `me-west1-docker.pkg.dev/arikkfir/cobranch-previews` | Cobranch's pull requests' images, `cobranch` and `cobranch-console` of each pushed head commit, tagged with its short SHA | `ci-cobranch-preview`, from any branch | Every version after 14 days, except each image's 20 newest |
 
-The nodes read `images`, `previews` and `devhub-previews`; `octomaton` and `devhub` are public, so every installation of Octomaton or DevHub, the hub's included, pulls them as anyone. Production never pulls from `previews`, so a pull request's code can't replace what production runs. DevHub's pull requests push to `devhub-previews`, not `previews`: `devhub` is public and its pull requests' CI runs Dependabot's dependency code, which must not be able to replace Fin's preview images, nor `devhub`'s `main` and release tags. Only DevHub's previews pull from it.
+The nodes read `images`, `previews`, `devhub-previews` and `cobranch-previews`; `octomaton`, `devhub` and `cobranch` are public, so every installation of Octomaton, DevHub or Cobranch, the hub's included, pulls them as anyone. Production never pulls from `previews`, so a pull request's code can't replace what production runs. DevHub's pull requests push to `devhub-previews`, and Cobranch's to `cobranch-previews`, not `previews`: the repository is public and its pull requests' CI runs Dependabot's dependency code, which must not be able to replace Fin's preview images, nor the release repository's `main` and release tags. Only its previews pull from each.
 
 DevHub is being renamed Cobranch (ENG-221). Its `cobranch` repositories, bucket, hosts and grants stand beside DevHub's until the hub's demo and previews move to them; then DevHub's go, except repository `devhub`, which keeps DevHub's 0.0.1 as published.
 
