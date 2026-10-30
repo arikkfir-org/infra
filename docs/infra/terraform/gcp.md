@@ -1,6 +1,6 @@
 # Root gcp: the GCP project
 
-**Decision**: `terraform/gcp` builds everything the hub runs on in GCP project `arikkfir` (`me-west1`): the APIs, a private network with Cloud NAT and two ingress IPs, one zonal GKE cluster with three tainted node pools, seven Docker repositories, the buckets, the Secret Manager containers, every IAM grant and the DNS zones and records. Workloads authenticate as their Kubernetes ServiceAccounts through Workload Identity, never with keys. Pipeline `apply` applies it on every merge to `main` ([Terraform plan and apply](../designs/terraform-plan-apply.md)). This page documents every name, range and grant it creates; other repositories link it rather than repeat them.
+**Decision**: `terraform/gcp` builds everything the hub runs on in GCP project `arikkfir` (`me-west1`): the APIs, a private network with Cloud NAT on one egress IP and two ingress IPs, one zonal GKE cluster with three tainted node pools, seven Docker repositories, the buckets, the Secret Manager containers, every IAM grant and the DNS zones and records. Workloads authenticate as their Kubernetes ServiceAccounts through Workload Identity, never with keys. Pipeline `apply` applies it on every merge to `main` ([Terraform plan and apply](../designs/terraform-plan-apply.md)). This page documents every name, range and grant it creates; other repositories link it rather than repeat them.
 
 ## Topology
 
@@ -13,7 +13,7 @@ flowchart TB
         CI["pool ci<br/>e2-standard-8 Spot, 0-10"]
         FIN["pool fin<br/>e2-standard-4 on-demand, 0-10"]
       end
-      NAT["Cloud Router and NAT hub"]
+      NAT["Cloud Router and NAT hub<br/>egress IP egress"]
     end
     CP["Control plane<br/>DNS-based endpoint only"]
     LB["ingress-protected, ingress-public<br/>regional external IPs"]
@@ -35,11 +35,11 @@ flowchart TB
 | Area | File | Resources |
 | --- | --- | --- |
 | APIs | `apis.tf` | the services below, never disabled on destroy |
-| Network | `network.tf` | VPC `hub`, subnet `hub` with ranges `pods` and `services`, Cloud Router and NAT `hub`, addresses `ingress-protected` and `ingress-public` |
+| Network | `network.tf` | VPC `hub`, subnet `hub` with ranges `pods` and `services`, Cloud Router and NAT `hub`, addresses `egress`, `ingress-protected` and `ingress-public` |
 | GKE | `gke.tf` | cluster `hub`, node pools `system`, `ci` and `fin`, node service account `gke-hub-nodes@` |
 | Artifact Registry | `registry.tf` | Docker repositories `images`, `previews`, `octomaton`, `devhub`, `devhub-previews`, `cobranch` and `cobranch-previews` |
 | Storage | `storage.tf` | nine buckets |
-| Secret Manager | `secrets.tf` | twenty secret containers |
+| Secret Manager | `secrets.tf` | twenty-two secret containers |
 | IAM | `iam.tf` | grants to Kubernetes principals and two Google service accounts, pool `fin-pull-requests` and its provider, service account `claude-code@` |
 | DNS | `dns.tf` | zones `kfirs-com`, `kfirfamily-com`, `octomaton-dev`, `cobranch-dev` and `cobranch-app`, the hub's hosts, `octomaton.dev` and `cobranch.dev` |
 | Adopted | `imports.tf` | zones `kfirs-com` and `kfirfamily-com`, service account `claude-code@` and its viewer role, all made by hand first |
@@ -56,7 +56,8 @@ Project `arikkfir` is number `8909046976`, in GCP organization `468825984716`. S
 | --- | --- |
 | VPC `hub` | Custom subnets, regional routing |
 | Subnet `hub` | Nodes on `10.10.0.0/20`, with Private Google Access; secondary ranges `pods` (`10.20.0.0/16`) and `services` (`10.30.0.0/20`) for GKE's VPC-native networking |
-| Cloud Router and NAT `hub` | Egress for the private nodes and their pods, on auto-allocated IPs, logging errors only |
+| Cloud Router and NAT `hub` | Egress for the private nodes and their pods, from address `egress` only, logging errors only |
+| `egress` | Regional external IP (Premium tier), the NAT's only one: every node and pod reaches the internet from it, so an outside allow-list, such as Namecheap's API's, names the hub by it. One IP gives the NAT 64,512 ports, 64 per node, so it serves up to 1,008 nodes |
 | `ingress-protected`, `ingress-public` | Regional external IPs (Premium tier) that Traefik's two load balancers bind by name; the DNS records below point at them |
 
 **No firewall rules.** The cluster uses Private Service Connect: it has no `master_ipv4_cidr_block`, and GKE creates the `gke-hub-…-master` rule, which limits the control plane to TCP 443 and 10250, only for clusters that use VPC peering ([automatically created firewall rules](https://cloud.google.com/kubernetes-engine/docs/concepts/firewall-rules)). The API server reaches nodes and pods through Konnectivity: `konnectivity-agent` pods open connections to the control plane on TCP 8132, which default egress allows. Webhook calls, aggregated APIs such as KEDA's metrics server on 6443, and `logs`/`exec` traffic arrive from those pods' IPs, which GKE's own `gke-hub-…-all` rule allows on every port ([Konnectivity requirements](https://cloud.google.com/kubernetes-engine/docs/troubleshooting/kubectl)), so webhooks on 9443, 8443 or 10250 need no rule. NetworkPolicy still applies, since Dataplane V2 enforces it: a namespace with default-deny ingress must admit `kube-system` (konnectivity-agent) to its webhook and APIService ports. To confirm on a new cluster: `gcloud compute firewall-rules list --filter="name~^gke-hub-"` lists no `-master` rule, and `kubectl -n kube-system get deploy konnectivity-agent` finds the agent. If a `-master` rule appears, the cluster uses VPC peering: add an ingress rule from that rule's source range for the webhook ports.
@@ -121,13 +122,13 @@ All in `ME-WEST1`, with uniform bucket-level access.
 | `arikkfir-octomaton-ci-cache` | prevented | 14 days | Octomaton's Go caches: `main`'s, and each pull request's under `pull-requests/<number>/` | `ci-octomaton-ci`, `ci-octomaton-release` | `ci-octomaton-release`, `main`'s; `ci-octomaton-ci`, from any branch, under `pull-requests/` only |
 | `arikkfir-devhub` | prevented | never | The objects of DevHub's demo installation | `devhub/devhub-server` | `devhub/devhub-server` |
 | `arikkfir-cobranch` | prevented | never | The objects of Cobranch's demo installation | `cobranch/cobranch-server` | `cobranch/cobranch-server` |
-| `arikkfir-devops` | prevented | never (versioned) | Terraform's state, a prefix per root: `gcp`, `github`, `argocd`, `keycloak` | `ci-infra-plan` | `ci-infra-apply`; made by hand, outside every root ([bootstrap runbook](../runbooks/bootstrap.md#1-terraform-state-bucket)) |
+| `arikkfir-devops` | prevented | never (versioned) | Terraform's state, a prefix per root: `gcp`, `github`, `argocd`, `keycloak`, `namecheap` | `ci-infra-plan` | `ci-infra-apply`; made by hand, outside every root ([bootstrap runbook](../runbooks/bootstrap.md#1-terraform-state-bucket)) |
 
 A bucket made with uniform access also gets Cloud Storage's convenience bindings, which let the project's Viewers read its objects; `claude-code@` is one ([Claude Code cluster and docs access](../../tooling/designs/claude-code-cluster-access.md)). The docs and tests sites: delivery's [docs and tests servers](../../delivery/designs/docs-and-tests-servers.md). Fin's buckets: Fin's [environments](../../fin/designs/environments.md).
 
 ## Secret Manager
 
-`terraform/gcp` creates the containers only. The owner adds values with `gcloud secrets versions add <name> --data-file=-` ([bootstrap runbook](../runbooks/bootstrap.md#5-secret-values)), except the four Keycloak client secrets that [root keycloak](keycloak.md#generated-secrets) generates and writes. External Secrets Operator (`external-secrets/external-secrets`) syncs every secret but the five pipeline secrets into the Kubernetes Secret named below, which the repository named with it declares.
+`terraform/gcp` creates the containers only. The owner adds values with `gcloud secrets versions add <name> --data-file=-` ([bootstrap runbook](../runbooks/bootstrap.md#5-secret-values)), except the four Keycloak client secrets that [root keycloak](keycloak.md#generated-secrets) generates and writes. External Secrets Operator (`external-secrets/external-secrets`) syncs every secret but the seven pipeline secrets into the Kubernetes Secret named below, which the repository named with it declares.
 
 | Secret | Content | Value set by | Read by |
 | --- | --- | --- | --- |
@@ -150,9 +151,11 @@ A bucket made with uniform access also gets Cloud Storage's convenience bindings
 | `infra-apply-github-pat` | The applies' GitHub token | the owner | `ci-infra-apply`, at run time, through `roles/secretmanager.admin` |
 | `infra-plan-keycloak-secret` | Secret of Keycloak client `terraform-plan` | root keycloak | `ci-infra-plan`, at run time |
 | `infra-apply-keycloak-secret` | Secret of Keycloak client `terraform-apply` | root keycloak | `ci-infra-apply`, at run time, through `roles/secretmanager.admin` |
+| `infra-namecheap-api-user` | The Namecheap account's user name, which its API takes as both `ApiUser` and `UserName` | the owner | `ci-infra-plan`, at run time, and `ci-infra-apply`, through `roles/secretmanager.admin` |
+| `infra-namecheap-api-key` | The Namecheap account's API key, which Namecheap accepts only from the IPs on the account's allow-list, here address `egress` ([network](#network)). It has no read-only kind, so it can change or transfer every domain of the account | the owner | the same |
 | `ci-fin-e2e-keycloak-secret` | Secret of Keycloak client `fin-e2e` | root keycloak | `ci-fin/ci-fin-ci`, at run time ([test users](../designs/test-users.md)) |
 
-The five pipeline secrets never pass through External Secrets, so no Kubernetes Secret holds them: Octomaton lets no `push` pipeline mount one, and a pull request's pipeline can't name one at all.
+The seven pipeline secrets never pass through External Secrets, so no Kubernetes Secret holds them: Octomaton lets no `push` pipeline mount one, and a pull request's pipeline can't name one at all.
 
 ## IAM
 
@@ -174,7 +177,7 @@ Every grant `iam.tf` makes:
 
 | Principal | Roles | Scope | For |
 | --- | --- | --- | --- |
-| `external-secrets/external-secrets` | `roles/secretmanager.secretAccessor` | Each secret but the five pipeline secrets | Syncs them into Kubernetes Secrets ([Secret Manager](#secret-manager)) |
+| `external-secrets/external-secrets` | `roles/secretmanager.secretAccessor` | Each secret but the seven pipeline secrets | Syncs them into Kubernetes Secrets ([Secret Manager](#secret-manager)) |
 | `cert-manager/cert-manager` | `roles/dns.admin` | Zones `kfirs-com`, `octomaton-dev` and `cobranch-dev` | Let's Encrypt's DNS-01 challenges. Zone-scoped, so its solvers must name their zone |
 | `grafana/grafana` | `roles/monitoring.viewer` | Project | Reads Cloud Monitoring |
 | `docs/docs` | `roles/storage.objectViewer` | Bucket `arikkfir-docs` | The docs site serves it |
@@ -202,7 +205,7 @@ Every grant `iam.tf` makes:
 | `ci-infra/ci-infra-plan` | `roles/iam.securityReviewer`, `roles/serviceusage.serviceUsageViewer`, `roles/compute.networkViewer`, `roles/container.clusterViewer`, `roles/artifactregistry.reader`, `roles/secretmanager.viewer`, `roles/dns.reader`, `roles/iam.serviceAccountViewer`, `roles/iam.workloadIdentityPoolViewer` | Project | Plans: reads everything this root manages, every IAM policy included ([identities](../designs/terraform-plan-apply.md#identities)) |
 | `ci-infra/ci-infra-plan` | `roles/storage.legacyBucketReader` | Each bucket this root manages | Reads their settings |
 | `ci-infra/ci-infra-plan` | `roles/storage.objectViewer` | Bucket `arikkfir-devops` | Reads Terraform's state, without the lock |
-| `ci-infra/ci-infra-plan` | `roles/secretmanager.secretAccessor` | Secrets `infra-plan-github-pat` and `infra-plan-keycloak-secret` | Its GitHub token and Keycloak credential, at run time |
+| `ci-infra/ci-infra-plan` | `roles/secretmanager.secretAccessor` | Secrets `infra-plan-github-pat`, `infra-plan-keycloak-secret`, `infra-namecheap-api-user` and `infra-namecheap-api-key` | Its GitHub token and Keycloak credential, and the Namecheap API user and key that applies use too, at run time |
 | `ci-infra/ci-infra-apply` | `roles/serviceusage.serviceUsageAdmin`, `roles/compute.networkAdmin`, `roles/container.admin`, `roles/artifactregistry.admin`, `roles/storage.admin`, `roles/secretmanager.admin`, `roles/dns.admin`, `roles/iam.serviceAccountAdmin`, `roles/iam.securityAdmin`, `roles/iam.workloadIdentityPoolAdmin` | Project | Applies, from `main`: an admin role per resource type, and the project's and DNS zones' IAM policies ([identities](../designs/terraform-plan-apply.md#identities)) |
 | `ci-infra/ci-infra-apply` | `roles/iam.serviceAccountUser` | Service account `gke-hub-nodes@` | Creates node pools that run as it |
 | `fin/api`, `fin/worker`, `fin/scraper` | `roles/telemetry.tracesWriter`, `roles/telemetry.metricsWriter`, `roles/serviceusage.serviceUsageConsumer` | Project | Traces and metrics |
@@ -242,9 +245,9 @@ This root manages no other pool: not GKE's own, `arikkfir.svc.id.goog`, nor `git
 | Zone | Domain | Records |
 | --- | --- | --- |
 | `kfirs-com` | `kfirs.com` | An A record per hub host, pointing at the IP of the gateway that serves it (below) |
-| `octomaton-dev` | `octomaton.dev` | The apex, on the public gateway: Octomaton's webhook and Go import page. Delegated to this zone at the domain's registrar |
-| `cobranch-dev` | `cobranch.dev` | The apex, on the public gateway: Cobranch's Go import page (`cobranch.dev` is its module path). Cobranch's open-source product, which anyone installs. Delegated to this zone at the domain's registrar |
-| `cobranch-app` | `cobranch.app` | None yet. Cobranch's hosted service. Delegated to this zone at the domain's registrar |
+| `octomaton-dev` | `octomaton.dev` | The apex, on the public gateway: Octomaton's webhook and Go import page. Delegated to this zone at Namecheap by [root namecheap](namecheap.md) |
+| `cobranch-dev` | `cobranch.dev` | The apex, on the public gateway: Cobranch's Go import page (`cobranch.dev` is its module path). Cobranch's open-source product, which anyone installs. Delegated to this zone at Namecheap by [root namecheap](namecheap.md) |
+| `cobranch-app` | `cobranch.app` | None yet. Cobranch's hosted service. Delegated to this zone at Namecheap by [root namecheap](namecheap.md) |
 | `kfirfamily-com` | `kfirfamily.com` | Unused; imported with `kfirs-com` |
 
 | Gateway | Hosts (under `kfirs.com`) |
@@ -256,7 +259,7 @@ All records live 300 seconds. The zones are `prevent_destroy`, and the imported 
 
 ## Outputs
 
-`cluster_name`, `cluster_location`, `cluster_dns_endpoint`, `ingress_protected_ip`, `ingress_public_ip`, `artifact_registry_url`, `octomaton_registry_url`, `devhub_registry_url`, `cobranch_registry_url`, `bucket_names`, `octomaton_dev_name_servers`, which the owner sets at `octomaton.dev`'s registrar ([bootstrap runbook](../runbooks/bootstrap.md)), and `cobranch_dev_name_servers` and `cobranch_app_name_servers`, set the same way at those domains' registrar.
+`cluster_name`, `cluster_location`, `cluster_dns_endpoint`, `egress_ip`, which the owner adds to the allow-list of a service that admits callers by IP, such as Namecheap's API ([root namecheap](namecheap.md#namecheaps-api)), `ingress_protected_ip`, `ingress_public_ip`, `artifact_registry_url`, `octomaton_registry_url`, `devhub_registry_url`, `cobranch_registry_url`, `bucket_names`, and `octomaton_dev_name_servers`, `cobranch_dev_name_servers` and `cobranch_app_name_servers`, the zones' name servers, which [root namecheap](namecheap.md) reads from the zones and sets at Namecheap.
 
 ## Decisions
 
@@ -270,6 +273,7 @@ All records live 300 seconds. The zones are `prevent_destroy`, and the imported 
 | Three tainted node pools | The hub's services, CI's bursts and Fin's end-to-end suites stop starving each other ([node pools](../designs/node-pools.md)) | One pool for everything |
 | Spot VMs for `ci` | CI is bursty and retryable, and Spot costs a fraction. From 1 to 12 October `ci` ran on-demand, after Spot capacity in the region ran out often enough to preempt most runs | On-demand CI nodes (the cost); CI on the system pool |
 | GKE's Gateway controller off, the CRDs from Argo CD | Traefik implements the Gateway API | GKE's controller |
+| One reserved egress IP | Namecheap's API admits only the IPs on its allow-list, and Google's auto-allocated NAT IPs change without notice | Auto-allocated NAT IPs; a proxy with an IP of its own |
 | L4 passthrough load balancers bound to reserved IPs | The IPs outlive the Services, so DNS never changes | Ephemeral IPs; GKE Ingress |
 | Grants at the narrowest scope: bucket, repository, secret, zone, with IAM conditions on prefixes | A compromised workload reaches only its own objects | Project-wide roles |
 | Imports adopt what existed (the zones, `claude-code@`) | Nothing is recreated, so no record or key is lost | Recreating them |

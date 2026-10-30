@@ -1,11 +1,13 @@
 locals {
-  # infra's GitHub tokens and Keycloak credentials, and Fin's end-to-end Keycloak credential: only their pipelines read
-  # them, so no Kubernetes Secret ever holds them (see iam.tf).
+  # infra's GitHub tokens, Keycloak credentials and Namecheap API user and key, and Fin's end-to-end Keycloak
+  # credential: only their pipelines read them, so no Kubernetes Secret ever holds them (see iam.tf).
   pipeline_secrets = toset([
     "infra-plan-github-pat",
     "infra-apply-github-pat",
     "infra-plan-keycloak-secret",
     "infra-apply-keycloak-secret",
+    "infra-namecheap-api-user",
+    "infra-namecheap-api-key",
     "ci-fin-e2e-keycloak-secret",
   ])
 }
@@ -34,6 +36,8 @@ resource "google_secret_manager_secret" "this" {
     "infra-apply-github-pat",
     "infra-plan-keycloak-secret",
     "infra-apply-keycloak-secret",
+    "infra-namecheap-api-user",
+    "infra-namecheap-api-key",
     "ci-fin-e2e-keycloak-secret",
   ])
 

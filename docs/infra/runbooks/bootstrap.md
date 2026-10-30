@@ -1,6 +1,6 @@
 # Bootstrap runbook
 
-Bringing the hub up from nothing, in order. Every step can run again. What each Terraform root makes: [gcp](../terraform/gcp.md), [argocd](../terraform/argocd.md), [github](../terraform/github.md), [keycloak](../terraform/keycloak.md). Designs: [Octomaton](../../octomaton/designs/phase-2-octomaton.md), [ingress and authentication](../../delivery/designs/phase-3-ingress-and-auth.md), Fin's [environments](../../fin/designs/environments.md).
+Bringing the hub up from nothing, in order. Every step can run again. What each Terraform root makes: [gcp](../terraform/gcp.md), [argocd](../terraform/argocd.md), [github](../terraform/github.md), [keycloak](../terraform/keycloak.md), [namecheap](../terraform/namecheap.md). Designs: [Octomaton](../../octomaton/designs/phase-2-octomaton.md), [ingress and authentication](../../delivery/designs/phase-3-ingress-and-auth.md), Fin's [environments](../../fin/designs/environments.md).
 
 ```mermaid
 flowchart TD
@@ -85,7 +85,7 @@ make terraform gcp    # the two existing DNS zones must import without changes
 
 This creates the network, the static IPs, the cluster, the buckets, the registries, the secret containers, IAM, the `octomaton-dev` DNS zone and the records for every hub host ([root gcp](../terraform/gcp.md)).
 
-Then delegate `octomaton.dev` to its new zone: at the domain's registrar, set the name servers to the four that `terraform -chdir=terraform/gcp output octomaton_dev_name_servers` prints. Turn DNSSEC off at the registrar first if it's on. `dig +short NS octomaton.dev` must list them before step 7, because the Gateways wait for the `octomaton.dev` certificate.
+Then delegate `octomaton.dev` to its new zone. The pipelines don't run yet, and Namecheap's API answers only the cluster's egress IP, so do it in Namecheap's dashboard this once: set the domain's nameservers to the four that `terraform -chdir=terraform/gcp output octomaton_dev_name_servers` prints, without their trailing dots, and the same for `cobranch.dev` and `cobranch.app`. Turn DNSSEC off there first if it's on. `dig +short NS octomaton.dev` must list them before step 7, because the Gateways wait for the `octomaton.dev` certificate. From here on [root namecheap](../terraform/namecheap.md) keeps them, once its pipelines run: turn on Namecheap's API access and add `terraform -chdir=terraform/gcp output -raw egress_ip` to its allow-list now, and create its empty state with `terraform -chdir=terraform/namecheap init`, which the plans can't.
 
 ## 5. Secret values
 
@@ -108,6 +108,8 @@ printf '%s' "<arikkfir-reviewer token>"          | add reviewer-github-pat
 printf '%s' "<linear api key, read, team ENG>"   | add linear-api-key
 printf '%s' "<plan token>"                       | add infra-plan-github-pat
 printf '%s' "<apply token>"                      | add infra-apply-github-pat
+printf '%s' "<namecheap user name>"              | add infra-namecheap-api-user
+printf '%s' "<namecheap api key>"                | add infra-namecheap-api-key
 ```
 
 `keycloak-hub-client-secret` starts as a placeholder. `terraform/keycloak` writes the real value in step 8, but Argo CD (wave 2) and oauth2-proxy read the secret from the start, and an ExternalSecret with nothing to read would hold back every later wave, Keycloak's included. The other Keycloak client secrets (`infra-plan-keycloak-secret`, `infra-apply-keycloak-secret`, `ci-fin-e2e-keycloak-secret`) are step 8's to write.
@@ -184,7 +186,7 @@ Only once Octomaton reports `Continuous Integration`, `Docs` and `Linear`, since
 make terraform github
 ```
 
-Then set by hand what the provider can't ([root github](../terraform/github.md#set-outside-terraform)). From here on, every merge to `infra` applies `gcp`, `github` and `keycloak` ([Terraform plan and apply](../designs/terraform-plan-apply.md)).
+Then set by hand what the provider can't ([root github](../terraform/github.md#set-outside-terraform)). From here on, every merge to `infra` applies `gcp`, `github`, `keycloak` and `namecheap` ([Terraform plan and apply](../designs/terraform-plan-apply.md)).
 
 ## 12. Claude Code environment
 

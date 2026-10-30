@@ -375,10 +375,15 @@ resource "google_secret_manager_secret_iam_member" "external_secrets" {
   member    = local.principals.external_secrets
 }
 
-# infra's plans read their GitHub token and Keycloak credential at run time; applies read theirs through
-# roles/secretmanager.admin.
+# infra's plans read their GitHub token and Keycloak credential, and the Namecheap API user and key that applies use
+# too, at run time; applies read theirs through roles/secretmanager.admin.
 resource "google_secret_manager_secret_iam_member" "ci_infra_plan" {
-  for_each = toset(["infra-plan-github-pat", "infra-plan-keycloak-secret"])
+  for_each = toset([
+    "infra-plan-github-pat",
+    "infra-plan-keycloak-secret",
+    "infra-namecheap-api-user",
+    "infra-namecheap-api-key",
+  ])
 
   secret_id = google_secret_manager_secret.this[each.key].id
   role      = "roles/secretmanager.secretAccessor"

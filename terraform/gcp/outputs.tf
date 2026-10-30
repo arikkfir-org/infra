@@ -23,6 +23,11 @@ output "ingress_public_ip" {
   value       = google_compute_address.ingress["public"].address
 }
 
+output "egress_ip" {
+  description = "The one IP the hub's nodes and pods reach the internet from (Cloud NAT hub), for outside allow-lists."
+  value       = google_compute_address.egress.address
+}
+
 output "artifact_registry_url" {
   description = "Docker repository URL (<url>/<image>:<tag>)."
   value       = google_artifact_registry_repository.images.registry_uri
@@ -49,16 +54,16 @@ output "bucket_names" {
 }
 
 output "octomaton_dev_name_servers" {
-  description = "Name servers to set for octomaton.dev at its registrar."
+  description = "Name servers of octomaton.dev's zone, which root namecheap sets at Namecheap."
   value       = google_dns_managed_zone.this["octomaton-dev"].name_servers
 }
 
 output "cobranch_dev_name_servers" {
-  description = "Name servers to set for cobranch.dev at its registrar."
+  description = "Name servers of cobranch.dev's zone, which root namecheap sets at Namecheap."
   value       = google_dns_managed_zone.this["cobranch-dev"].name_servers
 }
 
 output "cobranch_app_name_servers" {
-  description = "Name servers to set for cobranch.app at its registrar."
+  description = "Name servers of cobranch.app's zone, which root namecheap sets at Namecheap."
   value       = google_dns_managed_zone.this["cobranch-app"].name_servers
 }

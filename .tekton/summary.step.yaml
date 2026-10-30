@@ -1,0 +1,25 @@
+# Turns a root's saved plan, <root>.plan.json, into its task's check title and summary (plan-summary.py). Octomaton
+# inlines it into each step that references it by name.
+apiVersion: tekton.dev/v1beta1
+kind: StepAction
+metadata:
+  name: summary
+spec:
+  params:
+    - name: root
+      type: string
+    - name: title
+      type: string
+      description: Path of the task's result check-title.
+    - name: summary
+      type: string
+      description: Path of the task's result check-summary.
+  image: gcr.io/google.com/cloudsdktool/google-cloud-cli:587.0.0-slim
+  command:
+    - python3
+    - .tekton/plan-summary.py
+    - --title
+    - $(params.title)
+    - --summary
+    - $(params.summary)
+    - $(params.root)=$(params.root).plan.json

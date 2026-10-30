@@ -2,7 +2,7 @@ locals {
   # Public zones; keys are Cloud DNS zone names. kfirs.com and kfirfamily.com existed before and are adopted through
   # imports.tf (kfirfamily.com is unused); octomaton.dev is Octomaton's own domain, and cobranch.dev and cobranch.app
   # Cobranch's (the product, with its Go import page, and its hosted service, no records yet), each delegated to its
-  # zone at its registrar.
+  # zone at Namecheap by root namecheap.
   dns_zones = {
     "kfirs-com"      = "kfirs.com"
     "kfirfamily-com" = "kfirfamily.com"
