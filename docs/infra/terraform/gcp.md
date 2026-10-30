@@ -238,10 +238,10 @@ This root manages no other pool: not GKE's own, `arikkfir.svc.id.goog`, nor `git
 
 | Gateway | Hosts (under `kfirs.com`) |
 | --- | --- |
-| `protected` (behind the hub's sign-in) | `argocd.dev`, `tekton.dev`, `grafana.dev`, `traefik.dev`, `nui.dev`, `docs.dev`, `tests.dev`, `devhub.dev`, `*.devhub-previews.dev`, `admin.id`, `app.fin`, `*.app.dev.fin` |
+| `protected` (behind the hub's sign-in) | `argocd.dev`, `tekton.dev`, `grafana.dev`, `traefik.dev`, `nui.dev`, `docs.dev`, `tests.dev`, `devhub.dev`, `*.devhub.dev`, `admin.id`, `app.fin`, `*.app.dev.fin` |
 | `public` | `auth`, `id`, `legal`, `fin` |
 
-All records live 300 seconds. The zones are `prevent_destroy`, and their attributes mirror the live zones, so importing them planned no change. Fin's pull requests' wildcard sits at `*.app.dev.fin`, beside its certificate's DNS-01 challenge records: a record at `_acme-challenge.app.dev.fin` would stop a wildcard higher up from answering for the names below `app.dev.fin`. DevHub's previews answer at `pr-<number>.devhub-previews.dev`, off the demo's `devhub.dev`, so nothing scoped to the demo's domain reaches a pull request's code; their challenge record, `_acme-challenge.devhub-previews.dev`, is a sibling of those names and leaves the wildcard alone.
+All records live 300 seconds. The zones are `prevent_destroy`, and their attributes mirror the live zones, so importing them planned no change. Fin's pull requests' wildcard sits at `*.app.dev.fin`, beside its certificate's DNS-01 challenge records: a record at `_acme-challenge.app.dev.fin` would stop a wildcard higher up from answering for the names below `app.dev.fin`. DevHub's previews answer at `pr-<number>.devhub.dev`, beside the demo's `devhub.dev`; their challenge record, `_acme-challenge.devhub.dev`, is a sibling of those names and leaves the wildcard alone.
 
 ## Outputs
 
