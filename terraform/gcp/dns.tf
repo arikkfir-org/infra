@@ -1,11 +1,13 @@
 locals {
   # Public zones; keys are Cloud DNS zone names. kfirs.com and kfirfamily.com existed before and are adopted through
-  # imports.tf (kfirfamily.com is unused); octomaton.dev is Octomaton's own domain, delegated to this zone at its
-  # registrar.
+  # imports.tf (kfirfamily.com is unused); octomaton.dev is Octomaton's own domain, and cobranch.dev and cobranch.app
+  # Cobranch's (the product and its hosted service, no records yet), each delegated to its zone at its registrar.
   dns_zones = {
     "kfirs-com"      = "kfirs.com"
     "kfirfamily-com" = "kfirfamily.com"
     "octomaton-dev"  = "octomaton.dev"
+    "cobranch-dev"   = "cobranch.dev"
+    "cobranch-app"   = "cobranch.app"
   }
 
   hub_zone = replace(var.domain, ".", "-")

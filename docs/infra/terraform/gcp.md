@@ -20,7 +20,7 @@ flowchart TB
     AR[("Artifact Registry<br/>images, previews, octomaton, devhub,<br/>devhub-previews")]
     GCS[("Buckets<br/>docs, tests, claude, fin, fin-pull-requests, fin-ci-cache,<br/>octomaton-ci-cache, devhub")]
     GSM[("Secret Manager<br/>containers only")]
-    DNS[("Cloud DNS<br/>kfirs.com, octomaton.dev, kfirfamily.com")]
+    DNS[("Cloud DNS<br/>kfirs.com, octomaton.dev, cobranch.dev,<br/>cobranch.app, kfirfamily.com")]
     WIF["Workload Identity Federation<br/>pool fin-pull-requests"]
   end
   gke -->|"egress"| NAT --> Internet((Internet))
@@ -41,7 +41,7 @@ flowchart TB
 | Storage | `storage.tf` | eight buckets |
 | Secret Manager | `secrets.tf` | twenty secret containers |
 | IAM | `iam.tf` | grants to Kubernetes principals and two Google service accounts, pool `fin-pull-requests` and its provider, service account `claude-code@` |
-| DNS | `dns.tf` | zones `kfirs-com`, `kfirfamily-com` and `octomaton-dev`, the hub's hosts and `octomaton.dev` |
+| DNS | `dns.tf` | zones `kfirs-com`, `kfirfamily-com`, `octomaton-dev`, `cobranch-dev` and `cobranch-app`, the hub's hosts and `octomaton.dev` |
 | Adopted | `imports.tf` | zones `kfirs-com` and `kfirfamily-com`, service account `claude-code@` and its viewer role, all made by hand first |
 
 Project `arikkfir` is number `8909046976`, in GCP organization `468825984716`. State: prefix `gcp` in bucket `arikkfir-devops`, which the owner made by hand and which no root manages ([buckets](#buckets)).
@@ -234,6 +234,8 @@ This root manages no other pool: not GKE's own, `arikkfir.svc.id.goog`, nor `git
 | --- | --- | --- |
 | `kfirs-com` | `kfirs.com` | An A record per hub host, pointing at the IP of the gateway that serves it (below) |
 | `octomaton-dev` | `octomaton.dev` | The apex, on the public gateway: Octomaton's webhook and Go import page. Delegated to this zone at the domain's registrar |
+| `cobranch-dev` | `cobranch.dev` | None yet. Cobranch's open-source product, which anyone installs. Delegated to this zone at the domain's registrar |
+| `cobranch-app` | `cobranch.app` | None yet. Cobranch's hosted service. Delegated to this zone at the domain's registrar |
 | `kfirfamily-com` | `kfirfamily.com` | Unused; imported with `kfirs-com` |
 
 | Gateway | Hosts (under `kfirs.com`) |
@@ -245,7 +247,7 @@ All records live 300 seconds. The zones are `prevent_destroy`, and their attribu
 
 ## Outputs
 
-`cluster_name`, `cluster_location`, `cluster_dns_endpoint`, `ingress_protected_ip`, `ingress_public_ip`, `artifact_registry_url`, `octomaton_registry_url`, `devhub_registry_url`, `bucket_names`, and `octomaton_dev_name_servers`, which the owner sets at `octomaton.dev`'s registrar ([bootstrap runbook](../runbooks/bootstrap.md)).
+`cluster_name`, `cluster_location`, `cluster_dns_endpoint`, `ingress_protected_ip`, `ingress_public_ip`, `artifact_registry_url`, `octomaton_registry_url`, `devhub_registry_url`, `bucket_names`, `octomaton_dev_name_servers`, which the owner sets at `octomaton.dev`'s registrar ([bootstrap runbook](../runbooks/bootstrap.md)), and `cobranch_dev_name_servers` and `cobranch_app_name_servers`, set the same way at those domains' registrar.
 
 ## Decisions
 
