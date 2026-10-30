@@ -96,8 +96,10 @@ resource "google_artifact_registry_repository" "octomaton" {
   depends_on = [google_project_service.this]
 }
 
-# DevHub's images, which anyone who installs DevHub pulls (allUsers read, iam.tf): devhub and devhub-console, tagged with
-# the commit's short SHA. Only devhub's pipeline main writes here, from main. The hub's demo installation runs them.
+# DevHub's releases, which anyone who installs DevHub pulls (allUsers read, iam.tf): devhub and devhub-console, tagged
+# with the commit's short SHA, and every version, tagged X.Y.Z (the same images, retagged), with Helm chart charts/devhub
+# at that version. Only devhub's pipelines main and tag write here, from main and from v* tags. The hub's demo
+# installation runs main's.
 resource "google_artifact_registry_repository" "devhub" {
   location      = var.region
   repository_id = "devhub"

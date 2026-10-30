@@ -156,7 +156,8 @@ locals {
   }
 
   devhub_iam = {
-    # devhub's main pipeline, on main only; every installation, the hub's demo included, pulls as anyone.
+    # devhub's pipelines main and tag, on main and v* tags only; every installation, the hub's demo included, pulls as
+    # anyone.
     "ci-devhub-release/artifactregistry.writer" = { role = "roles/artifactregistry.writer", member = local.principals.ci_devhub_release }
     "allUsers/artifactregistry.reader"          = { role = "roles/artifactregistry.reader", member = "allUsers" }
   }

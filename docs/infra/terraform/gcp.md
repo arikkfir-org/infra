@@ -97,7 +97,7 @@ All three run as `gke-hub-nodes@`, a Google service account with `roles/containe
 | `me-west1-docker.pkg.dev/arikkfir/images` | What runs from `main`: the reviewer's `reviewer`, Fin's five images | `ci-tooling-publish` and `ci-fin-release`, from `main` only | Untagged versions after 14 days, except each image's 20 newest |
 | `me-west1-docker.pkg.dev/arikkfir/previews` | Fin's pull requests' images | `ci-fin-preview`, from any branch | Every version after 14 days, except each image's 20 newest |
 | `me-west1-docker.pkg.dev/arikkfir/octomaton` | Octomaton's releases, `octomaton` and `octomaton-logs`: every commit on `main`, tagged with its short SHA, and every version, tagged `vX.Y.Z` (the same images, retagged) ([releases](https://github.com/arikkfir-org/octomaton#releases)) | `ci-octomaton-release`, from `main` and `v*` tags only | Untagged versions after 14 days, except each image's 20 newest |
-| `me-west1-docker.pkg.dev/arikkfir/devhub` | DevHub's images, `devhub` and `devhub-console`: `main`'s newest commit, tagged with its short SHA | `ci-devhub-release`, from `main` only | Untagged versions after 14 days, except each image's 20 newest |
+| `me-west1-docker.pkg.dev/arikkfir/devhub` | DevHub's releases: images `devhub` and `devhub-console` of `main`'s newest commit, tagged with its short SHA, and every version, tagged `X.Y.Z` (the same images, retagged); Helm chart `charts/devhub` at every version ([the DevHub repository](https://github.com/arikkfir-org/devhub/blob/main/docs/devhub/designs/repository.md)) | `ci-devhub-release`, from `main` and `v*` tags only | Untagged versions after 14 days, except each image's 20 newest |
 
 The nodes read `images` and `previews`; `octomaton` and `devhub` are public, so every installation of Octomaton or DevHub, the hub's included, pulls them as anyone. Production never pulls from `previews`, so a pull request's code can't replace what production runs.
 
@@ -183,7 +183,7 @@ Every grant `iam.tf` makes:
 | `ci-octomaton/ci-octomaton-release` | `roles/storage.objectUser` | Bucket `arikkfir-octomaton-ci-cache` | Restores and saves `main`'s Go caches, from `main` |
 | `ci-octomaton/ci-octomaton-ci` | `roles/storage.objectViewer` | Bucket `arikkfir-octomaton-ci-cache` | Restores `main`'s or its pull request's Go caches, from any branch. They hold nothing secret |
 | `ci-octomaton/ci-octomaton-ci` | `roles/storage.objectUser`, on objects under `pull-requests/` only (IAM condition) | Bucket `arikkfir-octomaton-ci-cache` | Saves each pull request's Go caches, from any branch; it can't change `main`'s |
-| `ci-devhub/ci-devhub-release` | `roles/artifactregistry.writer` | Repository `devhub` | DevHub's images, from `main` |
+| `ci-devhub/ci-devhub-release` | `roles/artifactregistry.writer` | Repository `devhub` | DevHub's images, from `main`; a version's image tags and chart, from `v*` tags |
 | `ci-fin/ci-fin-release` | `roles/artifactregistry.writer` | Repository `images` | Fin's images, from `main` |
 | `ci-fin/ci-fin-release` | `roles/storage.objectUser` | Bucket `arikkfir-fin-ci-cache` | Saves Fin's CI cache, from `main` |
 | `ci-fin/ci-fin-preview` | `roles/artifactregistry.writer` | Repository `previews` | Fin's pull requests' images, from any branch |
