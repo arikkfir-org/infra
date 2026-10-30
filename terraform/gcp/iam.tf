@@ -15,6 +15,7 @@ locals {
     ci_octomaton_release = "${local.k8s_principal_prefix}/ns/ci-octomaton/sa/ci-octomaton-release"
     ci_octomaton_ci      = "${local.k8s_principal_prefix}/ns/ci-octomaton/sa/ci-octomaton-ci"
     ci_devhub_release    = "${local.k8s_principal_prefix}/ns/ci-devhub/sa/ci-devhub-release"
+    ci_devhub_preview    = "${local.k8s_principal_prefix}/ns/ci-devhub/sa/ci-devhub-preview"
     ci_fin_preview       = "${local.k8s_principal_prefix}/ns/ci-fin/sa/ci-fin-preview"
     ci_fin_release       = "${local.k8s_principal_prefix}/ns/ci-fin/sa/ci-fin-release"
     ci_fin_ci            = "${local.k8s_principal_prefix}/ns/ci-fin/sa/ci-fin-ci"
@@ -160,6 +161,12 @@ locals {
     # anyone.
     "ci-devhub-release/artifactregistry.writer" = { role = "roles/artifactregistry.writer", member = local.principals.ci_devhub_release }
     "allUsers/artifactregistry.reader"          = { role = "roles/artifactregistry.reader", member = "allUsers" }
+  }
+
+  devhub_previews_iam = {
+    # devhub's preview pipeline, from any branch: what it pushes runs only in DevHub's previews.
+    "ci-devhub-preview/artifactregistry.writer" = { role = "roles/artifactregistry.writer", member = local.principals.ci_devhub_preview }
+    "gke-nodes/artifactregistry.reader"         = { role = "roles/artifactregistry.reader", member = local.principals.gke_nodes }
   }
 }
 
@@ -310,6 +317,15 @@ resource "google_artifact_registry_repository_iam_member" "devhub" {
 
   location   = google_artifact_registry_repository.devhub.location
   repository = google_artifact_registry_repository.devhub.name
+  role       = each.value.role
+  member     = each.value.member
+}
+
+resource "google_artifact_registry_repository_iam_member" "devhub_previews" {
+  for_each = local.devhub_previews_iam
+
+  location   = google_artifact_registry_repository.devhub_previews.location
+  repository = google_artifact_registry_repository.devhub_previews.name
   role       = each.value.role
   member     = each.value.member
 }

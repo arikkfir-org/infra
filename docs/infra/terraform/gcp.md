@@ -17,7 +17,7 @@ flowchart TB
     end
     CP["Control plane<br/>DNS-based endpoint only"]
     LB["ingress-protected, ingress-public<br/>regional external IPs"]
-    AR[("Artifact Registry<br/>images, previews, octomaton, devhub")]
+    AR[("Artifact Registry<br/>images, previews, octomaton, devhub,<br/>devhub-previews")]
     GCS[("Buckets<br/>docs, tests, claude, fin, fin-pull-requests, fin-ci-cache,<br/>octomaton-ci-cache, devhub")]
     GSM[("Secret Manager<br/>containers only")]
     DNS[("Cloud DNS<br/>kfirs.com, octomaton.dev, kfirfamily.com")]
@@ -37,7 +37,7 @@ flowchart TB
 | APIs | `apis.tf` | the services below, never disabled on destroy |
 | Network | `network.tf` | VPC `hub`, subnet `hub` with ranges `pods` and `services`, Cloud Router and NAT `hub`, addresses `ingress-protected` and `ingress-public` |
 | GKE | `gke.tf` | cluster `hub`, node pools `system`, `ci` and `fin`, node service account `gke-hub-nodes@` |
-| Artifact Registry | `registry.tf` | Docker repositories `images`, `previews`, `octomaton` and `devhub` |
+| Artifact Registry | `registry.tf` | Docker repositories `images`, `previews`, `octomaton`, `devhub` and `devhub-previews` |
 | Storage | `storage.tf` | eight buckets |
 | Secret Manager | `secrets.tf` | twenty secret containers |
 | IAM | `iam.tf` | grants to Kubernetes principals and two Google service accounts, pool `fin-pull-requests` and its provider, service account `claude-code@` |
@@ -88,7 +88,7 @@ Each pool's taint keeps every workload but its own off it, and each pool's nodes
 | `ci` | `e2-standard-8` | Spot | 0-10 | `kfirs.com/pool=ci` | Tekton's TaskRun pods |
 | `fin` | `e2-standard-4` | on-demand | 0-10 | `kfirs.com/pool=fin` | Fin's environments |
 
-All three run as `gke-hub-nodes@`, a Google service account with `roles/container.defaultNodeServiceAccount` and read access to the private Docker repositories, `images` and `previews` (`octomaton` and `devhub` are public, so the nodes pull them as anyone does), auto-repair and auto-upgrade on. `system` ignores changes to its initial node count, which a manual resize changes and which would otherwise replace the pool. Changing `ci`'s `spot` replaces the pool, the node that runs pipeline `apply` included, so the owner applies that by hand. `ci`'s kubelet pulls up to 5 images at once, GKE's most (its default is 2 or 3, by boot disk), since a TaskRun pod pulls an image for each container that always pulls. Changing a kubelet setting re-creates the pool's nodes at once, that node included, so the owner applies that by hand too.
+All three run as `gke-hub-nodes@`, a Google service account with `roles/container.defaultNodeServiceAccount` and read access to the private Docker repositories, `images`, `previews` and `devhub-previews` (`octomaton` and `devhub` are public, so the nodes pull them as anyone does), auto-repair and auto-upgrade on. `system` ignores changes to its initial node count, which a manual resize changes and which would otherwise replace the pool. Changing `ci`'s `spot` replaces the pool, the node that runs pipeline `apply` included, so the owner applies that by hand. `ci`'s kubelet pulls up to 5 images at once, GKE's most (its default is 2 or 3, by boot disk), since a TaskRun pod pulls an image for each container that always pulls. Changing a kubelet setting re-creates the pool's nodes at once, that node included, so the owner applies that by hand too.
 
 ## Artifact Registry
 
@@ -98,8 +98,9 @@ All three run as `gke-hub-nodes@`, a Google service account with `roles/containe
 | `me-west1-docker.pkg.dev/arikkfir/previews` | Fin's pull requests' images | `ci-fin-preview`, from any branch | Every version after 14 days, except each image's 20 newest |
 | `me-west1-docker.pkg.dev/arikkfir/octomaton` | Octomaton's releases, `octomaton` and `octomaton-logs`: every commit on `main`, tagged with its short SHA, and every version, tagged `vX.Y.Z` (the same images, retagged) ([releases](https://github.com/arikkfir-org/octomaton#releases)) | `ci-octomaton-release`, from `main` and `v*` tags only | Untagged versions after 14 days, except each image's 20 newest |
 | `me-west1-docker.pkg.dev/arikkfir/devhub` | DevHub's releases: images `devhub` and `devhub-console` of `main`'s newest commit, tagged with its short SHA, and every version, tagged `X.Y.Z` (the same images, retagged); Helm chart `charts/devhub` at every version ([the DevHub repository](../../devhub/designs/repository.md)) | `ci-devhub-release`, from `main` and `v*` tags only | Untagged versions after 14 days, except each image's 20 newest |
+| `me-west1-docker.pkg.dev/arikkfir/devhub-previews` | DevHub's pull requests' images, `devhub` and `devhub-console` of each pushed head commit, tagged with its short SHA | `ci-devhub-preview`, from any branch | Every version after 14 days, except each image's 20 newest |
 
-The nodes read `images` and `previews`; `octomaton` and `devhub` are public, so every installation of Octomaton or DevHub, the hub's included, pulls them as anyone. Production never pulls from `previews`, so a pull request's code can't replace what production runs.
+The nodes read `images`, `previews` and `devhub-previews`; `octomaton` and `devhub` are public, so every installation of Octomaton or DevHub, the hub's included, pulls them as anyone. Production never pulls from `previews`, so a pull request's code can't replace what production runs. DevHub's pull requests push to `devhub-previews`, not `previews`: `devhub` is public and its pull requests' CI runs Dependabot's dependency code, which must not be able to replace Fin's preview images, nor `devhub`'s `main` and release tags. Only DevHub's previews pull from it.
 
 ## Buckets
 
@@ -156,7 +157,7 @@ Kubernetes workloads authenticate with GKE's Workload Identity Federation, and t
 flowchart LR
   subgraph k8s["Kubernetes ServiceAccounts (GKE Workload Identity)"]
     PLAT["platform: external-secrets, cert-manager,<br/>grafana, docs, tests, octomaton, octomaton-logs,<br/>devhub-server"]
-    TEN["CI tenants: docs-publisher, docs-reader,<br/>ci-tooling-publish, ci-octomaton-release,<br/>ci-octomaton-ci, ci-devhub-release, ci-fin-release,<br/>ci-fin-preview, ci-fin-ci, ci-infra-plan, ci-infra-apply"]
+    TEN["CI tenants: docs-publisher, docs-reader,<br/>ci-tooling-publish, ci-octomaton-release,<br/>ci-octomaton-ci, ci-devhub-release, ci-devhub-preview,<br/>ci-fin-release,<br/>ci-fin-preview, ci-fin-ci, ci-infra-plan, ci-infra-apply"]
     FINP["Fin production: fin/api, fin/worker, fin/scraper"]
   end
   POOL["pool fin-pull-requests:<br/>pods in namespaces fin-pr-*"]
@@ -186,6 +187,7 @@ Every grant `iam.tf` makes:
 | `ci-devhub/ci-devhub-release` | `roles/artifactregistry.writer` | Repository `devhub` | DevHub's images, from `main`; a version's image tags and chart, from `v*` tags |
 | `ci-fin/ci-fin-release` | `roles/artifactregistry.writer` | Repository `images` | Fin's images, from `main` |
 | `ci-fin/ci-fin-release` | `roles/storage.objectUser` | Bucket `arikkfir-fin-ci-cache` | Saves Fin's CI cache, from `main` |
+| `ci-devhub/ci-devhub-preview` | `roles/artifactregistry.writer` | Repository `devhub-previews` | DevHub's pull requests' images, from any branch |
 | `ci-fin/ci-fin-preview` | `roles/artifactregistry.writer` | Repository `previews` | Fin's pull requests' images, from any branch |
 | `ci-fin/ci-fin-preview`, `ci-fin/ci-fin-ci` | `roles/storage.objectViewer` | Bucket `arikkfir-fin-ci-cache` | Restore Fin's CI cache, from any branch. It holds nothing secret |
 | `ci-fin/ci-fin-ci` | `roles/storage.objectCreator`, on objects under `reports/fin/` only (IAM condition) | Bucket `arikkfir-tests` | Fin's end-to-end reports, from any branch; it can't change or delete them ([CI reports](../../fin/designs/ci-reports.md)) |
@@ -204,7 +206,7 @@ Every grant `iam.tf` makes:
 | Pool `fin-pull-requests`, every identity in it | `roles/storage.objectUser` | Bucket `arikkfir-fin-pull-requests` | The environments' scrape artifacts, under each one's name |
 | `devhub/devhub-server` | `roles/storage.objectUser` | Bucket `arikkfir-devhub` | DevHub's demo installation: its REST and GraphQL servers keep their objects there |
 | `gke-hub-nodes@` | `roles/container.defaultNodeServiceAccount` | Project | Runs the nodes |
-| `gke-hub-nodes@` | `roles/artifactregistry.reader` | Repositories `images` and `previews` | Pulls images (`octomaton` and `devhub` need no grant: `allUsers` reads them) |
+| `gke-hub-nodes@` | `roles/artifactregistry.reader` | Repositories `images`, `previews` and `devhub-previews` | Pulls images (`octomaton` and `devhub` need no grant: `allUsers` reads them) |
 | `claude-code@` | `roles/viewer`, `roles/mcp.toolUser` | Project | Claude Code's cloud sessions look around the project and read the cluster through GKE's MCP server ([Claude Code cluster and docs access](../../tooling/designs/claude-code-cluster-access.md)) |
 | `claude-code@` | `roles/storage.objectViewer` | Bucket `arikkfir-docs` | The sessions read the docs site's pages from its layers |
 | `allUsers` | `roles/storage.legacyObjectReader` | Bucket `arikkfir-claude` | Anyone reads its objects by URL, without listing them |
@@ -236,10 +238,10 @@ This root manages no other pool: not GKE's own, `arikkfir.svc.id.goog`, nor `git
 
 | Gateway | Hosts (under `kfirs.com`) |
 | --- | --- |
-| `protected` (behind the hub's sign-in) | `argocd.dev`, `tekton.dev`, `grafana.dev`, `traefik.dev`, `nui.dev`, `docs.dev`, `tests.dev`, `devhub.dev`, `admin.id`, `app.fin`, `*.app.dev.fin` |
+| `protected` (behind the hub's sign-in) | `argocd.dev`, `tekton.dev`, `grafana.dev`, `traefik.dev`, `nui.dev`, `docs.dev`, `tests.dev`, `devhub.dev`, `*.devhub-previews.dev`, `admin.id`, `app.fin`, `*.app.dev.fin` |
 | `public` | `auth`, `id`, `legal`, `fin` |
 
-All records live 300 seconds. The zones are `prevent_destroy`, and their attributes mirror the live zones, so importing them planned no change. Fin's pull requests' wildcard sits at `*.app.dev.fin`, beside its certificate's DNS-01 challenge records: a record at `_acme-challenge.app.dev.fin` would stop a wildcard higher up from answering for the names below `app.dev.fin`.
+All records live 300 seconds. The zones are `prevent_destroy`, and their attributes mirror the live zones, so importing them planned no change. Fin's pull requests' wildcard sits at `*.app.dev.fin`, beside its certificate's DNS-01 challenge records: a record at `_acme-challenge.app.dev.fin` would stop a wildcard higher up from answering for the names below `app.dev.fin`. DevHub's previews answer at `pr-<number>.devhub-previews.dev`, off the demo's `devhub.dev`, so nothing scoped to the demo's domain reaches a pull request's code; their challenge record, `_acme-challenge.devhub-previews.dev`, is a sibling of those names and leaves the wildcard alone.
 
 ## Outputs
 
@@ -267,7 +269,7 @@ All records live 300 seconds. The zones are `prevent_destroy`, and their attribu
 
 - Workloads hold no Google key: their tokens, and the nodes', come from the metadata server. The one key is `claude-code@`'s, made by hand, which the Claude Code environment holds.
 - Secret values live only in Secret Manager and in the Kubernetes Secrets External Secrets makes; Terraform never holds one, and its state holds no value.
-- A CI tenant's `pipeline` has no role, and every ServiceAccount that publishes what production runs or serves is restricted to `main` by Octomaton (`ci-octomaton-release` to `main` and `v*` tags; a `v*` tag takes only write access to push, so Octomaton's `tag` pipeline, read at `main`, refuses a tagged commit that is not on `main`). Three write from any branch, by design: `ci-fin-preview` to `previews`, which only pull requests' environments pull, `ci-fin-ci` to `arikkfir-tests`, under `reports/fin/`, behind the hub's sign-in, and `ci-octomaton-ci` to `arikkfir-octomaton-ci-cache`, under `pull-requests/`, which only pull requests' runs restore.
+- A CI tenant's `pipeline` has no role, and every ServiceAccount that publishes what production runs or serves is restricted to `main` by Octomaton (`ci-octomaton-release` to `main` and `v*` tags; a `v*` tag takes only write access to push, so Octomaton's `tag` pipeline, read at `main`, refuses a tagged commit that is not on `main`). Four write from any branch, by design: `ci-fin-preview` to `previews`, which only pull requests' environments pull, `ci-devhub-preview` to `devhub-previews`, which only DevHub's previews pull, `ci-fin-ci` to `arikkfir-tests`, under `reports/fin/`, behind the hub's sign-in, and `ci-octomaton-ci` to `arikkfir-octomaton-ci-cache`, under `pull-requests/`, which only pull requests' runs restore.
 - `ci-infra-apply` holds `roles/iam.securityAdmin` and could grant itself more; only merges to `main` run as it ([Terraform plan and apply](../designs/terraform-plan-apply.md)).
 - `claude-code@`, a project Viewer, reads every bucket's objects through Cloud Storage's convenience bindings, `arikkfir-fin`'s raw statements included.
 

@@ -20,7 +20,11 @@ locals {
     "docs.dev"    = "protected"
     "tests.dev"   = "protected"
     "devhub.dev"  = "protected"
-    auth          = "public"
+    # DevHub's pull requests' previews (pr-<number>.devhub-previews.dev): off the demo's domain, so nothing scoped to
+    # it reaches a pull request's code. Its certificate's DNS-01 challenge record, _acme-challenge.devhub-previews.dev,
+    # is a sibling of the names the wildcard answers for, which it leaves alone.
+    "*.devhub-previews.dev" = "protected"
+    auth                    = "public"
     # Keycloak: realm hub, and its admin console behind the hub's sign-in.
     id         = "public"
     "admin.id" = "protected"
