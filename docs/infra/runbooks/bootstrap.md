@@ -108,6 +108,8 @@ printf '%s' "<arikkfir-reviewer token>"          | add reviewer-github-pat
 printf '%s' "<linear api key, read, team ENG>"   | add linear-api-key
 printf '%s' "<plan token>"                       | add infra-plan-github-pat
 printf '%s' "<apply token>"                      | add infra-apply-github-pat
+printf '%s' "<namecheap user name>"              | add infra-namecheap-api-user
+printf '%s' "<namecheap api key>"                | add infra-namecheap-api-key
 ```
 
 `keycloak-hub-client-secret` starts as a placeholder. `terraform/keycloak` writes the real value in step 8, but Argo CD (wave 2) and oauth2-proxy read the secret from the start, and an ExternalSecret with nothing to read would hold back every later wave, Keycloak's included. The other Keycloak client secrets (`infra-plan-keycloak-secret`, `infra-apply-keycloak-secret`, `ci-fin-e2e-keycloak-secret`) are step 8's to write.
