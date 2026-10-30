@@ -165,3 +165,71 @@ resource "google_artifact_registry_repository" "devhub_previews" {
 
   depends_on = [google_project_service.this]
 }
+
+# Cobranch's releases, DevHub's under its new name, which anyone who installs Cobranch pulls (allUsers read, iam.tf):
+# cobranch and cobranch-console, tagged with the commit's short SHA, and every version, tagged X.Y.Z (the same images,
+# retagged), with Helm chart charts/cobranch at that version. Only cobranch's pipelines main and tag write here, from
+# main and from v* tags. The hub's demo installation runs main's. devhub keeps DevHub's 0.0.1 as published.
+resource "google_artifact_registry_repository" "cobranch" {
+  location      = var.region
+  repository_id = "cobranch"
+  format        = "DOCKER"
+  description   = "Cobranch's releases, built from its main and its versions, and pulled by every installation."
+
+  cleanup_policy_dry_run = false
+
+  cleanup_policies {
+    id     = "delete-untagged"
+    action = "DELETE"
+
+    condition {
+      tag_state  = "UNTAGGED"
+      older_than = "14d"
+    }
+  }
+
+  # KEEP wins over DELETE: the 20 newest versions of each image survive even when untagged.
+  cleanup_policies {
+    id     = "keep-recent"
+    action = "KEEP"
+
+    most_recent_versions {
+      keep_count = 20
+    }
+  }
+
+  depends_on = [google_project_service.this]
+}
+
+# Cobranch's pull requests' preview images: cobranch and cobranch-console of each pushed head commit, tagged with its
+# short SHA, which only Cobranch's previews pull, for the reasons devhub-previews exists.
+resource "google_artifact_registry_repository" "cobranch_previews" {
+  location      = var.region
+  repository_id = "cobranch-previews"
+  format        = "DOCKER"
+  description   = "Container images of Cobranch's pull requests' previews, built by its CI from any branch."
+
+  cleanup_policy_dry_run = false
+
+  cleanup_policies {
+    id     = "delete-old"
+    action = "DELETE"
+
+    condition {
+      tag_state  = "ANY"
+      older_than = "14d"
+    }
+  }
+
+  # KEEP wins over DELETE: the 20 newest versions of each image survive, so a quiet pull request's preview still pulls.
+  cleanup_policies {
+    id     = "keep-recent"
+    action = "KEEP"
+
+    most_recent_versions {
+      keep_count = 20
+    }
+  }
+
+  depends_on = [google_project_service.this]
+}

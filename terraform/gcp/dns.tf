@@ -25,7 +25,12 @@ locals {
     # DevHub's pull requests' previews (pr-<number>.devhub.dev), beside the demo. Their certificate's DNS-01 challenge
     # record, _acme-challenge.devhub.dev, is a sibling of the names the wildcard answers for, which it leaves alone.
     "*.devhub.dev" = "protected"
-    auth           = "public"
+    # Cobranch, DevHub's new name: its demo and its pull requests' previews (pr-<number>.cobranch.dev), the same way.
+    # These are hosts under kfirs.com, behind the hub's sign-in, not the cobranch.dev domain. DevHub's go once the demo
+    # moves (ENG-221).
+    "cobranch.dev"   = "protected"
+    "*.cobranch.dev" = "protected"
+    auth             = "public"
     # Keycloak: realm hub, and its admin console behind the hub's sign-in.
     id         = "public"
     "admin.id" = "protected"
@@ -69,6 +74,15 @@ resource "google_dns_record_set" "ingress" {
 resource "google_dns_record_set" "octomaton" {
   managed_zone = google_dns_managed_zone.this["octomaton-dev"].name
   name         = google_dns_managed_zone.this["octomaton-dev"].dns_name
+  type         = "A"
+  ttl          = 300
+  rrdatas      = [google_compute_address.ingress["public"].address]
+}
+
+# cobranch.dev itself: Cobranch's Go import page, on the public gateway.
+resource "google_dns_record_set" "cobranch" {
+  managed_zone = google_dns_managed_zone.this["cobranch-dev"].name
+  name         = google_dns_managed_zone.this["cobranch-dev"].dns_name
   type         = "A"
   ttl          = 300
   rrdatas      = [google_compute_address.ingress["public"].address]

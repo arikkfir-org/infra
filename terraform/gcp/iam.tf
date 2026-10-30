@@ -16,6 +16,8 @@ locals {
     ci_octomaton_ci      = "${local.k8s_principal_prefix}/ns/ci-octomaton/sa/ci-octomaton-ci"
     ci_devhub_release    = "${local.k8s_principal_prefix}/ns/ci-devhub/sa/ci-devhub-release"
     ci_devhub_preview    = "${local.k8s_principal_prefix}/ns/ci-devhub/sa/ci-devhub-preview"
+    ci_cobranch_release  = "${local.k8s_principal_prefix}/ns/ci-cobranch/sa/ci-cobranch-release"
+    ci_cobranch_preview  = "${local.k8s_principal_prefix}/ns/ci-cobranch/sa/ci-cobranch-preview"
     ci_fin_preview       = "${local.k8s_principal_prefix}/ns/ci-fin/sa/ci-fin-preview"
     ci_fin_release       = "${local.k8s_principal_prefix}/ns/ci-fin/sa/ci-fin-release"
     ci_fin_ci            = "${local.k8s_principal_prefix}/ns/ci-fin/sa/ci-fin-ci"
@@ -28,6 +30,8 @@ locals {
     fin_scraper          = "${local.k8s_principal_prefix}/ns/fin/sa/scraper"
     # The REST and GraphQL servers of DevHub's demo (the chart's ServiceAccount of release devhub).
     devhub_server = "${local.k8s_principal_prefix}/ns/devhub/sa/devhub-server"
+    # The same for Cobranch, DevHub's new name (release cobranch, namespace cobranch).
+    cobranch_server = "${local.k8s_principal_prefix}/ns/cobranch/sa/cobranch-server"
     # Every pod of a Fin pull request's environment that presents its projected token (pool fin-pull-requests below).
     fin_pull_requests = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.fin_pull_requests.name}/*"
   }
@@ -91,7 +95,7 @@ locals {
 
   # Every repository with a CI tenant publishes its docs to its own layer of arikkfir-docs, .layers/<repository>/
   # (https://docs.dev.kfirs.com/hub/designs/docs-site-composition.md).
-  docs_layers = toset(["chrome-extensions", "delivery", "devhub", "docs", "fin", "infra", "octomaton", "tooling"])
+  docs_layers = toset(["chrome-extensions", "cobranch", "delivery", "devhub", "docs", "fin", "infra", "octomaton", "tooling"])
 
   # The docs site's pipelines list the bucket's object names: docs-reader on pull requests, docs-publisher on main.
   docs_listers = merge([
@@ -133,6 +137,8 @@ locals {
     "arikkfir-octomaton-ci-cache/ci-octomaton-ci/storage.objectViewer"    = { bucket = "arikkfir-octomaton-ci-cache", role = "roles/storage.objectViewer", member = local.principals.ci_octomaton_ci }
     # DevHub's demo keeps every large or binary object in its bucket; only its servers reach it.
     "arikkfir-devhub/devhub-server/storage.objectUser" = { bucket = "arikkfir-devhub", role = "roles/storage.objectUser", member = local.principals.devhub_server }
+    # Cobranch's demo, the same way.
+    "arikkfir-cobranch/cobranch-server/storage.objectUser" = { bucket = "arikkfir-cobranch", role = "roles/storage.objectUser", member = local.principals.cobranch_server }
   })
 
   images_iam = {
@@ -167,6 +173,19 @@ locals {
     # devhub's preview pipeline, from any branch: what it pushes runs only in DevHub's previews.
     "ci-devhub-preview/artifactregistry.writer" = { role = "roles/artifactregistry.writer", member = local.principals.ci_devhub_preview }
     "gke-nodes/artifactregistry.reader"         = { role = "roles/artifactregistry.reader", member = local.principals.gke_nodes }
+  }
+
+  cobranch_iam = {
+    # cobranch's pipelines main and tag, on main and v* tags only; every installation, the hub's demo included, pulls
+    # as anyone.
+    "ci-cobranch-release/artifactregistry.writer" = { role = "roles/artifactregistry.writer", member = local.principals.ci_cobranch_release }
+    "allUsers/artifactregistry.reader"            = { role = "roles/artifactregistry.reader", member = "allUsers" }
+  }
+
+  cobranch_previews_iam = {
+    # cobranch's preview pipeline, from any branch: what it pushes runs only in Cobranch's previews.
+    "ci-cobranch-preview/artifactregistry.writer" = { role = "roles/artifactregistry.writer", member = local.principals.ci_cobranch_preview }
+    "gke-nodes/artifactregistry.reader"           = { role = "roles/artifactregistry.reader", member = local.principals.gke_nodes }
   }
 }
 
@@ -330,6 +349,24 @@ resource "google_artifact_registry_repository_iam_member" "devhub_previews" {
   member     = each.value.member
 }
 
+resource "google_artifact_registry_repository_iam_member" "cobranch" {
+  for_each = local.cobranch_iam
+
+  location   = google_artifact_registry_repository.cobranch.location
+  repository = google_artifact_registry_repository.cobranch.name
+  role       = each.value.role
+  member     = each.value.member
+}
+
+resource "google_artifact_registry_repository_iam_member" "cobranch_previews" {
+  for_each = local.cobranch_previews_iam
+
+  location   = google_artifact_registry_repository.cobranch_previews.location
+  repository = google_artifact_registry_repository.cobranch_previews.name
+  role       = each.value.role
+  member     = each.value.member
+}
+
 resource "google_secret_manager_secret_iam_member" "external_secrets" {
   for_each = { for id, secret in google_secret_manager_secret.this : id => secret if !contains(local.pipeline_secrets, id) }
 
@@ -371,7 +408,7 @@ resource "google_service_account_iam_member" "gke_nodes" {
 
 # Zone-scoped, so cert-manager cannot list zones: its Cloud DNS solvers must name the zone (hostedZoneName).
 resource "google_dns_managed_zone_iam_member" "cert_manager" {
-  for_each = toset([local.hub_zone, "octomaton-dev"])
+  for_each = toset([local.hub_zone, "octomaton-dev", "cobranch-dev"])
 
   managed_zone = google_dns_managed_zone.this[each.key].name
   role         = "roles/dns.admin"
