@@ -47,3 +47,13 @@ output "octomaton_dev_name_servers" {
   description = "Name servers to set for octomaton.dev at its registrar."
   value       = google_dns_managed_zone.this["octomaton-dev"].name_servers
 }
+
+output "cobranch_dev_name_servers" {
+  description = "Name servers to set for cobranch.dev at its registrar."
+  value       = google_dns_managed_zone.this["cobranch-dev"].name_servers
+}
+
+output "cobranch_app_name_servers" {
+  description = "Name servers to set for cobranch.app at its registrar."
+  value       = google_dns_managed_zone.this["cobranch-app"].name_servers
+}
