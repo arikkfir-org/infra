@@ -79,7 +79,8 @@
   `Docs` and `Linear`) to `local.repositories` in `terraform/github/repositories.tf`. It is created, unless it already exists:
   then also add it to the import list in `terraform/github/imports.tf`. Every repository gets the same settings, the
   `Default branch` ruleset (pull request, merge queue, `Continuous Integration`, `Docs` and `Linear` from Octomaton plus its
-  `checks` from any source), the `ENG-` autolink to Linear, Dependabot alerts and security updates, and team `reviewers`
+  `checks` from any source), the `Merge commits` ruleset (merge commits only, which admins can't bypass), the `ENG-`
+  autolink to Linear, Dependabot alerts and security updates, and team `reviewers`
   (`terraform/github/teams.tf`) gets `push` on it. Add it to `local.docs_layers` in `terraform/gcp/iam.tf` too, so its
   CI tenant can publish its docs. Tell the owner to set what the provider can't
   (`docs/infra/terraform/github.md`, "Set outside Terraform").
