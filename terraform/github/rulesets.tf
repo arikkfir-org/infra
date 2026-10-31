@@ -88,3 +88,29 @@ resource "github_repository_ruleset" "default-branch" {
     }
   }
 }
+
+# Holds every merge into a default branch to a merge commit, admins' included: unlike Default branch, it has no bypass
+# actors. It requires no approval, so an admin still merges past Default branch's other rules, only never by squash or
+# rebase; like every pull request rule, it also takes every change to the branch through a pull request. Pull requests
+# into other branches may still squash or rebase (repositories.tf).
+resource "github_repository_ruleset" "merge-commits" {
+  for_each = local.repositories
+
+  name        = "Merge commits"
+  repository  = github_repository.this[each.key].name
+  target      = "branch"
+  enforcement = "active"
+
+  conditions {
+    ref_name {
+      include = ["~DEFAULT_BRANCH"]
+      exclude = []
+    }
+  }
+
+  rules {
+    pull_request {
+      allowed_merge_methods = ["merge"]
+    }
+  }
+}

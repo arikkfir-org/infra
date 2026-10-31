@@ -1,11 +1,12 @@
 # Root github: the GitHub organization
 
-**Decision**: `terraform/github` manages the `arikkfir-org` organization's settings and every repository in it: their settings, their `Default branch` ruleset, their `ENG-` autolink to Linear, their label `skip-linear`, Dependabot's alerts and security updates, and team `reviewers`, through which the pull request reviewer may approve. Every repository gets the same settings and the same ruleset; only its description, its visibility and its extra required checks differ. Pipeline `apply` applies it on every merge to `main` ([Terraform plan and apply](../designs/terraform-plan-apply.md)). This page documents every repository, setting and rule it creates; other repositories link it rather than repeat them.
+**Decision**: `terraform/github` manages the `arikkfir-org` organization's settings and every repository in it: their settings, their `Default branch` and `Merge commits` rulesets, their `ENG-` autolink to Linear, their label `skip-linear`, Dependabot's alerts and security updates, and team `reviewers`, through which the pull request reviewer may approve. Every repository gets the same settings and the same rulesets; only its description, its visibility and its extra required checks differ. Pipeline `apply` applies it on every merge to `main` ([Terraform plan and apply](../designs/terraform-plan-apply.md)). This page documents every repository, setting and rule it creates; other repositories link it rather than repeat them.
 
 ```mermaid
 flowchart LR
   L["local.repositories<br/>description, visibility, checks"] --> R["github_repository<br/>settings, merge options"]
-  R --> RS["ruleset Default branch<br/>pull request, checks from Octomaton,<br/>merge queue"]
+  R --> RS["ruleset Default branch<br/>pull request, checks from Octomaton,<br/>merge queue; admins bypass it"]
+  R --> MC["ruleset Merge commits<br/>merge commits only; nobody bypasses it"]
   R --> AL["autolink ENG- to Linear"]
   R --> LB["label skip-linear"]
   R --> DB["Dependabot alerts<br/>and security updates"]
@@ -18,7 +19,7 @@ flowchart LR
 | --- | --- |
 | `organization.tf` | `github_organization_settings.arikkfir_org` |
 | `repositories.tf` | `local.repositories`; per repository: `github_repository`, `github_repository_vulnerability_alerts`, `github_repository_dependabot_security_updates`, `github_repository_autolink_reference` |
-| `rulesets.tf` | `github_repository_ruleset` `Default branch` per repository |
+| `rulesets.tf` | `github_repository_ruleset` `Default branch` and `Merge commits` per repository |
 | `labels.tf` | `github_issue_label` `skip-linear` per repository |
 | `teams.tf` | team `reviewers` (closed), its member `arikkfir-reviewer`, and `push` on every repository |
 | `imports.tf` | the eight repositories made by hand and the organization, which existed before |
@@ -44,7 +45,7 @@ No repository adds checks of its own today (`checks` in `local.repositories`). E
 | Setting | Value |
 | --- | --- |
 | Features | Discussions on; issues, wiki and projects off |
-| Merging | Merge commits, squash and rebase allowed, the ruleset narrowing pull requests to merge commits; the pull request's title and description as the merge commit's message; auto-merge, branch updates and head-branch deletion on |
+| Merging | Merge commits, squash and rebase allowed, the rulesets narrowing pull requests into the default branch to merge commits; the pull request's title and description as the merge commit's message; auto-merge, branch updates and head-branch deletion on |
 | Forking | Public repositories only |
 | Autolink | `ENG-<num>`, alphanumeric, to `https://linear.app/arikkfir/issue/ENG-<num>` |
 | Label | `skip-linear` (grey, `8a93a3`): a pull request with no Linear issue carries it, and check `Linear` passes it ([Linear](../../CONTRIBUTING.md#linear)) |
@@ -66,6 +67,16 @@ Adding a repository: an entry in `local.repositories`, and, if it already exists
 | Off | Restricted creations and updates, linear history, required deployments, signed commits, code owner and team reviews, up-to-date branches, skipping checks on creation |
 
 `arikkfir-reviewer`'s approval counts toward the one required: team `reviewers` gives it `push` on every repository, which resolving review threads needs too ([pull request reviewer](../../tooling/designs/pr-reviewer.md)).
+
+## The `Merge commits` ruleset
+
+| Rule | Value |
+| --- | --- |
+| Target | The default branch |
+| Pull request | Merge commits only; no approval |
+| Bypass | None, admins included |
+
+An admin who bypasses `Default branch` (to merge past a blocking review, or a check nothing reports) still merges with a merge commit: GitHub refuses their squash or rebase, in the UI and through the API alike ([ENG-226](https://linear.app/arikkfir/issue/ENG-226)). Its pull request rule also takes every change to the default branch through a pull request, so nobody, admins included, pushes to it directly. Pull requests into other branches may squash or rebase.
 
 ## The organization
 
@@ -90,17 +101,19 @@ The provider has no argument for these:
 | Where | Setting |
 | --- | --- |
 | Each repository's Settings, General | Features: Sponsorships on, Preserve this repository off. GitHub's defaults, which need nothing unless someone changes them: pull requests open to all users, comments on individual commits allowed |
-| The ruleset | "Restrict who can dismiss pull request reviews" (off by default), "Require an additional approval for unattributed Copilot pull requests" (on by default) |
+| Both rulesets | "Restrict who can dismiss pull request reviews" (off by default), "Require an additional approval for unattributed Copilot pull requests" (on by default) |
 | The organization | The rest of the profile (links, company, location, public email), ignored by Terraform; the security defaults for new repositories, which GitHub replaced with code security configurations. Dependabot is turned on per repository here instead |
 
 ## Decisions
 
 | Decision | Why | Rejected |
 | --- | --- | --- |
-| One settings block and one ruleset for every repository | A new repository gets the hub's rules by being listed | Settings per repository, by hand |
+| One settings block and the same rulesets for every repository | A new repository gets the hub's rules by being listed | Settings per repository, by hand |
 | `Continuous Integration`, `Docs` and `Linear` pinned to the Octomaton App's ID | A check of that name from another App or a commit status counts for nothing | Checks by name alone |
 | Bypass for admins, always | One person owns the hub, and can't approve their own pull requests | No bypass, which would block every merge without a second person |
 | Merge queues, merge commits only | `git log --first-parent` reads as the list of merges, each with its pull request's description ([pull request titles](../../hub/designs/pull-request-titles.md)) | Squash merges; no queue |
+| The merge method in a ruleset of its own, without bypass | The admin bypass is for merging past a review or a check, never for squashing or rebasing, which loses a branch's commits from the default branch's history | One ruleset, whose bypass skipped the merge method too; squash and rebase off on the repository, which would forbid them into other branches too |
+| The merge queue stays in `Default branch` | The queue merges with merge commits whoever enqueues, and an admin who skips it is held to merge commits by `Merge commits` | The queue in `Merge commits`, which would take away the admin's way past it |
 | `infra`'s queue one entry at a time | Each merge's plan is the plan that is applied | Groups of up to five |
 | Imported repositories and organization, `prevent_destroy` | Adopted with their history, never recreated | Recreating them |
 | Repository creation off for members | Every repository comes through review, with its ruleset from the start | Creation by hand |
