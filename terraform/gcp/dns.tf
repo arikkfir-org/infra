@@ -1,8 +1,8 @@
 locals {
   # Public zones; keys are Cloud DNS zone names. kfirs.com and kfirfamily.com existed before and are adopted through
   # imports.tf (kfirfamily.com is unused); octomaton.dev is Octomaton's own domain, and cobranch.dev and cobranch.app
-  # Cobranch's (the product, with its Go import page, and its hosted service, no records yet), each delegated to its
-  # zone at Namecheap by root namecheap.
+  # Cobranch's (the product, with its site and Go import page, and its hosted service), each delegated to its zone at
+  # Namecheap by root namecheap.
   dns_zones = {
     "kfirs-com"      = "kfirs.com"
     "kfirfamily-com" = "kfirfamily.com"
@@ -86,6 +86,18 @@ resource "google_dns_record_set" "octomaton" {
 resource "google_dns_record_set" "cobranch" {
   managed_zone = google_dns_managed_zone.this["cobranch-dev"].name
   name         = google_dns_managed_zone.this["cobranch-dev"].dns_name
+  type         = "A"
+  ttl          = 300
+  rrdatas      = [google_compute_address.ingress["public"].address]
+}
+
+# cobranch.app, Cobranch's hosted service: the Console and its APIs at the apex, and its Git server at git.cobranch.app,
+# both on the public gateway, where Cobranch signs everyone in itself.
+resource "google_dns_record_set" "cobranch_app" {
+  for_each = toset(["cobranch.app", "git.cobranch.app"])
+
+  managed_zone = google_dns_managed_zone.this["cobranch-app"].name
+  name         = "${each.key}."
   type         = "A"
   ttl          = 300
   rrdatas      = [google_compute_address.ingress["public"].address]

@@ -28,6 +28,9 @@ locals {
     fin_scraper          = "${local.k8s_principal_prefix}/ns/fin/sa/scraper"
     # The servers and maintenance job of Cobranch's demo (the chart's ServiceAccount of release cobranch).
     cobranch_server = "${local.k8s_principal_prefix}/ns/cobranch/sa/cobranch-server"
+    # cobranch.app's: the servers and maintenance job (the chart's ServiceAccount of release cobranch, as the demo's), and its nightly database dump.
+    cobranch_app_server = "${local.k8s_principal_prefix}/ns/cobranch-app/sa/cobranch-server"
+    cobranch_app_backup = "${local.k8s_principal_prefix}/ns/cobranch-app/sa/cobranch-backup"
     # Every pod of a Fin pull request's environment that presents its projected token (pool fin-pull-requests below).
     fin_pull_requests = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.fin_pull_requests.name}/*"
   }
@@ -133,6 +136,9 @@ locals {
     "arikkfir-octomaton-ci-cache/ci-octomaton-ci/storage.objectViewer"    = { bucket = "arikkfir-octomaton-ci-cache", role = "roles/storage.objectViewer", member = local.principals.ci_octomaton_ci }
     # Cobranch's demo keeps every large or binary object in its bucket; only its servers and maintenance job reach it.
     "arikkfir-cobranch/cobranch-server/storage.objectUser" = { bucket = "arikkfir-cobranch", role = "roles/storage.objectUser", member = local.principals.cobranch_server }
+    # cobranch.app's, likewise. Its nightly dump only creates objects: it can't read, replace or delete a backup.
+    "arikkfir-cobranch-app/cobranch-server/storage.objectUser"            = { bucket = "arikkfir-cobranch-app", role = "roles/storage.objectUser", member = local.principals.cobranch_app_server }
+    "arikkfir-cobranch-app-backups/cobranch-backup/storage.objectCreator" = { bucket = "arikkfir-cobranch-app-backups", role = "roles/storage.objectCreator", member = local.principals.cobranch_app_backup }
   })
 
   images_iam = {
@@ -390,7 +396,7 @@ resource "google_service_account_iam_member" "gke_nodes" {
 
 # Zone-scoped, so cert-manager cannot list zones: its Cloud DNS solvers must name the zone (hostedZoneName).
 resource "google_dns_managed_zone_iam_member" "cert_manager" {
-  for_each = toset([local.hub_zone, "octomaton-dev", "cobranch-dev"])
+  for_each = toset([local.hub_zone, "octomaton-dev", "cobranch-dev", "cobranch-app"])
 
   managed_zone = google_dns_managed_zone.this[each.key].name
   role         = "roles/dns.admin"
