@@ -26,7 +26,7 @@ locals {
     fin_api              = "${local.k8s_principal_prefix}/ns/fin/sa/api"
     fin_worker           = "${local.k8s_principal_prefix}/ns/fin/sa/worker"
     fin_scraper          = "${local.k8s_principal_prefix}/ns/fin/sa/scraper"
-    # The servers, push worker and maintenance job of Cobranch's demo (the chart's ServiceAccount of release cobranch).
+    # The servers and maintenance job of Cobranch's demo (the chart's ServiceAccount of release cobranch).
     cobranch_server = "${local.k8s_principal_prefix}/ns/cobranch/sa/cobranch-server"
     # Every pod of a Fin pull request's environment that presents its projected token (pool fin-pull-requests below).
     fin_pull_requests = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.fin_pull_requests.name}/*"
@@ -131,8 +131,7 @@ locals {
     # hold nothing secret.
     "arikkfir-octomaton-ci-cache/ci-octomaton-release/storage.objectUser" = { bucket = "arikkfir-octomaton-ci-cache", role = "roles/storage.objectUser", member = local.principals.ci_octomaton_release }
     "arikkfir-octomaton-ci-cache/ci-octomaton-ci/storage.objectViewer"    = { bucket = "arikkfir-octomaton-ci-cache", role = "roles/storage.objectViewer", member = local.principals.ci_octomaton_ci }
-    # Cobranch's demo keeps every large or binary object in its bucket; only its servers, push worker and maintenance job
-    # reach it.
+    # Cobranch's demo keeps every large or binary object in its bucket; only its servers and maintenance job reach it.
     "arikkfir-cobranch/cobranch-server/storage.objectUser" = { bucket = "arikkfir-cobranch", role = "roles/storage.objectUser", member = local.principals.cobranch_server }
   })
 
