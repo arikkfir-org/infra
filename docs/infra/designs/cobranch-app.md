@@ -34,6 +34,8 @@ flowchart LR
 | Bucket grants | `iam.tf`, `local.bucket_iam` | `roles/storage.objectUser` to `cobranch-app/cobranch-server`; `roles/storage.objectCreator` to `cobranch-app/cobranch-backup` |
 | Secret | `secrets.tf` | `cobranch-app-google-client-secret`, which External Secrets reads, as it reads every non-pipeline secret |
 
+`cobranch-server` is the ServiceAccount Cobranch's chart names for its release `cobranch`, the name `delivery` installs it under in namespace `cobranch-app`, as it does the demo in `cobranch`; a release of another name would need this grant renamed with it. `cobranch-backup` is `delivery`'s own.
+
 The facts themselves, every name and grant, are in [root gcp](../terraform/gcp.md): its [buckets](../terraform/gcp.md#buckets), [Secret Manager](../terraform/gcp.md#secret-manager), [IAM](../terraform/gcp.md#iam) and [DNS](../terraform/gcp.md#dns).
 
 ## Manual steps
@@ -45,7 +47,7 @@ Google Cloud makes the OAuth clients that Google sign-in uses only in its consol
 3. Under **Clients**, create a Web application client named `cobranch.app` with authorized redirect URI `https://cobranch.app/auth/callback`.
 4. Once this root's apply has made the container, add the client's secret: `gcloud secrets versions add cobranch-app-google-client-secret --project arikkfir --data-file=-`, then paste it and press Ctrl-D. The client ID is not secret: it goes into `delivery`'s values for `cobranch.app`.
 
-If Google asks to verify a domain, its TXT record goes into zone `cobranch-app` through this repository.
+If Google asks to verify a domain, its TXT record goes into that domain's zone through this repository: `cobranch-app` for `cobranch.app`, `cobranch-dev` for `cobranch.dev`.
 
 ## Decisions
 

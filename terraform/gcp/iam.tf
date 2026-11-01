@@ -28,7 +28,7 @@ locals {
     fin_scraper          = "${local.k8s_principal_prefix}/ns/fin/sa/scraper"
     # The servers and maintenance job of Cobranch's demo (the chart's ServiceAccount of release cobranch).
     cobranch_server = "${local.k8s_principal_prefix}/ns/cobranch/sa/cobranch-server"
-    # cobranch.app's: the servers and maintenance job (the chart's, as the demo's), and its nightly database dump.
+    # cobranch.app's: the servers and maintenance job (the chart's ServiceAccount of release cobranch, as the demo's), and its nightly database dump.
     cobranch_app_server = "${local.k8s_principal_prefix}/ns/cobranch-app/sa/cobranch-server"
     cobranch_app_backup = "${local.k8s_principal_prefix}/ns/cobranch-app/sa/cobranch-backup"
     # Every pod of a Fin pull request's environment that presents its projected token (pool fin-pull-requests below).
