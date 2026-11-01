@@ -1,6 +1,6 @@
 # cobranch.app in GCP
 
-**Decision**: `cobranch.app`, Cobranch's hosted service, runs on the hub's cluster from Cobranch's `main`, open to anyone who signs up. This root gives it what a public installation needs from Google Cloud: the apex and `git.cobranch.app` on the public gateway's address, cert-manager's grant on zone `cobranch-app` for their certificate, and the container for its Google sign-in client's secret. It needs no bucket: Cobranch keeps its Git data in its own PostgreSQL by default, and no installation of ours is to use a bucket (owner, 2026-11-01). The Google client itself is the owner's to make by hand, in project `arikkfir`, since Google Cloud has no API for it ([below](#manual-steps)). What runs in the cluster, its routes and its sign-in values are `delivery`'s. Linear: [ENG-232](https://linear.app/arikkfir/issue/ENG-232).
+**Decision**: `cobranch.app`, Cobranch's hosted service, runs on the hub's cluster from Cobranch's `main`, open to anyone who signs up. This root gives it what a public installation needs from Google Cloud: the apex and `git.cobranch.app` on the public gateway's address, cert-manager's grant on zone `cobranch-app` for their certificate, and the container for its Google sign-in client's secret. It needs no bucket: the owner decided that Cobranch keeps Git data in its own PostgreSQL by default, and that no installation of ours is to use a bucket (2026-11-01). Cobranch's `main` still requires a bucket until [ENG-237](https://linear.app/arikkfir/issue/ENG-237) makes PostgreSQL the default, so `delivery` deploys `cobranch.app` only once it has. The Google client itself is the owner's to make by hand, in project `arikkfir`, since Google Cloud has no API for it ([below](#manual-steps)). What runs in the cluster, its routes and its sign-in values are `delivery`'s. Linear: [ENG-232](https://linear.app/arikkfir/issue/ENG-232).
 
 ## Design
 
@@ -49,7 +49,7 @@ If Google asks to verify a domain, its TXT record goes into that domain's zone t
 | --- | --- | --- |
 | Both names on the public gateway | Anyone signs up and signs in to `cobranch.app`, and Git clients can't pass the hub's sign-in, whose cookie covers `kfirs.com` only anyway | The protected gateway |
 | `git.cobranch.app`, a name of its own | The Console owns every path of the apex; Git's paths (`/<organization>/<repository>.git`) can't be told apart from the Console's by prefix | Git under a path of the apex, such as `/git` |
-| No bucket | Cobranch's default keeps Git data in its PostgreSQL; a bucket stays a supported option of the product, which no installation of ours is to use (owner, 2026-11-01) | Bucket `arikkfir-cobranch-app`, which this root made first and removed before anything used it |
+| No bucket | Cobranch's default, from [ENG-237](https://linear.app/arikkfir/issue/ENG-237) on, keeps Git data in its PostgreSQL; a bucket stays a supported option of the product, which no installation of ours is to use (owner, 2026-11-01) | Bucket `arikkfir-cobranch-app`, which this root made first and removed before anything used it |
 | No backups yet | The owner's call at launch (2026-11-01): the database's volume is its only copy | A nightly `pg_dump` to a bucket the dump could only add to; Backup for GKE |
 | The Google client in project `arikkfir`, made by hand | Google offers no API for OAuth clients; the owner chose the hub's project over one of Cobranch's own (2026-11-01) | A project of its own, whose consent screen would name Cobranch |
 
@@ -62,5 +62,6 @@ If Google asks to verify a domain, its TXT record goes into that domain's zone t
 
 1. [infra#105](https://github.com/arikkfir-org/infra/pull/105), applied by pipeline `apply` on merge: the records, the grant, the secret's container, and two buckets.
 2. This repository's next pull request removes both buckets and their grants, before anything used them: Git data lives in the database, and the owner chose no backups yet.
-3. The owner makes the Google client and adds its secret ([above](#manual-steps)).
-4. `delivery`: `cobranch.app`'s environment.
+3. Cobranch: PostgreSQL becomes the default for Git data, and the chart's `blob.url` optional ([ENG-237](https://linear.app/arikkfir/issue/ENG-237)). Until then `cobranch.app` can't start without a bucket.
+4. The owner makes the Google client and adds its secret ([above](#manual-steps)).
+5. `delivery`: `cobranch.app`'s environment, once ENG-237 is on Cobranch's `main`.
