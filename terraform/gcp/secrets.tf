@@ -13,7 +13,8 @@ locals {
 }
 
 # Containers only: values are added by hand (`gcloud secrets versions add <name> --data-file=-`), except the Keycloak
-# clients' secrets, which terraform/keycloak generates and writes.
+# clients' secrets, which terraform/keycloak generates and writes. cobranch-app-google-client-secret is the secret of
+# the Google OAuth client the owner made by hand for cobranch.app's sign-in.
 # External Secrets Operator reads all but the pipeline secrets.
 resource "google_secret_manager_secret" "this" {
   for_each = toset([
@@ -33,6 +34,7 @@ resource "google_secret_manager_secret" "this" {
     "keycloak-google-client-secret",
     "keycloak-hub-client-secret",
     "keycloak-cobranch-client-secret",
+    "cobranch-app-google-client-secret",
     "infra-plan-github-pat",
     "infra-apply-github-pat",
     "infra-plan-keycloak-secret",

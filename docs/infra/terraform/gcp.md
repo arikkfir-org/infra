@@ -18,7 +18,7 @@ flowchart TB
     CP["Control plane<br/>DNS-based endpoint only"]
     LB["ingress-protected, ingress-public<br/>regional external IPs"]
     AR[("Artifact Registry<br/>images, previews, octomaton, devhub,<br/>cobranch, cobranch-previews")]
-    GCS[("Buckets<br/>docs, tests, claude, fin, fin-pull-requests, fin-ci-cache,<br/>octomaton-ci-cache, cobranch")]
+    GCS[("Buckets<br/>docs, tests, claude, fin, fin-pull-requests, fin-ci-cache,<br/>octomaton-ci-cache, cobranch, cobranch-app,<br/>cobranch-app-backups")]
     GSM[("Secret Manager<br/>containers only")]
     DNS[("Cloud DNS<br/>kfirs.com, octomaton.dev, cobranch.dev,<br/>cobranch.app, kfirfamily.com")]
     WIF["Workload Identity Federation<br/>pool fin-pull-requests"]
@@ -41,7 +41,7 @@ flowchart TB
 | Storage | `storage.tf` | eight buckets |
 | Secret Manager | `secrets.tf` | twenty-three secret containers |
 | IAM | `iam.tf` | grants to Kubernetes principals and two Google service accounts, pool `fin-pull-requests` and its provider, service account `claude-code@` |
-| DNS | `dns.tf` | zones `kfirs-com`, `kfirfamily-com`, `octomaton-dev`, `cobranch-dev` and `cobranch-app`, the hub's hosts, `octomaton.dev` and `cobranch.dev` |
+| DNS | `dns.tf` | zones `kfirs-com`, `kfirfamily-com`, `octomaton-dev`, `cobranch-dev` and `cobranch-app`, the hub's hosts, `octomaton.dev`, `cobranch.dev`, `cobranch.app` and `git.cobranch.app` |
 | Adopted | `imports.tf` | zones `kfirs-com` and `kfirfamily-com`, service account `claude-code@` and its viewer role, all made by hand first |
 
 Project `arikkfir` is number `8909046976`, in GCP organization `468825984716`. State: prefix `gcp` in bucket `arikkfir-devops`, which the owner made by hand and which no root manages ([buckets](#buckets)).
@@ -120,13 +120,15 @@ All in `ME-WEST1`, with uniform bucket-level access.
 | `arikkfir-fin-ci-cache` | prevented | 14 days | Fin's CI caches | `ci-fin-ci`, `ci-fin-preview` | `ci-fin-release`, from `main` |
 | `arikkfir-octomaton-ci-cache` | prevented | 14 days | Octomaton's Go caches: `main`'s, and each pull request's under `pull-requests/<number>/` | `ci-octomaton-ci`, `ci-octomaton-release` | `ci-octomaton-release`, `main`'s; `ci-octomaton-ci`, from any branch, under `pull-requests/` only |
 | `arikkfir-cobranch` | prevented | never | The objects of Cobranch's demo installation | `cobranch/cobranch-server` | `cobranch/cobranch-server` |
+| `arikkfir-cobranch-app` | prevented | never | The objects of `cobranch.app`, Cobranch's hosted service: its users' Git packs ([cobranch.app](../designs/cobranch-app.md)) | `cobranch-app/cobranch-server` | `cobranch-app/cobranch-server` |
+| `arikkfir-cobranch-app-backups` | prevented | 30 days | `cobranch.app`'s nightly database dumps | Nobody but the owner | `cobranch-app/cobranch-backup`, creating only |
 | `arikkfir-devops` | prevented | never (versioned) | Terraform's state, a prefix per root: `gcp`, `github`, `argocd`, `keycloak`, `namecheap` | `ci-infra-plan` | `ci-infra-apply`; made by hand, outside every root ([bootstrap runbook](../runbooks/bootstrap.md#1-terraform-state-bucket)) |
 
 A bucket made with uniform access also gets Cloud Storage's convenience bindings, which let the project's Viewers read its objects; `claude-code@` is one ([Claude Code cluster and docs access](../../tooling/designs/claude-code-cluster-access.md)). The docs and tests sites: delivery's [docs and tests servers](../../delivery/designs/docs-and-tests-servers.md). Fin's buckets: Fin's [environments](../../fin/designs/environments.md).
 
 ## Secret Manager
 
-`terraform/gcp` creates the containers only. The owner adds values with `gcloud secrets versions add <name> --data-file=-` ([bootstrap runbook](../runbooks/bootstrap.md#5-secret-values)), except the five Keycloak client secrets that [root keycloak](keycloak.md#generated-secrets) generates and writes. External Secrets Operator (`external-secrets/external-secrets`) syncs every secret but the seven pipeline secrets into the Kubernetes Secret named below, which the repository named with it declares.
+`terraform/gcp` creates the containers only. The owner adds values with `gcloud secrets versions add <name> --data-file=-` ([bootstrap runbook](../runbooks/bootstrap.md#5-secret-values)), except the five Keycloak client secrets that [root keycloak](keycloak.md#generated-secrets) generates and writes. `cobranch-app-google-client-secret` is the one whose client the owner makes by hand too, outside Google Cloud's API ([cobranch.app](../designs/cobranch-app.md#manual-steps)). External Secrets Operator (`external-secrets/external-secrets`) syncs every secret but the seven pipeline secrets into the Kubernetes Secret named below, which the repository named with it declares.
 
 | Secret | Content | Value set by | Read by |
 | --- | --- | --- | --- |
@@ -140,6 +142,7 @@ A bucket made with uniform access also gets Cloud Storage's convenience bindings
 | `keycloak-google-client-secret` | Secret of the Google OAuth client of identity provider `google` ([root keycloak](keycloak.md#realm-hub)) | the owner | delivery's `keycloak/keycloak-vault`, keys `hub_google-client-secret` and `master_google-client-secret` (Keycloak's file vault) |
 | `keycloak-hub-client-secret` | Secret of Keycloak client `hub` | root keycloak; the owner's placeholder before its first apply | delivery's `auth/oauth2-proxy`, key `client-secret`, and `argocd/argocd-oidc`, key `clientSecret` |
 | `keycloak-cobranch-client-secret` | Secret of Keycloak client `cobranch` ([root keycloak](keycloak.md#clients)) | root keycloak | delivery's `cobranch/cobranch-keycloak`, key `client-secret`, for the demo's Auth server |
+| `cobranch-app-google-client-secret` | Secret of the Google OAuth client that `cobranch.app` signs people in with ([cobranch.app](../designs/cobranch-app.md#manual-steps)) | the owner | delivery's `cobranch-app/cobranch-google`, key `client-secret`, for `cobranch.app`'s Auth server |
 | `grafana-postgres-admin-password` | Password of superuser `postgres` on Grafana's PostgreSQL | the owner | delivery's `grafana/postgres-admin`, key `password` |
 | `fin-postgres-arik-password` | Password of role `arik`, the superuser people sign in as, on Fin production's PostgreSQL | the owner | fin's `fin/db-arik`, key `password` |
 | `fin-scraper-sealing-key` | 32 random bytes, base64: the seed of the key pair that seals Fin production's bank credentials and browser sessions | the owner | fin's `fin/scraper-sealing-key`, key `key` |
@@ -177,7 +180,7 @@ Every grant `iam.tf` makes:
 | Principal | Roles | Scope | For |
 | --- | --- | --- | --- |
 | `external-secrets/external-secrets` | `roles/secretmanager.secretAccessor` | Each secret but the seven pipeline secrets | Syncs them into Kubernetes Secrets ([Secret Manager](#secret-manager)) |
-| `cert-manager/cert-manager` | `roles/dns.admin` | Zones `kfirs-com`, `octomaton-dev` and `cobranch-dev` | Let's Encrypt's DNS-01 challenges. Zone-scoped, so its solvers must name their zone |
+| `cert-manager/cert-manager` | `roles/dns.admin` | Zones `kfirs-com`, `octomaton-dev`, `cobranch-dev` and `cobranch-app` | Let's Encrypt's DNS-01 challenges. Zone-scoped, so its solvers must name their zone |
 | `grafana/grafana` | `roles/monitoring.viewer` | Project | Reads Cloud Monitoring |
 | `docs/docs` | `roles/storage.objectViewer` | Bucket `arikkfir-docs` | The docs site serves it |
 | `tests/tests` | `roles/storage.objectViewer` | Bucket `arikkfir-tests` | The tests site serves it |
@@ -212,6 +215,8 @@ Every grant `iam.tf` makes:
 | Pool `fin-pull-requests`, every identity in it | `roles/telemetry.tracesWriter`, `roles/telemetry.metricsWriter`, `roles/serviceusage.serviceUsageConsumer`, `roles/aiplatform.user` | Project | The same as production's, for every pull request's environment ([below](#pool-fin-pull-requests)) |
 | Pool `fin-pull-requests`, every identity in it | `roles/storage.objectUser` | Bucket `arikkfir-fin-pull-requests` | The environments' scrape artifacts, under each one's name |
 | `cobranch/cobranch-server` | `roles/storage.objectUser` | Bucket `arikkfir-cobranch` | Cobranch's demo installation: its servers and maintenance job keep their objects there |
+| `cobranch-app/cobranch-server` | `roles/storage.objectUser` | Bucket `arikkfir-cobranch-app` | `cobranch.app`: its servers and maintenance job keep their objects there |
+| `cobranch-app/cobranch-backup` | `roles/storage.objectCreator` | Bucket `arikkfir-cobranch-app-backups` | `cobranch.app`'s nightly database dump: it creates each dump, and can't read, replace or delete one |
 | `gke-hub-nodes@` | `roles/container.defaultNodeServiceAccount` | Project | Runs the nodes |
 | `gke-hub-nodes@` | `roles/artifactregistry.reader` | Repositories `images`, `previews` and `cobranch-previews` | Pulls images (`octomaton`, `devhub` and `cobranch` need no grant: `allUsers` reads them) |
 | `claude-code@` | `roles/viewer`, `roles/mcp.toolUser` | Project | Claude Code's cloud sessions look around the project and read the cluster through GKE's MCP server ([Claude Code cluster and docs access](../../tooling/designs/claude-code-cluster-access.md)) |
@@ -242,8 +247,8 @@ This root manages no other pool: not GKE's own, `arikkfir.svc.id.goog`, nor `git
 | --- | --- | --- |
 | `kfirs-com` | `kfirs.com` | An A record per hub host, pointing at the IP of the gateway that serves it (below) |
 | `octomaton-dev` | `octomaton.dev` | The apex, on the public gateway: Octomaton's webhook and Go import page. Delegated to this zone at Namecheap by [root namecheap](namecheap.md) |
-| `cobranch-dev` | `cobranch.dev` | The apex, on the public gateway: Cobranch's Go import page (`cobranch.dev` is its module path). Cobranch's open-source product, which anyone installs. Delegated to this zone at Namecheap by [root namecheap](namecheap.md) |
-| `cobranch-app` | `cobranch.app` | None yet. Cobranch's hosted service. Delegated to this zone at Namecheap by [root namecheap](namecheap.md) |
+| `cobranch-dev` | `cobranch.dev` | The apex, on the public gateway: Cobranch's site and Go import page (`cobranch.dev` is its module path). Cobranch's open-source product, which anyone installs. Delegated to this zone at Namecheap by [root namecheap](namecheap.md) |
+| `cobranch-app` | `cobranch.app` | The apex and `git.cobranch.app`, on the public gateway: Cobranch's hosted service, its Console and APIs at the apex and its Git server at `git` ([cobranch.app](../designs/cobranch-app.md)). Delegated to this zone at Namecheap by [root namecheap](namecheap.md) |
 | `kfirfamily-com` | `kfirfamily.com` | Unused; imported with `kfirs-com` |
 
 | Gateway | Hosts (under `kfirs.com`) |
