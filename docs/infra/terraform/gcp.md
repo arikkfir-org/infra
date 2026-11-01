@@ -18,7 +18,7 @@ flowchart TB
     CP["Control plane<br/>DNS-based endpoint only"]
     LB["ingress-protected, ingress-public<br/>regional external IPs"]
     AR[("Artifact Registry<br/>images, previews, octomaton, devhub,<br/>cobranch, cobranch-previews")]
-    GCS[("Buckets<br/>docs, tests, claude, fin, fin-pull-requests, fin-ci-cache,<br/>octomaton-ci-cache, cobranch, cobranch-app,<br/>cobranch-app-backups")]
+    GCS[("Buckets<br/>docs, tests, claude, fin, fin-pull-requests, fin-ci-cache,<br/>octomaton-ci-cache, cobranch")]
     GSM[("Secret Manager<br/>containers only")]
     DNS[("Cloud DNS<br/>kfirs.com, octomaton.dev, cobranch.dev,<br/>cobranch.app, kfirfamily.com")]
     WIF["Workload Identity Federation<br/>pool fin-pull-requests"]
@@ -38,7 +38,7 @@ flowchart TB
 | Network | `network.tf` | VPC `hub`, subnet `hub` with ranges `pods` and `services`, Cloud Router and NAT `hub`, addresses `egress`, `ingress-protected` and `ingress-public` |
 | GKE | `gke.tf` | cluster `hub`, node pools `system`, `ci` and `fin`, node service account `gke-hub-nodes@` |
 | Artifact Registry | `registry.tf` | Docker repositories `images`, `previews`, `octomaton`, `devhub`, `cobranch` and `cobranch-previews` |
-| Storage | `storage.tf` | ten buckets |
+| Storage | `storage.tf` | eight buckets |
 | Secret Manager | `secrets.tf` | twenty-four secret containers |
 | IAM | `iam.tf` | grants to Kubernetes principals and two Google service accounts, pool `fin-pull-requests` and its provider, service account `claude-code@` |
 | DNS | `dns.tf` | zones `kfirs-com`, `kfirfamily-com`, `octomaton-dev`, `cobranch-dev` and `cobranch-app`, the hub's hosts, `octomaton.dev`, `cobranch.dev`, `cobranch.app` and `git.cobranch.app` |
@@ -120,8 +120,6 @@ All in `ME-WEST1`, with uniform bucket-level access.
 | `arikkfir-fin-ci-cache` | prevented | 14 days | Fin's CI caches | `ci-fin-ci`, `ci-fin-preview` | `ci-fin-release`, from `main` |
 | `arikkfir-octomaton-ci-cache` | prevented | 14 days | Octomaton's Go caches: `main`'s, and each pull request's under `pull-requests/<number>/` | `ci-octomaton-ci`, `ci-octomaton-release` | `ci-octomaton-release`, `main`'s; `ci-octomaton-ci`, from any branch, under `pull-requests/` only |
 | `arikkfir-cobranch` | prevented | never | The objects of Cobranch's demo installation | `cobranch/cobranch-server` | `cobranch/cobranch-server` |
-| `arikkfir-cobranch-app` | prevented | never | The objects of `cobranch.app`, Cobranch's hosted service: its users' Git packs ([cobranch.app](../designs/cobranch-app.md)) | `cobranch-app/cobranch-server` | `cobranch-app/cobranch-server` |
-| `arikkfir-cobranch-app-backups` | prevented | 30 days | `cobranch.app`'s nightly database dumps | Nobody but the owner | `cobranch-app/cobranch-backup`, creating only |
 | `arikkfir-devops` | prevented | never (versioned) | Terraform's state, a prefix per root: `gcp`, `github`, `argocd`, `keycloak`, `namecheap` | `ci-infra-plan` | `ci-infra-apply`; made by hand, outside every root ([bootstrap runbook](../runbooks/bootstrap.md#1-terraform-state-bucket)) |
 
 A bucket made with uniform access also gets Cloud Storage's convenience bindings, which let the project's Viewers read its objects; `claude-code@` is one ([Claude Code cluster and docs access](../../tooling/designs/claude-code-cluster-access.md)). The docs and tests sites: delivery's [docs and tests servers](../../delivery/designs/docs-and-tests-servers.md). Fin's buckets: Fin's [environments](../../fin/designs/environments.md).
@@ -215,8 +213,6 @@ Every grant `iam.tf` makes:
 | Pool `fin-pull-requests`, every identity in it | `roles/telemetry.tracesWriter`, `roles/telemetry.metricsWriter`, `roles/serviceusage.serviceUsageConsumer`, `roles/aiplatform.user` | Project | The same as production's, for every pull request's environment ([below](#pool-fin-pull-requests)) |
 | Pool `fin-pull-requests`, every identity in it | `roles/storage.objectUser` | Bucket `arikkfir-fin-pull-requests` | The environments' scrape artifacts, under each one's name |
 | `cobranch/cobranch-server` | `roles/storage.objectUser` | Bucket `arikkfir-cobranch` | Cobranch's demo installation: its servers and maintenance job keep their objects there |
-| `cobranch-app/cobranch-server` | `roles/storage.objectUser` | Bucket `arikkfir-cobranch-app` | `cobranch.app`: its servers and maintenance job keep their objects there |
-| `cobranch-app/cobranch-backup` | `roles/storage.objectCreator` | Bucket `arikkfir-cobranch-app-backups` | `cobranch.app`'s nightly database dump: it creates each dump, and can't read, replace or delete one |
 | `gke-hub-nodes@` | `roles/container.defaultNodeServiceAccount` | Project | Runs the nodes |
 | `gke-hub-nodes@` | `roles/artifactregistry.reader` | Repositories `images`, `previews` and `cobranch-previews` | Pulls images (`octomaton`, `devhub` and `cobranch` need no grant: `allUsers` reads them) |
 | `claude-code@` | `roles/viewer`, `roles/mcp.toolUser` | Project | Claude Code's cloud sessions look around the project and read the cluster through GKE's MCP server ([Claude Code cluster and docs access](../../tooling/designs/claude-code-cluster-access.md)) |
