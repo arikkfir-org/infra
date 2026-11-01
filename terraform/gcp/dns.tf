@@ -27,7 +27,13 @@ locals {
     # _acme-challenge.cobranch.dev, is a sibling of the names the wildcard answers for, which it leaves alone.
     "cobranch.dev"   = "protected"
     "*.cobranch.dev" = "protected"
-    auth             = "public"
+    # Their Git servers, on the public gateway since Git clients can't pass the hub's sign-in: the demo's at
+    # git.cobranch.dev, each preview's at pr-<number>.git.cobranch.dev, which serves its pull request's own code, as the
+    # owner accepted on 2026-11-01. A name under git.cobranch.dev escapes the wildcard above once git.cobranch.dev
+    # exists, so it has a wildcard of its own.
+    "git.cobranch.dev"   = "public"
+    "*.git.cobranch.dev" = "public"
+    auth                 = "public"
     # Keycloak: realm hub, and its admin console behind the hub's sign-in.
     id         = "public"
     "admin.id" = "protected"
