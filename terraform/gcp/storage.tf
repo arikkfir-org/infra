@@ -5,9 +5,7 @@
 # days. arikkfir-fin and arikkfir-fin-pull-requests hold Fin's scrape videos, traces and raw statements, which only
 # fin-api serves. arikkfir-fin-ci-cache holds Fin's CI cache, which its release pipeline saves on main.
 # arikkfir-octomaton-ci-cache holds Octomaton's CI caches: main's, which its main pipeline saves, and each pull
-# request's, which its ci saves. arikkfir-cobranch held the objects of Cobranch's demo, which is gone with its data
-# (ENG-232): it is the one bucket force_destroy empties, so that the next change can delete it. Readers and the writers
-# are granted in iam.tf.
+# request's, which its ci saves. Readers and the writers are granted in iam.tf.
 resource "google_storage_bucket" "this" {
   for_each = {
     "arikkfir-docs"               = { public_access_prevention = "enforced", delete_after_days = null }
@@ -17,14 +15,12 @@ resource "google_storage_bucket" "this" {
     "arikkfir-fin-pull-requests"  = { public_access_prevention = "enforced", delete_after_days = 7 }
     "arikkfir-fin-ci-cache"       = { public_access_prevention = "enforced", delete_after_days = 14 }
     "arikkfir-octomaton-ci-cache" = { public_access_prevention = "enforced", delete_after_days = 14 }
-    "arikkfir-cobranch"           = { public_access_prevention = "enforced", delete_after_days = null }
   }
 
   name                        = each.key
   location                    = upper(var.region)
   uniform_bucket_level_access = true
   public_access_prevention    = each.value.public_access_prevention
-  force_destroy               = each.key == "arikkfir-cobranch"
 
   dynamic "lifecycle_rule" {
     for_each = each.value.delete_after_days == null ? [] : [each.value.delete_after_days]
