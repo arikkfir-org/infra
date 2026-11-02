@@ -74,6 +74,7 @@ locals {
     "ci-infra-plan/dns.reader"                      = { role = "roles/dns.reader", member = local.principals.ci_infra_plan }
     "ci-infra-plan/iam.serviceAccountViewer"        = { role = "roles/iam.serviceAccountViewer", member = local.principals.ci_infra_plan }
     "ci-infra-plan/iam.workloadIdentityPoolViewer"  = { role = "roles/iam.workloadIdentityPoolViewer", member = local.principals.ci_infra_plan }
+    "ci-infra-plan/monitoring.viewer"               = { role = "roles/monitoring.viewer", member = local.principals.ci_infra_plan }
 
     # infra's applies, on merges to main only (Octomaton enforces the ServiceAccount's octomaton.dev/branches). Owner
     # can't go to a federated principal; securityAdmin sets every IAM policy here, the DNS zones' included.
@@ -87,6 +88,9 @@ locals {
     "ci-infra-apply/iam.serviceAccountAdmin"        = { role = "roles/iam.serviceAccountAdmin", member = local.principals.ci_infra_apply }
     "ci-infra-apply/iam.securityAdmin"              = { role = "roles/iam.securityAdmin", member = local.principals.ci_infra_apply }
     "ci-infra-apply/iam.workloadIdentityPoolAdmin"  = { role = "roles/iam.workloadIdentityPoolAdmin", member = local.principals.ci_infra_apply }
+    # Cloud Monitoring's alert policies and the channels they notify (monitoring.tf).
+    "ci-infra-apply/monitoring.alertPolicyEditor"         = { role = "roles/monitoring.alertPolicyEditor", member = local.principals.ci_infra_apply }
+    "ci-infra-apply/monitoring.notificationChannelEditor" = { role = "roles/monitoring.notificationChannelEditor", member = local.principals.ci_infra_apply }
   }
 
   # Every repository with a CI tenant publishes its docs to its own layer of arikkfir-docs, .layers/<repository>/
