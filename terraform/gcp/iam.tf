@@ -16,6 +16,7 @@ locals {
     ci_octomaton_ci      = "${local.k8s_principal_prefix}/ns/ci-octomaton/sa/ci-octomaton-ci"
     ci_cobranch_release  = "${local.k8s_principal_prefix}/ns/ci-cobranch/sa/ci-cobranch-release"
     ci_cobranch_preview  = "${local.k8s_principal_prefix}/ns/ci-cobranch/sa/ci-cobranch-preview"
+    ci_cobranch_ci       = "${local.k8s_principal_prefix}/ns/ci-cobranch/sa/ci-cobranch-ci"
     ci_fin_preview       = "${local.k8s_principal_prefix}/ns/ci-fin/sa/ci-fin-preview"
     ci_fin_release       = "${local.k8s_principal_prefix}/ns/ci-fin/sa/ci-fin-release"
     ci_fin_ci            = "${local.k8s_principal_prefix}/ns/ci-fin/sa/ci-fin-ci"
@@ -129,6 +130,11 @@ locals {
     # hold nothing secret.
     "arikkfir-octomaton-ci-cache/ci-octomaton-release/storage.objectUser" = { bucket = "arikkfir-octomaton-ci-cache", role = "roles/storage.objectUser", member = local.principals.ci_octomaton_release }
     "arikkfir-octomaton-ci-cache/ci-octomaton-ci/storage.objectViewer"    = { bucket = "arikkfir-octomaton-ci-cache", role = "roles/storage.objectViewer", member = local.principals.ci_octomaton_ci }
+    # Cobranch's Go caches: its main pipeline, on main only, restores and saves them; ci and preview restore them, from
+    # any branch. They hold nothing secret.
+    "arikkfir-cobranch-ci-cache/ci-cobranch-release/storage.objectUser"   = { bucket = "arikkfir-cobranch-ci-cache", role = "roles/storage.objectUser", member = local.principals.ci_cobranch_release }
+    "arikkfir-cobranch-ci-cache/ci-cobranch-ci/storage.objectViewer"      = { bucket = "arikkfir-cobranch-ci-cache", role = "roles/storage.objectViewer", member = local.principals.ci_cobranch_ci }
+    "arikkfir-cobranch-ci-cache/ci-cobranch-preview/storage.objectViewer" = { bucket = "arikkfir-cobranch-ci-cache", role = "roles/storage.objectViewer", member = local.principals.ci_cobranch_preview }
   })
 
   images_iam = {
