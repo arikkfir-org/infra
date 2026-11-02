@@ -72,7 +72,9 @@ locals {
     "ci-infra-plan/dns.reader"                      = { role = "roles/dns.reader", member = local.principals.ci_infra_plan }
     "ci-infra-plan/iam.serviceAccountViewer"        = { role = "roles/iam.serviceAccountViewer", member = local.principals.ci_infra_plan }
     "ci-infra-plan/iam.workloadIdentityPoolViewer"  = { role = "roles/iam.workloadIdentityPoolViewer", member = local.principals.ci_infra_plan }
-    "ci-infra-plan/monitoring.viewer"               = { role = "roles/monitoring.viewer", member = local.principals.ci_infra_plan }
+    # Cloud Monitoring's alert policies and the channels they notify (monitoring.tf), and nothing else of it.
+    "ci-infra-plan/monitoring.alertPolicyViewer"         = { role = "roles/monitoring.alertPolicyViewer", member = local.principals.ci_infra_plan }
+    "ci-infra-plan/monitoring.notificationChannelViewer" = { role = "roles/monitoring.notificationChannelViewer", member = local.principals.ci_infra_plan }
 
     # infra's applies, on merges to main only (Octomaton enforces the ServiceAccount's octomaton.dev/branches). Owner
     # can't go to a federated principal; securityAdmin sets every IAM policy here, the DNS zones' included.

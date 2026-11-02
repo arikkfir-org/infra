@@ -53,7 +53,7 @@ flowchart LR
 | Pack cache missing | Under half the packs throwaway repositories link are in the cache, while they link any | 30 minutes |
 | Metrics gone | No server of `cobranch.app` has been scraped | 15 minutes |
 
-Alert policies and notification channels are new to this root, so the pipelines need roles for them first ([IAM](../terraform/gcp.md#iam)): `roles/monitoring.viewer` for `ci-infra-plan`, which reads them on every plan, and `roles/monitoring.alertPolicyEditor` and `roles/monitoring.notificationChannelEditor` for `ci-infra-apply`. Those grants change the pipelines' own roles, so the owner applies them by hand, in a pull request of their own, before the one that adds the policies.
+Alert policies and notification channels are new to this root, so the pipelines need roles for them first ([IAM](../terraform/gcp.md#iam)): `roles/monitoring.alertPolicyViewer` and `roles/monitoring.notificationChannelViewer` for `ci-infra-plan`, which reads them on every plan and nothing else of Cloud Monitoring, and `roles/monitoring.alertPolicyEditor` and `roles/monitoring.notificationChannelEditor` for `ci-infra-apply`. Those grants change the pipelines' own roles, so the owner applies them by hand, in a pull request of their own, before the one that adds the policies.
 
 ## Manual steps
 
