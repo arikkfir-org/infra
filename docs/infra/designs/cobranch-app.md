@@ -32,6 +32,29 @@ flowchart LR
 
 The facts themselves, every name and grant, are in [root gcp](../terraform/gcp.md): its [Secret Manager](../terraform/gcp.md#secret-manager), [IAM](../terraform/gcp.md#iam) and [DNS](../terraform/gcp.md#dns).
 
+## Monitoring
+
+Cobranch's metrics reach Cloud Monitoring through Managed Service for Prometheus, which the cluster runs ([GKE](../terraform/gcp.md)); `delivery` has it scrape `cobranch.app`'s servers and charts them in Grafana ([hosting cobranch.app](../../delivery/designs/cobranch-app.md)). This root adds the alerts on the ones that matter, as Cloud Monitoring alert policies whose PromQL reads those series and which email the owner: they keep working while Grafana or the cluster's own components are down, and need no mail server or webhook ([ENG-235](https://linear.app/arikkfir/issue/ENG-235)).
+
+```mermaid
+flowchart LR
+  S["cobranch.app's servers<br/>(delivery)"] -- "scraped by<br/>Managed Service for Prometheus" --> CM[("Cloud Monitoring<br/>project arikkfir")]
+  P["alert policies<br/>PromQL, each minute"] -- "read" --> CM
+  P -- "open and close incidents" --> E["email channel<br/>the owner"]
+  G["Grafana dashboard Cobranch<br/>(delivery)"] -- "read" --> CM
+```
+
+| Alert | Fires when | For |
+| --- | --- | --- |
+| Console pages slow | The 95th percentile of a page's views, moves inside the Console, is over 3 seconds | 15 minutes |
+| Server errors | Over 5% of a server's answers are 5xx | 10 minutes |
+| APIs slow | The 95th percentile of the REST or GraphQL server's answers is over 2 seconds | 15 minutes |
+| Throwaway repositories slow | The 95th percentile of the Git server's throwaway repositories takes over 2 seconds to build | 15 minutes |
+| Pack cache missing | Under half the packs throwaway repositories link are in the cache, while they link any | 30 minutes |
+| Metrics gone | No server of `cobranch.app` has been scraped | 15 minutes |
+
+Alert policies and notification channels are new to this root, so the pipelines need roles for them first ([IAM](../terraform/gcp.md#iam)): `roles/monitoring.viewer` for `ci-infra-plan`, which reads them on every plan, and `roles/monitoring.alertPolicyEditor` and `roles/monitoring.notificationChannelEditor` for `ci-infra-apply`. Those grants change the pipelines' own roles, so the owner applies them by hand, in a pull request of their own, before the one that adds the policies.
+
 ## Manual steps
 
 Google Cloud makes the OAuth clients that Google sign-in uses only in its console, so the owner makes `cobranch.app`'s by hand, once, in project `arikkfir`, beside the hub's own Google client. People signing in see that project's consent screen.
@@ -65,3 +88,4 @@ If Google asks to verify a domain, its TXT record goes into that domain's zone t
 3. Cobranch: PostgreSQL becomes the default for Git data, and the chart's `blob.url` optional ([ENG-237](https://linear.app/arikkfir/issue/ENG-237)). Until then `cobranch.app` can't start without a bucket.
 4. The owner makes the Google client and adds its secret ([above](#manual-steps)).
 5. `delivery`: `cobranch.app`'s environment, once ENG-237 is on Cobranch's `main`.
+6. Monitoring ([ENG-235](https://linear.app/arikkfir/issue/ENG-235)): the pipelines' Cloud Monitoring roles, which the owner applies by hand with `make terraform gcp` before merging them; then the email channel and the alert policies, applied by pipeline `apply` on merge, once `delivery` scrapes `cobranch.app`.
