@@ -22,16 +22,13 @@ locals {
     "nui.dev"     = "protected"
     "docs.dev"    = "protected"
     "tests.dev"   = "protected"
-    # Cobranch's demo, and its pull requests' previews (pr-<number>.cobranch.dev) beside it: hosts under kfirs.com, behind
-    # the hub's sign-in, not the cobranch.dev domain. The previews' certificate's DNS-01 challenge record,
-    # _acme-challenge.cobranch.dev, is a sibling of the names the wildcard answers for, which it leaves alone.
-    "cobranch.dev"   = "protected"
+    # Cobranch's pull requests' previews (pr-<number>.cobranch.dev): hosts under kfirs.com, behind the hub's sign-in, not
+    # the cobranch.dev domain. The previews' certificate's DNS-01 challenge record, _acme-challenge.cobranch.dev, is a
+    # sibling of the names the wildcard answers for, which it leaves alone.
     "*.cobranch.dev" = "protected"
-    # Their Git servers, on the public gateway since Git clients can't pass the hub's sign-in: the demo's at
-    # git.cobranch.dev, each preview's at pr-<number>.git.cobranch.dev, which serves its pull request's own code, as the
-    # owner accepted on 2026-11-01. A name under git.cobranch.dev escapes the wildcard above once git.cobranch.dev
-    # exists, so it has a wildcard of its own.
-    "git.cobranch.dev"   = "public"
+    # Their Git servers, on the public gateway since Git clients can't pass the hub's sign-in: each preview's at
+    # pr-<number>.git.cobranch.dev, which serves its pull request's own code, as the owner accepted on 2026-11-01. The
+    # wildcard above would answer for these names on the protected gateway, so they have a wildcard of their own.
     "*.git.cobranch.dev" = "public"
     auth                 = "public"
     # Keycloak: realm hub, and its admin console behind the hub's sign-in.

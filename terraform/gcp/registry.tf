@@ -132,7 +132,7 @@ resource "google_artifact_registry_repository" "devhub" {
 # Cobranch's releases, which anyone who installs Cobranch pulls (allUsers read, iam.tf): cobranch and cobranch-console,
 # tagged with the commit's short SHA, and every version, tagged X.Y.Z (the same images, retagged), with Helm chart
 # charts/cobranch at that version. Only cobranch's pipelines main and tag write here, from main and from v* tags. The
-# hub's demo installation runs main's.
+# hub's cobranch.app runs main's.
 resource "google_artifact_registry_repository" "cobranch" {
   location      = var.region
   repository_id = "cobranch"

@@ -65,3 +65,28 @@ If Google asks to verify a domain, its TXT record goes into that domain's zone t
 3. Cobranch: PostgreSQL becomes the default for Git data, and the chart's `blob.url` optional ([ENG-237](https://linear.app/arikkfir/issue/ENG-237)). Until then `cobranch.app` can't start without a bucket.
 4. The owner makes the Google client and adds its secret ([above](#manual-steps)).
 5. `delivery`: `cobranch.app`'s environment, once ENG-237 is on Cobranch's `main`.
+6. `delivery` takes the demo down, its data with it ([delivery#112](https://github.com/arikkfir-org/delivery/pull/112)); then this repository removes what only the demo used ([below](#the-demos-removal)).
+7. This repository deletes bucket `arikkfir-cobranch`, emptied, and secret `keycloak-cobranch-client-secret`, once the previous step is applied. That closes [ENG-232](https://linear.app/arikkfir/issue/ENG-232).
+
+## The demo's removal
+
+`cobranch.app` replaced Cobranch's demo at `cobranch.dev.kfirs.com` ([hosting Cobranch's demo](../../delivery/designs/cobranch.md)), and the owner took the demo down, its data with it, once `cobranch.app` answered and their first push to it worked (2026-11-02). What only the demo used goes in two changes, after `delivery`'s, so that no route is left pointing at a missing host:
+
+```mermaid
+flowchart LR
+  D["delivery#112:<br/>Application and namespace cobranch gone"] --> S1["step 1 (this root):<br/>records cobranch.dev, git.cobranch.dev;<br/>client cobranch and its secret's version;<br/>cobranch-server's grant;<br/>bucket arikkfir-cobranch force_destroy"]
+  S1 --> S2["step 2:<br/>bucket arikkfir-cobranch, emptied;<br/>secret keycloak-cobranch-client-secret"]
+```
+
+| Removed | Root | Step |
+| --- | --- | --- |
+| Records `cobranch.dev` and `git.cobranch.dev` under `kfirs.com`; the previews keep `*.cobranch.dev` and `*.git.cobranch.dev` | `gcp` | 1 |
+| Keycloak client `cobranch` and the version of its secret it wrote | `keycloak` | 1 |
+| `cobranch/cobranch-server`'s `roles/storage.objectUser` on the bucket | `gcp` | 1 |
+| Bucket `arikkfir-cobranch`, which still holds the demo's Git packs | `gcp` | 2 |
+| Secret `keycloak-cobranch-client-secret`, with External Secrets' grant on it | `gcp` | 2 |
+
+| Decision | Why | Rejected |
+| --- | --- | --- |
+| Two steps for the bucket | Terraform deletes a bucket with objects only when `force_destroy` is already true in its state, so the flag is applied first | One change, which fails at the bucket and leaves the apply half done; emptying it by hand |
+| The secret after the client | Pipeline `apply` runs `keycloak` after `gcp`, so deleting the secret in the same change would leave `keycloak` destroying a version of a secret already gone | Deleting both at once |
