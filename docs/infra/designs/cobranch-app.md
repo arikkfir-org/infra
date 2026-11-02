@@ -65,7 +65,7 @@ If Google asks to verify a domain, its TXT record goes into that domain's zone t
 3. Cobranch: PostgreSQL becomes the default for Git data, and the chart's `blob.url` optional ([ENG-237](https://linear.app/arikkfir/issue/ENG-237)). Until then `cobranch.app` can't start without a bucket.
 4. The owner makes the Google client and adds its secret ([above](#manual-steps)).
 5. `delivery`: `cobranch.app`'s environment, once ENG-237 is on Cobranch's `main`.
-6. `delivery` takes the demo down, its data with it ([delivery#112](https://github.com/arikkfir-org/delivery/pull/112)); then this repository removes what only the demo used ([below](#the-demos-removal)).
+6. `delivery` takes the demo down, its data with it ([delivery#112](https://github.com/arikkfir-org/delivery/pull/112)); then this repository removes what only the demo used ([infra#107](https://github.com/arikkfir-org/infra/pull/107), [below](#the-demos-removal)).
 7. This repository deletes bucket `arikkfir-cobranch`, emptied, and secret `keycloak-cobranch-client-secret`, once the previous step is applied. That closes [ENG-232](https://linear.app/arikkfir/issue/ENG-232).
 
 ## The demo's removal
