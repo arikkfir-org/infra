@@ -119,14 +119,14 @@ All in `ME-WEST1`, with uniform bucket-level access.
 | `arikkfir-fin-pull-requests` | prevented | 7 days | The same for every Fin pull request's environment, under its name | pool `fin-pull-requests` | pool `fin-pull-requests` |
 | `arikkfir-fin-ci-cache` | prevented | 14 days | Fin's CI caches | `ci-fin-ci`, `ci-fin-preview` | `ci-fin-release`, from `main` |
 | `arikkfir-octomaton-ci-cache` | prevented | 14 days | Octomaton's Go caches: `main`'s, and each pull request's under `pull-requests/<number>/` | `ci-octomaton-ci`, `ci-octomaton-release` | `ci-octomaton-release`, `main`'s; `ci-octomaton-ci`, from any branch, under `pull-requests/` only |
-| `arikkfir-cobranch` | prevented | never | The objects of Cobranch's demo installation | `cobranch/cobranch-server` | `cobranch/cobranch-server` |
+| `arikkfir-cobranch` | prevented | never | The objects of Cobranch's demo, which is gone; `force_destroy` empties it as the next change deletes it ([cobranch.app](../designs/cobranch-app.md#the-demos-removal)) | none | none |
 | `arikkfir-devops` | prevented | never (versioned) | Terraform's state, a prefix per root: `gcp`, `github`, `argocd`, `keycloak`, `namecheap` | `ci-infra-plan` | `ci-infra-apply`; made by hand, outside every root ([bootstrap runbook](../runbooks/bootstrap.md#1-terraform-state-bucket)) |
 
 A bucket made with uniform access also gets Cloud Storage's convenience bindings, which let the project's Viewers read its objects; `claude-code@` is one ([Claude Code cluster and docs access](../../tooling/designs/claude-code-cluster-access.md)). The docs and tests sites: delivery's [docs and tests servers](../../delivery/designs/docs-and-tests-servers.md). Fin's buckets: Fin's [environments](../../fin/designs/environments.md).
 
 ## Secret Manager
 
-`terraform/gcp` creates the containers only. The owner adds values with `gcloud secrets versions add <name> --data-file=-` ([bootstrap runbook](../runbooks/bootstrap.md#5-secret-values)), except the five Keycloak client secrets that [root keycloak](keycloak.md#generated-secrets) generates and writes. `cobranch-app-google-client-secret` is the one whose client the owner makes by hand too, outside Google Cloud's API ([cobranch.app](../designs/cobranch-app.md#manual-steps)). External Secrets Operator (`external-secrets/external-secrets`) syncs every secret but the seven pipeline secrets into the Kubernetes Secret named below, which the repository named with it declares.
+`terraform/gcp` creates the containers only. The owner adds values with `gcloud secrets versions add <name> --data-file=-` ([bootstrap runbook](../runbooks/bootstrap.md#5-secret-values)), except the four Keycloak client secrets that [root keycloak](keycloak.md#generated-secrets) generates and writes. `cobranch-app-google-client-secret` is the one whose client the owner makes by hand too, outside Google Cloud's API ([cobranch.app](../designs/cobranch-app.md#manual-steps)). External Secrets Operator (`external-secrets/external-secrets`) syncs every secret but the seven pipeline secrets into the Kubernetes Secret named below, which the repository named with it declares.
 
 | Secret | Content | Value set by | Read by |
 | --- | --- | --- | --- |
@@ -139,7 +139,7 @@ A bucket made with uniform access also gets Cloud Storage's convenience bindings
 | `keycloak-bootstrap-admin` | Secret of Keycloak's temporary bootstrap admin, service account `bootstrap-admin` in realm `master` | the owner | delivery's `keycloak/keycloak-bootstrap-admin`, key `client-secret` |
 | `keycloak-google-client-secret` | Secret of the Google OAuth client of identity provider `google` ([root keycloak](keycloak.md#realm-hub)) | the owner | delivery's `keycloak/keycloak-vault`, keys `hub_google-client-secret` and `master_google-client-secret` (Keycloak's file vault) |
 | `keycloak-hub-client-secret` | Secret of Keycloak client `hub` | root keycloak; the owner's placeholder before its first apply | delivery's `auth/oauth2-proxy`, key `client-secret`, and `argocd/argocd-oidc`, key `clientSecret` |
-| `keycloak-cobranch-client-secret` | Secret of Keycloak client `cobranch` ([root keycloak](keycloak.md#clients)) | root keycloak | delivery's `cobranch/cobranch-keycloak`, key `client-secret`, for the demo's Auth server |
+| `keycloak-cobranch-client-secret` | Secret of Keycloak client `cobranch`, Cobranch's demo's, which is gone; the next change deletes it ([cobranch.app](../designs/cobranch-app.md#the-demos-removal)) | nobody | nobody |
 | `cobranch-app-google-client-secret` | Secret of the Google OAuth client that `cobranch.app` signs people in with ([cobranch.app](../designs/cobranch-app.md#manual-steps)) | the owner | delivery's `cobranch-app/cobranch-google`, key `client-secret`, for `cobranch.app`'s Auth server |
 | `grafana-postgres-admin-password` | Password of superuser `postgres` on Grafana's PostgreSQL | the owner | delivery's `grafana/postgres-admin`, key `password` |
 | `fin-postgres-arik-password` | Password of role `arik`, the superuser people sign in as, on Fin production's PostgreSQL | the owner | fin's `fin/db-arik`, key `password` |
@@ -164,7 +164,7 @@ Kubernetes workloads authenticate with GKE's Workload Identity Federation, and t
 ```mermaid
 flowchart LR
   subgraph k8s["Kubernetes ServiceAccounts (GKE Workload Identity)"]
-    PLAT["platform: external-secrets, cert-manager,<br/>grafana, docs, tests, octomaton, octomaton-logs,<br/>cobranch-server"]
+    PLAT["platform: external-secrets, cert-manager,<br/>grafana, docs, tests, octomaton, octomaton-logs"]
     TEN["CI tenants: docs-publisher, docs-reader,<br/>ci-tooling-publish, ci-octomaton-release,<br/>ci-octomaton-ci, ci-cobranch-release,<br/>ci-cobranch-preview, ci-fin-release, ci-fin-preview,<br/>ci-fin-ci, ci-infra-plan, ci-infra-apply"]
     FINP["Fin production: fin/api, fin/worker, fin/scraper"]
   end
@@ -212,7 +212,6 @@ Every grant `iam.tf` makes:
 | `fin/scraper` | `roles/storage.objectCreator` | Bucket `arikkfir-fin` | Writes its scrape videos, traces and raw statements, and can't read them back |
 | Pool `fin-pull-requests`, every identity in it | `roles/telemetry.tracesWriter`, `roles/telemetry.metricsWriter`, `roles/serviceusage.serviceUsageConsumer`, `roles/aiplatform.user` | Project | The same as production's, for every pull request's environment ([below](#pool-fin-pull-requests)) |
 | Pool `fin-pull-requests`, every identity in it | `roles/storage.objectUser` | Bucket `arikkfir-fin-pull-requests` | The environments' scrape artifacts, under each one's name |
-| `cobranch/cobranch-server` | `roles/storage.objectUser` | Bucket `arikkfir-cobranch` | Cobranch's demo installation: its servers and maintenance job keep their objects there |
 | `gke-hub-nodes@` | `roles/container.defaultNodeServiceAccount` | Project | Runs the nodes |
 | `gke-hub-nodes@` | `roles/artifactregistry.reader` | Repositories `images`, `previews` and `cobranch-previews` | Pulls images (`octomaton`, `devhub` and `cobranch` need no grant: `allUsers` reads them) |
 | `claude-code@` | `roles/viewer`, `roles/mcp.toolUser` | Project | Claude Code's cloud sessions look around the project and read the cluster through GKE's MCP server ([Claude Code cluster and docs access](../../tooling/designs/claude-code-cluster-access.md)) |
@@ -249,10 +248,10 @@ This root manages no other pool: not GKE's own, `arikkfir.svc.id.goog`, nor `git
 
 | Gateway | Hosts (under `kfirs.com`) |
 | --- | --- |
-| `protected` (behind the hub's sign-in) | `argocd.dev`, `tekton.dev`, `grafana.dev`, `traefik.dev`, `nui.dev`, `docs.dev`, `tests.dev`, `cobranch.dev`, `*.cobranch.dev`, `admin.id`, `app.fin`, `*.app.dev.fin` |
-| `public` | `auth`, `id`, `legal`, `fin`, `git.cobranch.dev`, `*.git.cobranch.dev` |
+| `protected` (behind the hub's sign-in) | `argocd.dev`, `tekton.dev`, `grafana.dev`, `traefik.dev`, `nui.dev`, `docs.dev`, `tests.dev`, `*.cobranch.dev`, `admin.id`, `app.fin`, `*.app.dev.fin` |
+| `public` | `auth`, `id`, `legal`, `fin`, `*.git.cobranch.dev` |
 
-All records live 300 seconds. The zones are `prevent_destroy`, and the imported ones' attributes mirror the live zones, so importing them planned no change. Fin's pull requests' wildcard sits at `*.app.dev.fin`, beside its certificate's DNS-01 challenge records: a record at `_acme-challenge.app.dev.fin` would stop a wildcard higher up from answering for the names below `app.dev.fin`. Cobranch's previews answer at `pr-<number>.cobranch.dev`, beside the demo's `cobranch.dev`; their challenge record, `_acme-challenge.cobranch.dev`, is a sibling of those names and leaves the wildcard alone. These are hosts under `kfirs.com`, behind the hub's sign-in, whose cookie covers `kfirs.com` only; the domain `cobranch.dev` is the product's. Their Git servers answer on the public gateway, since a Git client can't pass the hub's sign-in and the Git server authenticates every request itself: the demo's at `git.cobranch.dev`, each preview's at `pr-<number>.git.cobranch.dev`. A preview's Git server runs its pull request's own code, Dependabot's dependency bumps included, so these hosts put that code on the internet; the owner accepted that for every preview on 2026-11-01, and `delivery` scopes their routes and admission to the Git server alone. Once `git.cobranch.dev` exists, `*.cobranch.dev` no longer answers for the names below it, so they have the wildcard `*.git.cobranch.dev`; its certificate's challenge record, `_acme-challenge.git.cobranch.dev`, is a sibling of those names too.
+All records live 300 seconds. The zones are `prevent_destroy`, and the imported ones' attributes mirror the live zones, so importing them planned no change. Fin's pull requests' wildcard sits at `*.app.dev.fin`, beside its certificate's DNS-01 challenge records: a record at `_acme-challenge.app.dev.fin` would stop a wildcard higher up from answering for the names below `app.dev.fin`. Cobranch's previews answer at `pr-<number>.cobranch.dev`; their challenge record, `_acme-challenge.cobranch.dev`, is a sibling of those names and leaves the wildcard alone. These are hosts under `kfirs.com`, behind the hub's sign-in, whose cookie covers `kfirs.com` only; the domain `cobranch.dev` is the product's. Their Git servers answer on the public gateway, since a Git client can't pass the hub's sign-in and the Git server authenticates every request itself: each preview's at `pr-<number>.git.cobranch.dev`. A preview's Git server runs its pull request's own code, Dependabot's dependency bumps included, so these hosts put that code on the internet; the owner accepted that for every preview on 2026-11-01, and `delivery` scopes their routes and admission to the Git server alone. `*.cobranch.dev` would answer for them on the protected gateway, so they have the wildcard `*.git.cobranch.dev`, which also stops it answering for anything below `git.cobranch.dev`; its certificate's challenge record, `_acme-challenge.git.cobranch.dev`, is a sibling of those names too.
 
 ## Outputs
 
