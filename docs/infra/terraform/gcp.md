@@ -18,7 +18,7 @@ flowchart TB
     CP["Control plane<br/>DNS-based endpoint only"]
     LB["ingress-protected, ingress-public<br/>regional external IPs"]
     AR[("Artifact Registry<br/>images, previews, octomaton, devhub,<br/>cobranch, cobranch-previews")]
-    GCS[("Buckets<br/>docs, tests, claude, fin, fin-pull-requests, fin-ci-cache,<br/>octomaton-ci-cache")]
+    GCS[("Buckets<br/>docs, tests, claude, fin, fin-pull-requests, fin-ci-cache,<br/>octomaton-ci-cache, cobranch-ci-cache")]
     GSM[("Secret Manager<br/>containers only")]
     DNS[("Cloud DNS<br/>kfirs.com, octomaton.dev, cobranch.dev,<br/>cobranch.app, kfirfamily.com")]
     WIF["Workload Identity Federation<br/>pool fin-pull-requests"]
@@ -38,7 +38,7 @@ flowchart TB
 | Network | `network.tf` | VPC `hub`, subnet `hub` with ranges `pods` and `services`, Cloud Router and NAT `hub`, addresses `egress`, `ingress-protected` and `ingress-public` |
 | GKE | `gke.tf` | cluster `hub`, node pools `system`, `ci` and `fin`, node service account `gke-hub-nodes@` |
 | Artifact Registry | `registry.tf` | Docker repositories `images`, `previews`, `octomaton`, `devhub`, `cobranch` and `cobranch-previews` |
-| Storage | `storage.tf` | seven buckets |
+| Storage | `storage.tf` | eight buckets |
 | Secret Manager | `secrets.tf` | twenty-three secret containers |
 | IAM | `iam.tf` | grants to Kubernetes principals and two Google service accounts, pool `fin-pull-requests` and its provider, service account `claude-code@` |
 | DNS | `dns.tf` | zones `kfirs-com`, `kfirfamily-com`, `octomaton-dev`, `cobranch-dev` and `cobranch-app`, the hub's hosts, `octomaton.dev`, `cobranch.dev`, `cobranch.app` and `git.cobranch.app` |
@@ -119,6 +119,7 @@ All in `ME-WEST1`, with uniform bucket-level access.
 | `arikkfir-fin-pull-requests` | prevented | 7 days | The same for every Fin pull request's environment, under its name | pool `fin-pull-requests` | pool `fin-pull-requests` |
 | `arikkfir-fin-ci-cache` | prevented | 14 days | Fin's CI caches | `ci-fin-ci`, `ci-fin-preview` | `ci-fin-release`, from `main` |
 | `arikkfir-octomaton-ci-cache` | prevented | 14 days | Octomaton's Go caches: `main`'s, and each pull request's under `pull-requests/<number>/` | `ci-octomaton-ci`, `ci-octomaton-release` | `ci-octomaton-release`, `main`'s; `ci-octomaton-ci`, from any branch, under `pull-requests/` only |
+| `arikkfir-cobranch-ci-cache` | prevented | 14 days | Cobranch's Go caches, `main`'s ([the Cobranch repository](../../cobranch/designs/repository.md#continuous-integration)) | `ci-cobranch-ci`, `ci-cobranch-preview`, `ci-cobranch-release` | `ci-cobranch-release`, from `main` |
 | `arikkfir-devops` | prevented | never (versioned) | Terraform's state, a prefix per root: `gcp`, `github`, `argocd`, `keycloak`, `namecheap` | `ci-infra-plan` | `ci-infra-apply`; made by hand, outside every root ([bootstrap runbook](../runbooks/bootstrap.md#1-terraform-state-bucket)) |
 
 A bucket made with uniform access also gets Cloud Storage's convenience bindings, which let the project's Viewers read its objects; `claude-code@` is one ([Claude Code cluster and docs access](../../tooling/designs/claude-code-cluster-access.md)). The docs and tests sites: delivery's [docs and tests servers](../../delivery/designs/docs-and-tests-servers.md). Fin's buckets: Fin's [environments](../../fin/designs/environments.md).
@@ -163,7 +164,7 @@ Kubernetes workloads authenticate with GKE's Workload Identity Federation, and t
 flowchart LR
   subgraph k8s["Kubernetes ServiceAccounts (GKE Workload Identity)"]
     PLAT["platform: external-secrets, cert-manager,<br/>grafana, docs, tests, octomaton, octomaton-logs"]
-    TEN["CI tenants: docs-publisher, docs-reader,<br/>ci-tooling-publish, ci-octomaton-release,<br/>ci-octomaton-ci, ci-cobranch-release,<br/>ci-cobranch-preview, ci-fin-release, ci-fin-preview,<br/>ci-fin-ci, ci-infra-plan, ci-infra-apply"]
+    TEN["CI tenants: docs-publisher, docs-reader,<br/>ci-tooling-publish, ci-octomaton-release,<br/>ci-octomaton-ci, ci-cobranch-release,<br/>ci-cobranch-preview, ci-cobranch-ci,<br/>ci-fin-release, ci-fin-preview,<br/>ci-fin-ci, ci-infra-plan, ci-infra-apply"]
     FINP["Fin production: fin/api, fin/worker, fin/scraper"]
   end
   POOL["pool fin-pull-requests:<br/>pods in namespaces fin-pr-*"]
@@ -191,9 +192,11 @@ Every grant `iam.tf` makes:
 | `ci-octomaton/ci-octomaton-ci` | `roles/storage.objectViewer` | Bucket `arikkfir-octomaton-ci-cache` | Restores `main`'s or its pull request's Go caches, from any branch. They hold nothing secret |
 | `ci-octomaton/ci-octomaton-ci` | `roles/storage.objectUser`, on objects under `pull-requests/` only (IAM condition) | Bucket `arikkfir-octomaton-ci-cache` | Saves each pull request's Go caches, from any branch; it can't change `main`'s |
 | `ci-cobranch/ci-cobranch-release` | `roles/artifactregistry.writer` | Repository `cobranch` | Cobranch's images, from `main`; a version's image tags and chart, from `v*` tags |
+| `ci-cobranch/ci-cobranch-release` | `roles/storage.objectUser` | Bucket `arikkfir-cobranch-ci-cache` | Restores and saves `main`'s Go caches, from `main` |
 | `ci-fin/ci-fin-release` | `roles/artifactregistry.writer` | Repository `images` | Fin's images, from `main` |
 | `ci-fin/ci-fin-release` | `roles/storage.objectUser` | Bucket `arikkfir-fin-ci-cache` | Saves Fin's CI cache, from `main` |
 | `ci-cobranch/ci-cobranch-preview` | `roles/artifactregistry.writer` | Repository `cobranch-previews` | Cobranch's pull requests' images, from any branch |
+| `ci-cobranch/ci-cobranch-preview`, `ci-cobranch/ci-cobranch-ci` | `roles/storage.objectViewer` | Bucket `arikkfir-cobranch-ci-cache` | Restore `main`'s Go caches, from any branch. They hold nothing secret |
 | `ci-fin/ci-fin-preview` | `roles/artifactregistry.writer` | Repository `previews` | Fin's pull requests' images, from any branch |
 | `ci-fin/ci-fin-preview`, `ci-fin/ci-fin-ci` | `roles/storage.objectViewer` | Bucket `arikkfir-fin-ci-cache` | Restore Fin's CI cache, from any branch. It holds nothing secret |
 | `ci-fin/ci-fin-ci` | `roles/storage.objectCreator`, on objects under `reports/fin/` only (IAM condition) | Bucket `arikkfir-tests` | Fin's end-to-end reports, from any branch; it can't change or delete them ([CI reports](../../fin/designs/ci-reports.md)) |
