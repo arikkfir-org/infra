@@ -1,6 +1,6 @@
 # Root gcp: the GCP project
 
-**Decision**: `terraform/gcp` builds everything the hub runs on in GCP project `arikkfir` (`me-west1`): the APIs, a private network with Cloud NAT on one egress IP and two ingress IPs, one zonal GKE cluster with three tainted node pools, six Docker repositories, the buckets, the Secret Manager containers, every IAM grant and the DNS zones and records. Workloads authenticate as their Kubernetes ServiceAccounts through Workload Identity, never with keys. Pipeline `apply` applies it on every merge to `main` ([Terraform plan and apply](../designs/terraform-plan-apply.md)). This page documents every name, range and grant it creates; other repositories link it rather than repeat them.
+**Decision**: `terraform/gcp` builds everything the hub runs on in GCP project `arikkfir` (`me-west1`): the APIs, a private network with Cloud NAT on one egress IP and two ingress IPs, one zonal GKE cluster with three tainted node pools, six Docker repositories, the buckets, the Secret Manager containers, every IAM grant, the DNS zones and records, and the alert policies on `cobranch.app`. Workloads authenticate as their Kubernetes ServiceAccounts through Workload Identity, never with keys. Pipeline `apply` applies it on every merge to `main` ([Terraform plan and apply](../designs/terraform-plan-apply.md)). This page documents every name, range and grant it creates; other repositories link it rather than repeat them.
 
 ## Topology
 
@@ -22,6 +22,7 @@ flowchart TB
     GSM[("Secret Manager<br/>containers only")]
     DNS[("Cloud DNS<br/>kfirs.com, octomaton.dev, cobranch.dev,<br/>cobranch.app, kfirfamily.com")]
     WIF["Workload Identity Federation<br/>pool fin-pull-requests"]
+    CM["Cloud Monitoring<br/>alert policies on cobranch.app"]
   end
   gke -->|"egress"| NAT --> Internet((Internet))
   LB -->|"Traefik's load balancers"| gke
@@ -29,6 +30,7 @@ flowchart TB
   gke -->|"Workload Identity"| GCS
   gke -->|"pull"| AR
   gke -->|"Fin's pull requests"| WIF
+  gke -->|"Managed Service for Prometheus"| CM -->|"email"| Owner((the owner))
   People["the owner, pipeline apply"] -->|"Google IAM"| CP
 ```
 
@@ -42,6 +44,7 @@ flowchart TB
 | Secret Manager | `secrets.tf` | twenty-three secret containers |
 | IAM | `iam.tf` | grants to Kubernetes principals and two Google service accounts, pool `fin-pull-requests` and its provider, service account `claude-code@` |
 | DNS | `dns.tf` | zones `kfirs-com`, `kfirfamily-com`, `octomaton-dev`, `cobranch-dev` and `cobranch-app`, the hub's hosts, `octomaton.dev`, `cobranch.dev`, `cobranch.app` and `git.cobranch.app` |
+| Monitoring | `monitoring.tf` | notification channel `owner`, six alert policies on `cobranch.app`'s metrics |
 | Adopted | `imports.tf` | zones `kfirs-com` and `kfirfamily-com`, service account `claude-code@` and its viewer role, all made by hand first |
 
 Project `arikkfir` is number `8909046976`, in GCP organization `468825984716`. State: prefix `gcp` in bucket `arikkfir-devops`, which the owner made by hand and which no root manages ([buckets](#buckets)).
@@ -253,6 +256,22 @@ This root manages no other pool: not GKE's own, `arikkfir.svc.id.goog`, nor `git
 | `public` | `auth`, `id`, `legal`, `fin`, `*.git.cobranch.dev` |
 
 All records live 300 seconds. The zones are `prevent_destroy`, and the imported ones' attributes mirror the live zones, so importing them planned no change. Fin's pull requests' wildcard sits at `*.app.dev.fin`, beside its certificate's DNS-01 challenge records: a record at `_acme-challenge.app.dev.fin` would stop a wildcard higher up from answering for the names below `app.dev.fin`. Cobranch's previews answer at `pr-<number>.cobranch.dev`; their challenge record, `_acme-challenge.cobranch.dev`, is a sibling of those names and leaves the wildcard alone. These are hosts under `kfirs.com`, behind the hub's sign-in, whose cookie covers `kfirs.com` only; the domain `cobranch.dev` is the product's. Their Git servers answer on the public gateway, since a Git client can't pass the hub's sign-in and the Git server authenticates every request itself: each preview's at `pr-<number>.git.cobranch.dev`. A preview's Git server runs its pull request's own code, Dependabot's dependency bumps included, so these hosts put that code on the internet; the owner accepted that for every preview on 2026-11-01, and `delivery` scopes their routes and admission to the Git server alone. `*.cobranch.dev` would answer for them on the protected gateway, so they have the wildcard `*.git.cobranch.dev`, which also stops it answering for anything below `git.cobranch.dev`; its certificate's challenge record, `_acme-challenge.git.cobranch.dev`, is a sibling of those names too.
+
+## Monitoring
+
+`monitoring.tf` alerts the owner by email on `cobranch.app`'s metrics, which `delivery` has Managed Service for Prometheus scrape into Cloud Monitoring ([cobranch.app, Monitoring](../designs/cobranch-app.md#monitoring)). Each policy is one PromQL condition over namespace `cobranch-app`, evaluated each minute, that opens an incident once it holds for its duration and closes it 30 minutes after it stops.
+
+| Resource | Name | What |
+| --- | --- | --- |
+| Notification channel | `owner` ("The owner, by email") | Email to the owner, whom every policy notifies |
+| Alert policy | `cobranch-app-console-pages-slow` | A Console page's 95th percentile over 3 seconds, over at least 10 views, for 15 minutes |
+| Alert policy | `cobranch-app-server-errors` | Over 5% of a server's answers 5xx, over at least 20, for 10 minutes |
+| Alert policy | `cobranch-app-apis-slow` | The REST or GraphQL server's 95th percentile over 2 seconds, over at least 20 answers, for 15 minutes |
+| Alert policy | `cobranch-app-workspaces-slow` | Throwaway repositories' 95th percentile build over 2 seconds, over at least 10, for 15 minutes |
+| Alert policy | `cobranch-app-pack-cache-missing` | Under half the pack cache's lookups hits, over at least 20, for 30 minutes |
+| Alert policy | `cobranch-app-metrics-gone` | No scrape of namespace `cobranch-app` for 15 minutes |
+
+The policies carry user label `installation: cobranch-app` and severity `ERROR`, and skip metric validation, since a series exists only once its servers have been scraped. The pipelines manage them with Cloud Monitoring's alerting roles alone ([IAM](#iam)).
 
 ## Outputs
 
