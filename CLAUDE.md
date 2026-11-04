@@ -57,7 +57,7 @@
 - Keep one root per target (`terraform/<target>`) with state prefix = directory name. Do not add modules.
 - Split files by concern: `versions.tf` (terraform block, backend, providers), `variables.tf`, `outputs.tf`,
   `imports.tf`, then one file per area (in `gcp`: `apis`, `network`, `gke`, `registry`, `storage`, `secrets`,
-  `iam`, `dns`; in `keycloak`: `realm`, `clients`, `users`, `pipelines`; in `namecheap`: `domains`).
+  `iam`, `dns`, `monitoring`; in `keycloak`: `realm`, `clients`, `users`, `pipelines`; in `namecheap`: `domains`).
 - Name a resource after its object (`hub`, `images`, `gke_nodes`). Name a for_each group after what its members
   share (`ingress`, `public`, `protected`), or `this` when it is the only group of that type. Key for_each
   collections by the real object name.

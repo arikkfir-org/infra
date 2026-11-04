@@ -44,14 +44,16 @@ flowchart LR
   G["Grafana dashboard Cobranch<br/>(delivery)"] -- "read" --> CM
 ```
 
-| Alert | Fires when | For |
-| --- | --- | --- |
-| Console pages slow | The 95th percentile of a page's views, moves inside the Console, is over 3 seconds | 15 minutes |
-| Server errors | Over 5% of a server's answers are 5xx | 10 minutes |
-| APIs slow | The 95th percentile of the REST or GraphQL server's answers is over 2 seconds | 15 minutes |
-| Throwaway repositories slow | The 95th percentile of the Git server's throwaway repositories takes over 2 seconds to build | 15 minutes |
-| Pack cache missing | Under half the packs throwaway repositories link are in the cache, while they link any | 30 minutes |
-| Metrics gone | No server of `cobranch.app` has been scraped | 15 minutes |
+| Alert | Fires when | Over at least | For |
+| --- | --- | --- | --- |
+| Console pages slow | The 95th percentile of a page's views, moves inside the Console, is over 3 seconds | 10 views of that page | 15 minutes |
+| Server errors | Over 5% of a server's answers are 5xx | 20 answers of that server | 10 minutes |
+| APIs slow | The 95th percentile of the REST or GraphQL server's answers is over 2 seconds | 20 answers of that server | 15 minutes |
+| Throwaway repositories slow | The 95th percentile of the Git server's throwaway repositories takes over 2 seconds to build | 10 builds | 15 minutes |
+| Pack cache missing | Under half the packs throwaway repositories link are in the cache | 20 lookups | 30 minutes |
+| Metrics gone | No server of `cobranch.app` has been scraped | | 15 minutes |
+
+A ratio or percentile fires only over enough samples in its window: `cobranch.app` is quiet, and without that floor one slow view or one failed request would email the owner. Each alert's email says what it measured and where to look next. The channel and the policies are listed in [root gcp](../terraform/gcp.md#monitoring).
 
 Alert policies and notification channels are new to this root, so the pipelines need roles for them first ([IAM](../terraform/gcp.md#iam)): `roles/monitoring.alertPolicyViewer` and `roles/monitoring.notificationChannelViewer` for `ci-infra-plan`, which reads them on every plan and nothing else of Cloud Monitoring, and `roles/monitoring.alertPolicyEditor` and `roles/monitoring.notificationChannelEditor` for `ci-infra-apply`. Those grants change the pipelines' own roles, so the owner applies them by hand, in a pull request of their own, before the one that adds the policies.
 
@@ -90,7 +92,7 @@ If Google asks to verify a domain, its TXT record goes into that domain's zone t
 5. `delivery`: `cobranch.app`'s environment, once ENG-237 is on Cobranch's `main`.
 6. `delivery` takes the demo down, its data with it ([delivery#112](https://github.com/arikkfir-org/delivery/pull/112)); then this repository removes what only the demo used ([infra#107](https://github.com/arikkfir-org/infra/pull/107), [below](#the-demos-removal)).
 7. This repository deletes bucket `arikkfir-cobranch`, emptied, and secret `keycloak-cobranch-client-secret`, once the previous step is applied ([infra#109](https://github.com/arikkfir-org/infra/pull/109)). That closes [ENG-232](https://linear.app/arikkfir/issue/ENG-232).
-8. Monitoring ([ENG-235](https://linear.app/arikkfir/issue/ENG-235)): the pipelines' Cloud Monitoring roles, which the owner applies by hand with `make terraform gcp` before merging them; then the email channel and the alert policies, applied by pipeline `apply` on merge, once `delivery` scrapes `cobranch.app`.
+8. Monitoring ([ENG-235](https://linear.app/arikkfir/issue/ENG-235)): the pipelines' Cloud Monitoring roles ([infra#108](https://github.com/arikkfir-org/infra/pull/108)), which the owner applies by hand with `make terraform gcp` before merging them; then the email channel and the alert policies, applied by pipeline `apply` on merge, once `delivery` scrapes `cobranch.app` ([delivery#113](https://github.com/arikkfir-org/delivery/pull/113)).
 
 ## The demo's removal
 
