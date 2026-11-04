@@ -31,13 +31,13 @@ locals {
     "cobranch-app-pack-cache-missing" = {
       display_name = "cobranch.app: pack cache missing"
       duration     = "1800s"
-      query        = "sum(rate(cobranch_git_pack_cache_lookups_total{namespace=\"cobranch-app\", cobranch_git_pack_cache_result=\"hit\"}[30m])) / sum(rate(cobranch_git_pack_cache_lookups_total{namespace=\"cobranch-app\"}[30m])) < 0.5 and sum(increase(cobranch_git_pack_cache_lookups_total{namespace=\"cobranch-app\"}[30m])) >= 20"
+      query        = "sum(rate(cobranch_git_pack_cache_lookups_total{namespace=\"cobranch-app\", cobranch_git_pack_cache_result=\"miss\"}[30m])) / sum(rate(cobranch_git_pack_cache_lookups_total{namespace=\"cobranch-app\"}[30m])) > 0.5 and sum(increase(cobranch_git_pack_cache_lookups_total{namespace=\"cobranch-app\"}[30m])) >= 20"
       content      = "Under half the packs the Git server's throwaway repositories link have been in its cache for 30 minutes, over at least 20 lookups, so most reads download their packs from the database. Compare the cache's usage with its limit on dashboard Cobranch; gitServer.cache.size raises it."
     }
     "cobranch-app-metrics-gone" = {
       display_name = "cobranch.app: metrics gone"
-      duration     = "900s"
-      query        = "absent_over_time(target_info{namespace=\"cobranch-app\"}[15m])"
+      duration     = "600s"
+      query        = "absent_over_time(target_info{namespace=\"cobranch-app\"}[5m])"
       content      = "No Cobranch server of cobranch.app has been scraped for 15 minutes: the servers are down, or PodMonitoring cobranch or NetworkPolicy cobranch-metrics no longer lets the collectors reach them."
     }
   }
