@@ -43,9 +43,9 @@ flowchart TB
 | Storage | `storage.tf` | eight buckets |
 | Secret Manager | `secrets.tf` | twenty-four secret containers |
 | IAM | `iam.tf` | grants to Kubernetes principals and two Google service accounts, pool `fin-pull-requests` and its provider, service account `claude-code@` |
-| DNS | `dns.tf` | zones `kfirs-com`, `kfirfamily-com`, `octomaton-dev`, `cobranch-dev` and `cobranch-app`, the hub's hosts, `octomaton.dev`, `cobranch.dev`, `cobranch.app` and `git.cobranch.app` |
+| DNS | `dns.tf` | zones `kfirs-com`, `kfirfamily-com`, `octomaton-dev`, `cobranch-dev` and `cobranch-app`, the hub's hosts, `kfirs.com` and `www.kfirs.com`, `octomaton.dev`, `cobranch.dev`, `cobranch.app` and `git.cobranch.app` |
 | Monitoring | `monitoring.tf` | notification channel `owner`, six alert policies on `cobranch.app`'s metrics |
-| Adopted | `imports.tf` | zones `kfirs-com` and `kfirfamily-com`, service account `claude-code@` and its viewer role, all made by hand first |
+| Adopted | `imports.tf` | zones `kfirs-com` and `kfirfamily-com`, the records `kfirs.com` (A) and `www.kfirs.com` (CNAME), service account `claude-code@` and its viewer role, all made by hand first |
 
 Project `arikkfir` is number `8909046976`, in GCP organization `468825984716`. State: prefix `gcp` in bucket `arikkfir-devops`, which the owner made by hand and which no root manages ([buckets](#buckets)).
 
@@ -246,7 +246,7 @@ This root manages no other pool: not GKE's own, `arikkfir.svc.id.goog`, nor `git
 
 | Zone | Domain | Records |
 | --- | --- | --- |
-| `kfirs-com` | `kfirs.com` | An A record per hub host, pointing at the IP of the gateway that serves it (below) |
+| `kfirs-com` | `kfirs.com` | An A record per hub host, pointing at the IP of the gateway that serves it (below); the apex, on the public gateway, and `www`, a CNAME to it: the family's website, which `cobranch.app`'s organization `kfirs` delivers into the hub ([the family's website](../../delivery/designs/kfirs-website.md)). Both were made by hand for GitHub Pages and are adopted in `imports.tf`; the zone's other hand-made records (mail, site verification) stay outside Terraform |
 | `octomaton-dev` | `octomaton.dev` | The apex, on the public gateway: Octomaton's webhook and Go import page. Delegated to this zone at Namecheap by [root namecheap](namecheap.md) |
 | `cobranch-dev` | `cobranch.dev` | The apex, on the public gateway: Cobranch's site and Go import page (`cobranch.dev` is its module path). Cobranch's open-source product, which anyone installs. Delegated to this zone at Namecheap by [root namecheap](namecheap.md) |
 | `cobranch-app` | `cobranch.app` | The apex and `git.cobranch.app`, on the public gateway: Cobranch's hosted service, its Console and APIs at the apex and its Git server at `git` ([cobranch.app](../designs/cobranch-app.md)). Delegated to this zone at Namecheap by [root namecheap](namecheap.md) |
