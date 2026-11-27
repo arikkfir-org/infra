@@ -99,3 +99,31 @@ resource "google_dns_record_set" "cobranch_app" {
   ttl          = 300
   rrdatas      = [google_compute_address.ingress["public"].address]
 }
+
+# kfirs.com, the family's website: www.kfirs.com and the bare domain, which the website redirects there, on the public
+# gateway, where cobranch.app's organization kfirs delivers its repository website (namespace kfirs-website). Both
+# pointed at GitHub Pages before; imports.tf adopts them.
+resource "google_dns_record_set" "kfirs" {
+  managed_zone = google_dns_managed_zone.this["kfirs-com"].name
+  name         = google_dns_managed_zone.this["kfirs-com"].dns_name
+  type         = "A"
+  ttl          = 300
+  rrdatas      = [google_compute_address.ingress["public"].address]
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
+resource "google_dns_record_set" "kfirs_www" {
+  managed_zone = google_dns_managed_zone.this["kfirs-com"].name
+  name         = "www.${google_dns_managed_zone.this["kfirs-com"].dns_name}"
+  type         = "CNAME"
+  ttl          = 300
+  rrdatas      = [google_dns_managed_zone.this["kfirs-com"].dns_name]
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+

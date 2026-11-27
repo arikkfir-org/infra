@@ -15,3 +15,15 @@ import {
   to = google_project_iam_member.claude_code
   id = "${var.project_id} roles/viewer ${google_service_account.claude_code.member}"
 }
+
+# kfirs.com's own records, made by hand for GitHub Pages: the bare domain's A record and www's CNAME.
+import {
+  to = google_dns_record_set.kfirs
+  id = "projects/${var.project_id}/managedZones/kfirs-com/rrsets/kfirs.com./A"
+}
+
+import {
+  to = google_dns_record_set.kfirs_www
+  id = "projects/${var.project_id}/managedZones/kfirs-com/rrsets/www.kfirs.com./CNAME"
+}
+
