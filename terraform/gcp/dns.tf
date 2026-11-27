@@ -43,9 +43,10 @@ locals {
     "*.app.dev.fin" = "protected"
     # Fin's Go import page (fin.kfirs.com/apps/api): the go command fetches it without signing in.
     fin = "public"
-    # Previews of the family's website, a branch at a time, which cobranch.app's organization kfirs delivers into
-    # namespace kfirs-website-preview; public, as the website is.
-    preview = "public"
+    # Previews of the family's website, each branch at <branch>.preview, which cobranch.app's organization kfirs
+    # delivers into a namespace of the branch's own; public, as the website is. Their certificate's DNS-01 challenge
+    # record, _acme-challenge.preview, is a sibling of the names the wildcard answers for, which it leaves alone.
+    "*.preview" = "public"
   }
 }
 
