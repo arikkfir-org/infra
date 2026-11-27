@@ -353,7 +353,7 @@ resource "google_artifact_registry_repository_iam_member" "cobranch_previews" {
 }
 
 resource "google_secret_manager_secret_iam_member" "external_secrets" {
-  for_each = { for id, secret in google_secret_manager_secret.this : id => secret if !contains(local.pipeline_secrets, id) }
+  for_each = { for id, secret in google_secret_manager_secret.this : id => secret if !contains(setunion(local.pipeline_secrets, local.session_secrets), id) }
 
   secret_id = each.value.id
   role      = "roles/secretmanager.secretAccessor"
@@ -381,6 +381,15 @@ resource "google_secret_manager_secret_iam_member" "ci_fin_ci" {
   secret_id = google_secret_manager_secret.this["ci-fin-e2e-keycloak-secret"].id
   role      = "roles/secretmanager.secretAccessor"
   member    = local.principals.ci_fin_ci
+}
+
+# Claude Code's cloud sessions read the secrets kept for them, and no other: their viewer role reads no payload.
+resource "google_secret_manager_secret_iam_member" "claude_code" {
+  for_each = local.session_secrets
+
+  secret_id = google_secret_manager_secret.this[each.key].id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = local.principals.claude_code
 }
 
 # The grant on the GitHub token predates for_each. Remove once applied.
