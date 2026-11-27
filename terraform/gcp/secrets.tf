@@ -10,12 +10,18 @@ locals {
     "infra-namecheap-api-key",
     "ci-fin-e2e-keycloak-secret",
   ])
+
+  # Read by Claude Code's cloud sessions alone, never by a Kubernetes Secret (see iam.tf): cobranch.app's API key of
+  # organization kfirs, with which they push to and deliver its repository website.
+  session_secrets = toset([
+    "claude-code-cobranch-kfirs-api-key",
+  ])
 }
 
 # Containers only: values are added by hand (`gcloud secrets versions add <name> --data-file=-`), except the Keycloak
 # clients' secrets, which terraform/keycloak generates and writes. cobranch-app-google-client-secret is the secret of
 # the Google OAuth client the owner made by hand for cobranch.app's sign-in.
-# External Secrets Operator reads all but the pipeline secrets.
+# External Secrets Operator reads all but the pipeline and session secrets.
 resource "google_secret_manager_secret" "this" {
   for_each = toset([
     "reviewer-deepseek-api-key",
@@ -41,6 +47,7 @@ resource "google_secret_manager_secret" "this" {
     "infra-namecheap-api-user",
     "infra-namecheap-api-key",
     "ci-fin-e2e-keycloak-secret",
+    "claude-code-cobranch-kfirs-api-key",
   ])
 
   secret_id = each.key

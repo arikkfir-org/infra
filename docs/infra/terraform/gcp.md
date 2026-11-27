@@ -41,7 +41,7 @@ flowchart TB
 | GKE | `gke.tf` | cluster `hub`, node pools `system`, `ci` and `fin`, node service account `gke-hub-nodes@` |
 | Artifact Registry | `registry.tf` | Docker repositories `images`, `previews`, `octomaton`, `devhub`, `cobranch` and `cobranch-previews` |
 | Storage | `storage.tf` | eight buckets |
-| Secret Manager | `secrets.tf` | twenty-three secret containers |
+| Secret Manager | `secrets.tf` | twenty-four secret containers |
 | IAM | `iam.tf` | grants to Kubernetes principals and two Google service accounts, pool `fin-pull-requests` and its provider, service account `claude-code@` |
 | DNS | `dns.tf` | zones `kfirs-com`, `kfirfamily-com`, `octomaton-dev`, `cobranch-dev` and `cobranch-app`, the hub's hosts, `octomaton.dev`, `cobranch.dev`, `cobranch.app` and `git.cobranch.app` |
 | Monitoring | `monitoring.tf` | notification channel `owner`, six alert policies on `cobranch.app`'s metrics |
@@ -129,7 +129,7 @@ A bucket made with uniform access also gets Cloud Storage's convenience bindings
 
 ## Secret Manager
 
-`terraform/gcp` creates the containers only. The owner adds values with `gcloud secrets versions add <name> --data-file=-` ([bootstrap runbook](../runbooks/bootstrap.md#5-secret-values)), except the four Keycloak client secrets that [root keycloak](keycloak.md#generated-secrets) generates and writes. `cobranch-app-google-client-secret` is the one whose client the owner makes by hand too, outside Google Cloud's API ([cobranch.app](../designs/cobranch-app.md#manual-steps)). External Secrets Operator (`external-secrets/external-secrets`) syncs every secret but the seven pipeline secrets into the Kubernetes Secret named below, which the repository named with it declares.
+`terraform/gcp` creates the containers only. The owner adds values with `gcloud secrets versions add <name> --data-file=-` ([bootstrap runbook](../runbooks/bootstrap.md#5-secret-values)), except the four Keycloak client secrets that [root keycloak](keycloak.md#generated-secrets) generates and writes. `cobranch-app-google-client-secret` is the one whose client the owner makes by hand too, outside Google Cloud's API ([cobranch.app](../designs/cobranch-app.md#manual-steps)). External Secrets Operator (`external-secrets/external-secrets`) syncs every secret but the seven pipeline secrets and the session secret into the Kubernetes Secret named below, which the repository named with it declares.
 
 | Secret | Content | Value set by | Read by |
 | --- | --- | --- | --- |
@@ -156,8 +156,9 @@ A bucket made with uniform access also gets Cloud Storage's convenience bindings
 | `infra-namecheap-api-user` | The Namecheap account's user name, which its API takes as both `ApiUser` and `UserName` | the owner | `ci-infra-plan`, at run time, and `ci-infra-apply`, through `roles/secretmanager.admin` |
 | `infra-namecheap-api-key` | The Namecheap account's API key, which Namecheap accepts only from the IPs on the account's allow-list, here address `egress` ([network](#network)). It has no read-only kind, so it can change or transfer every domain of the account | the owner | the same |
 | `ci-fin-e2e-keycloak-secret` | Secret of Keycloak client `fin-e2e` | root keycloak | `ci-fin/ci-fin-ci`, at run time ([test users](../designs/test-users.md)) |
+| `claude-code-cobranch-kfirs-api-key` | The secret of an API key of `cobranch.app`'s organization `kfirs`, which pushes to and delivers its repository `website` | the owner | `claude-code@`, Claude Code's cloud sessions, at run time |
 
-The seven pipeline secrets never pass through External Secrets, so no Kubernetes Secret holds them: Octomaton lets no `push` pipeline mount one, and a pull request's pipeline can't name one at all.
+The session secret, `claude-code-cobranch-kfirs-api-key`, never passes through External Secrets either: only Claude Code's sessions read it. The seven pipeline secrets never pass through External Secrets, so no Kubernetes Secret holds them: Octomaton lets no `push` pipeline mount one, and a pull request's pipeline can't name one at all.
 
 ## IAM
 
@@ -179,7 +180,7 @@ Every grant `iam.tf` makes:
 
 | Principal | Roles | Scope | For |
 | --- | --- | --- | --- |
-| `external-secrets/external-secrets` | `roles/secretmanager.secretAccessor` | Each secret but the seven pipeline secrets | Syncs them into Kubernetes Secrets ([Secret Manager](#secret-manager)) |
+| `external-secrets/external-secrets` | `roles/secretmanager.secretAccessor` | Each secret but the seven pipeline secrets and the session secret | Syncs them into Kubernetes Secrets ([Secret Manager](#secret-manager)) |
 | `cert-manager/cert-manager` | `roles/dns.admin` | Zones `kfirs-com`, `octomaton-dev`, `cobranch-dev` and `cobranch-app` | Let's Encrypt's DNS-01 challenges. Zone-scoped, so its solvers must name their zone |
 | `grafana/grafana` | `roles/monitoring.viewer` | Project | Reads Cloud Monitoring |
 | `docs/docs` | `roles/storage.objectViewer` | Bucket `arikkfir-docs` | The docs site serves it |
@@ -220,6 +221,7 @@ Every grant `iam.tf` makes:
 | `gke-hub-nodes@` | `roles/artifactregistry.reader` | Repositories `images`, `previews` and `cobranch-previews` | Pulls images (`octomaton`, `devhub` and `cobranch` need no grant: `allUsers` reads them) |
 | `claude-code@` | `roles/viewer`, `roles/mcp.toolUser` | Project | Claude Code's cloud sessions look around the project and read the cluster through GKE's MCP server ([Claude Code cluster and docs access](../../tooling/designs/claude-code-cluster-access.md)) |
 | `claude-code@` | `roles/storage.objectViewer` | Bucket `arikkfir-docs` | The sessions read the docs site's pages from its layers |
+| `claude-code@` | `roles/secretmanager.secretAccessor` | Secret `claude-code-cobranch-kfirs-api-key` | The sessions push to and deliver `cobranch.app`'s repository `kfirs/website` with organization `kfirs`'s API key, which the owner adds as the secret's value |
 | `allUsers` | `roles/storage.legacyObjectReader` | Bucket `arikkfir-claude` | Anyone reads its objects by URL, without listing them |
 | `allUsers` | `roles/artifactregistry.reader` | Repository `octomaton` | Anyone pulls Octomaton's releases, the hub's nodes included |
 | `allUsers` | `roles/artifactregistry.reader` | Repository `devhub` | Anyone pulls DevHub's 0.0.1 |
