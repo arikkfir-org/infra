@@ -62,7 +62,7 @@ Adding a repository: an entry in `local.repositories`, and, if it already exists
 | Branch protection | No deletion, no force-push |
 | Pull request | One approval, stale approvals dismissed, the last push approved by someone else, conversations resolved, merge commits only |
 | Required checks | `Continuous Integration`, `Docs` and `Linear` (a Linear issue linked, or label `skip-linear`; [Linear](../../CONTRIBUTING.md#linear)), from Octomaton's App `octomaton-dev` only (`integration_id` 5114814, `local.octomaton_app_id`; [octomaton.dev](../../octomaton/designs/octomaton-dev.md)), plus a repository's own `checks`, from any source |
-| Merge queue | Merge commits, every entry passing (`ALLGREEN`), up to 5 entries building and 1 to 5 pull requests a group, a 3-minute wait for the minimum, 60-minute check timeout. `infra`'s builds one entry at a time, in groups of exactly one (`local.serial_merge_queues`), so each merge is planned after the previous one was applied |
+| Merge queue | Merge commits, every entry passing (`ALLGREEN`), up to 5 entries building and 1 to 5 pull requests a group, a 3-minute wait for the minimum, 60-minute check timeout. `infra`'s builds one entry at a time, in groups of exactly one (`local.serial_merge_queue_repositories`), so each merge is planned after the previous one was applied |
 | Bypass | Organization admins and repository admins, always |
 | Off | Restricted creations and updates, linear history, required deployments, signed commits, code owner and team reviews, up-to-date branches, skipping checks on creation |
 

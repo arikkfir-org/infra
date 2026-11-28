@@ -8,18 +8,18 @@ spec:
   params:
     - name: root
       type: string
-    - name: title
+    - name: title-path
       type: string
       description: Path of the task's result check-title.
-    - name: summary
+    - name: summary-path
       type: string
       description: Path of the task's result check-summary.
   image: gcr.io/google.com/cloudsdktool/google-cloud-cli:587.0.0-slim
   command:
     - python3
     - .tekton/plan-summary.py
-    - --title
-    - $(params.title)
-    - --summary
-    - $(params.summary)
+    - --title-path
+    - $(params.title-path)
+    - --summary-path
+    - $(params.summary-path)
     - $(params.root)=$(params.root).plan.json

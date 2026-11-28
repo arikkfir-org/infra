@@ -6,20 +6,20 @@
 #        terraform.sh apply
 set -eu
 
-c=/var/run/credentials
-if [ -f "$c/github-token" ]; then
-  GITHUB_TOKEN="$(cat "$c/github-token")"
+credentials_dir=/var/run/credentials
+if [ -f "$credentials_dir/github-token" ]; then
+  GITHUB_TOKEN="$(cat "$credentials_dir/github-token")"
   export GITHUB_TOKEN
 fi
-if [ -f "$c/keycloak-secret" ]; then
-  KEYCLOAK_CLIENT_SECRET="$(cat "$c/keycloak-secret")"
+if [ -f "$credentials_dir/keycloak-secret" ]; then
+  KEYCLOAK_CLIENT_SECRET="$(cat "$credentials_dir/keycloak-secret")"
   export KEYCLOAK_CLIENT_SECRET
 fi
 # Namecheap's API takes the account's user name as both its user and its API user.
-if [ -f "$c/namecheap-api-key" ]; then
-  NAMECHEAP_USER_NAME="$(cat "$c/namecheap-api-user")"
+if [ -f "$credentials_dir/namecheap-api-key" ]; then
+  NAMECHEAP_USER_NAME="$(cat "$credentials_dir/namecheap-api-user")"
   NAMECHEAP_API_USER="$NAMECHEAP_USER_NAME"
-  NAMECHEAP_API_KEY="$(cat "$c/namecheap-api-key")"
+  NAMECHEAP_API_KEY="$(cat "$credentials_dir/namecheap-api-key")"
   export NAMECHEAP_USER_NAME NAMECHEAP_API_USER NAMECHEAP_API_KEY
 fi
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Summarize Terraform plans (`terraform show -json`) for a check run's title and summary.
 
-Usage: plan-summary.py --title FILE --summary FILE ROOT=PLAN.json...
+Usage: plan-summary.py --title-path PATH --summary-path PATH ROOT=PLAN.json...
 """
 
 import argparse
@@ -76,8 +76,8 @@ def fit(sections):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--title", required=True)
-    parser.add_argument("--summary", required=True)
+    parser.add_argument("--title-path", required=True)
+    parser.add_argument("--summary-path", required=True)
     parser.add_argument("plans", nargs="+", metavar="ROOT=PLAN.json")
     args = parser.parse_args()
 
@@ -97,9 +97,9 @@ def main():
 
     print(title)
     print(render(sections, set()))
-    with open(args.title, "w") as f:
+    with open(args.title_path, "w") as f:
         f.write(title)
-    with open(args.summary, "w") as f:
+    with open(args.summary_path, "w") as f:
         f.write(fit(sections))
 
 

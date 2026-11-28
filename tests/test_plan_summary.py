@@ -30,7 +30,7 @@ def run(*plans):
     """Runs plan-summary.py on (root, resource_changes) pairs; returns its title, summary and log."""
     with tempfile.TemporaryDirectory() as tmp:
         tmp = pathlib.Path(tmp)
-        argv = ["plan-summary.py", "--title", str(tmp / "title"), "--summary", str(tmp / "summary")]
+        argv = ["plan-summary.py", "--title-path", str(tmp / "title"), "--summary-path", str(tmp / "summary")]
         for root, changes in plans:
             path = tmp / f"{root}.json"
             path.write_text(json.dumps({"resource_changes": changes}))

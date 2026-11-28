@@ -68,9 +68,9 @@ spec:
       params:
         - name: root
           value: $(params.root)
-        - name: title
+        - name: title-path
           value: $(results.check-title.path)
-        - name: summary
+        - name: summary-path
           value: $(results.check-summary.path)
     - name: apply
       image: hashicorp/terraform:1.16.4
