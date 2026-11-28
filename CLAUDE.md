@@ -69,7 +69,8 @@
 - Write comments only for intent that the code cannot show.
 - A name says what the thing holds, never how it is used (https://docs.dev.kfirs.com/CONTRIBUTING.md, "Name what it
   holds"): a path is `title-path`, not `title`; a set of repository names ends in `_repositories`; a boolean states a
-  fact. This goes for locals, variables, outputs, map attributes, Tekton params and shell and Python variables.
+  fact. An acronym inside a mixed-case name keeps its capitals, as Go writes them (`orgID`, `baseURL`, never `orgId`),
+  and is lower-case alone or leading (`id`, `urlPath`). This goes for locals, variables, outputs, map attributes, Tekton params and shell and Python variables.
 - Add new roots to the loop in `.tekton/scripts/validate.sh` and to `ROOTS` in the `Makefile`. A root the pipelines
   plan and apply also gets a task in `.tekton/ci.yaml` and `.tekton/apply.yaml` and, if its providers take
   credentials, a case in `.tekton/scripts/credentials.sh` and their environment in `.tekton/scripts/terraform.sh`. A
